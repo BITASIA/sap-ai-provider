@@ -10,7 +10,7 @@
 // Approach 1: Original createSAPAI function (still supported)
 
 // Approach 2: New Vercel AI SDK pattern (async version)
-import { createSAPAIProvider } from './src/sap-ai-provider';
+import { createSAPAIProvider } from '../src/sap-ai-provider';
 
 
 async function simpleTest() {

@@ -9,6 +9,7 @@
         "dist/**/*",
         "CHANGELOG.md"
     ],
+    "license": "Apache-2.0",
     "scripts": {
         "build": "tsup",
         "build:watch": "tsup --watch",

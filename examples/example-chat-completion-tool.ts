@@ -12,7 +12,7 @@
  * 3. Run: npx tsx example-chat-completion-tool.ts
  */
 
-import { createSAPAIProvider } from './src/index';
+import { createSAPAIProvider } from '../src/index';
 
 // Create custom fetch with detailed logging
 function createDebugFetch() {

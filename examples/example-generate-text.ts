@@ -1,5 +1,5 @@
 import { generateText } from 'ai';
-import { createSAPAIProvider } from './src/index';
+import { createSAPAIProvider } from '../src/index';
 
 (async () => {
   // Create provider using AICORE_SERVICE_KEY environment variable

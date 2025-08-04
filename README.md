@@ -366,9 +366,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Support
 
-- 📖 [Documentation](https://github.com/your-org/sap-ai-provider)
-- 🐛 [Issue Tracker](https://github.com/your-org/sap-ai-provider/issues)
-- 💬 [Discussions](https://github.com/your-org/sap-ai-provider/discussions)
+- 📖 [Documentation](https://github.com/BITASIA/sap-ai-provider)
+- 🐛 [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues)
 
 ## Related
 
