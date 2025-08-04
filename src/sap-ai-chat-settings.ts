@@ -11,14 +11,6 @@ export interface SAPAISettings {
   };
   safePrompt?: boolean;
   structuredOutputs?: boolean;
-  tools?: Array<{
-    type: 'function';
-    function: {
-      name: string;
-      description: string;
-      parameters: any; // Allow plain JSON schema
-    };
-  }>;
 }
 
 export type SAPAIModelId = 

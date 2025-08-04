@@ -1,6 +1,5 @@
 import { ProviderV2 } from '@ai-sdk/provider';
 import {
-  generateId,
   loadApiKey,
   withoutTrailingSlash,
 } from '@ai-sdk/provider-utils';
@@ -29,7 +28,7 @@ export interface SAPAIProvider extends ProviderV2 {
   ): SAPAIChatLanguageModel;
 
   // explicit method for targeting chat models
-  languageModel(
+  chat(
     modelId: SAPAIModelId,
     settings?: SAPAISettings,
   ): SAPAIChatLanguageModel;
@@ -41,7 +40,6 @@ export interface SAPAIProviderSettings {
    * SAP AI Core service key (JSON string or parsed object).
    * This is what you get from SAP BTP - just copy/paste it here.
    * If provided, OAuth2 will be handled automatically.
-   * If not provided, will try AICORE_SERVICE_KEY environment variable.
    */
   serviceKey?: string | SAPAIServiceKey;
 
@@ -76,11 +74,6 @@ export interface SAPAIProviderSettings {
    * Custom fetch implementation (optional)
    */
   fetch?: typeof fetch;
-
-  /**
-   * Custom generateID function
-   */
-  generateId?: () => string;
 }
 
 // OAuth2 helper function
@@ -115,10 +108,6 @@ async function getOAuthToken(serviceKey: SAPAIServiceKey, customFetch?: typeof f
  * const provider = await createSAPAIProvider({
  *   serviceKey: '{"serviceurls":{"AI_API_URL":"..."},"clientid":"...","clientsecret":"...","url":"..."}'
  * });
- * 
- * // With AICORE_SERVICE_KEY environment variable (recommended for production)
- * // Set AICORE_SERVICE_KEY='{your-service-key-json}' in .env file
- * const provider = await createSAPAIProvider();
  * 
  * // With token (advanced)
  * const provider = createSAPAIProvider({
@@ -163,20 +152,8 @@ export async function createSAPAIProvider(
   } else if (parsedServiceKey) {
     // Get OAuth token automatically
     authToken = await getOAuthToken(parsedServiceKey, options.fetch);
-  } else if (process.env.AICORE_SERVICE_KEY) {
-    // Try AICORE_SERVICE_KEY environment variable
-    try {
-      const envServiceKey = JSON.parse(process.env.AICORE_SERVICE_KEY);
-      authToken = await getOAuthToken(envServiceKey, options.fetch);
-      // Also update baseURL if not provided
-      if (!options.baseURL && !baseURL.includes(envServiceKey.serviceurls.AI_API_URL)) {
-        baseURL = `${envServiceKey.serviceurls.AI_API_URL}/v2`;
-      }
-    } catch (error) {
-      throw new Error('Invalid AICORE_SERVICE_KEY environment variable JSON format');
-    }
   } else {
-    // Try SAP_AI_TOKEN environment variable
+    // Try environment variable
     authToken = loadApiKey({
       apiKey: undefined,
       environmentVariableName: 'SAP_AI_TOKEN',
@@ -201,7 +178,6 @@ export async function createSAPAIProvider(
         'ai-resource-group': resourceGroup,
         ...options.headers,
       }),
-      generateId: options.generateId ?? generateId,
       fetch: options.fetch,
     });
   };
@@ -220,7 +196,7 @@ export async function createSAPAIProvider(
     return createModel(modelId, settings);
   };
 
-  provider.languageModel = createModel;
+  provider.chat = createModel;
 
   return provider as SAPAIProvider;
 }
@@ -251,7 +227,6 @@ export function createSAPAIProviderSync(
         'ai-resource-group': resourceGroup,
         ...options.headers,
       }),
-      generateId: options.generateId ?? generateId,
       fetch: options.fetch,
     });
   };
@@ -269,7 +244,7 @@ export function createSAPAIProviderSync(
     return createModel(modelId, settings);
   };
 
-  provider.languageModel = createModel;
+  provider.chat = createModel;
 
   return provider as SAPAIProvider;
 }
@@ -296,7 +271,7 @@ function createDefaultSAPAI(): SAPAIProvider {
     return createModel(modelId, settings);
   };
 
-  provider.languageModel = createModel;
+  provider.chat = createModel;
 
   return provider as SAPAIProvider;
 }

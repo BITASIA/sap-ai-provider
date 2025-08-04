@@ -1,4 +1,4 @@
-import { LanguageModelV1Prompt } from '@ai-sdk/provider';
+import { LanguageModelV2Prompt } from '@ai-sdk/provider';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SAPAIChatLanguageModel } from './sap-ai-chat-language-model';
 import { SAPAISettings } from './sap-ai-chat-settings';
@@ -55,7 +55,7 @@ describe('SAPAIChatLanguageModel', () => {
 
     describe('constructor', () => {
         it('should initialize with correct properties', () => {
-            expect(model.specificationVersion).toBe('v1');
+            expect(model.specificationVersion).toBe('v2');
             expect(model.defaultObjectGenerationMode).toBe('json');
             expect(model.supportsImageUrls).toBe(true);
             expect(model.modelId).toBe('gpt-4o');
@@ -141,21 +141,22 @@ describe('SAPAIChatLanguageModel', () => {
             const mockResponse = createMockResponse('Hello, world!');
             mockFetch.mockResolvedValueOnce(mockResponse);
 
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
 
             const result = await model.doGenerate({
-                inputFormat: 'prompt',
-                prompt,
-                mode: { type: 'regular' }
+                prompt
             });
 
-            expect(result.text).toBe('Hello, world!');
+            // Check that content contains text
+            expect(result.content).toHaveLength(1);
+            expect(result.content[0].type).toBe('text');
+            expect((result.content[0] as any).text).toBe('Hello, world!');
             expect(result.finishReason).toBe('stop');
             expect(result.usage).toEqual({
-                promptTokens: 10,
-                completionTokens: 20,
+                inputTokens: 10,
+                outputTokens: 20,
                 totalTokens: 30
             });
         });
@@ -165,17 +166,17 @@ describe('SAPAIChatLanguageModel', () => {
             const mockResponse = createMockResponse(jsonContent);
             mockFetch.mockResolvedValueOnce(mockResponse);
 
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
 
             const result = await model.doGenerate({
-                inputFormat: 'prompt',
-                prompt,
-                mode: { type: 'regular' }
+                prompt
             });
 
-            expect(result.text).toBe('Parsed content');
+            expect(result.content).toHaveLength(1);
+            expect(result.content[0].type).toBe('text');
+            expect((result.content[0] as any).text).toBe('Parsed content');
         });
 
         it('should handle tool calls', async () => {
@@ -191,34 +192,32 @@ describe('SAPAIChatLanguageModel', () => {
             const mockResponse = createMockResponse('', toolCalls);
             mockFetch.mockResolvedValueOnce(mockResponse);
 
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'What\'s the weather?' }] }
             ];
 
             const result = await model.doGenerate({
-                inputFormat: 'prompt',
                 prompt,
-                mode: {
-                    type: 'regular',
-                    tools: [{
-                        type: 'function',
-                        name: 'get_weather',
-                        description: 'Get weather information',
-                        parameters: {
-                            type: 'object' as const,
-                            properties: {},
-                            additionalProperties: false
-                        }
-                    }]
-                }
+                tools: [{
+                    type: 'function',
+                    name: 'get_weather',
+                    description: 'Get weather information',
+                    inputSchema: {
+                        type: 'object' as const,
+                        properties: {},
+                        additionalProperties: false
+                    }
+                }]
             });
 
-            expect(result.toolCalls).toHaveLength(1);
-            expect(result.toolCalls![0]).toEqual({
-                toolCallType: 'function',
+            // Find tool call in content array
+            const toolCall = result.content.find(c => c.type === 'tool-call');
+            expect(toolCall).toBeDefined();
+            expect(toolCall).toEqual({
+                type: 'tool-call',
                 toolCallId: 'call_123',
                 toolName: 'get_weather',
-                args: '{"location": "San Francisco"}'
+                input: '{"location": "San Francisco"}'
             });
         });
 
@@ -226,7 +225,7 @@ describe('SAPAIChatLanguageModel', () => {
             const mockResponse = createMockResponse('Hello');
             mockFetch.mockResolvedValueOnce(mockResponse);
 
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
 
@@ -234,7 +233,7 @@ describe('SAPAIChatLanguageModel', () => {
                 type: 'function' as const,
                 name: 'test_tool',
                 description: 'Test tool',
-                parameters: {
+                inputSchema: {
                     type: 'object' as const,
                     properties: {},
                     additionalProperties: false
@@ -242,9 +241,8 @@ describe('SAPAIChatLanguageModel', () => {
             }];
 
             await model.doGenerate({
-                inputFormat: 'prompt',
                 prompt,
-                mode: { type: 'regular', tools }
+                tools
             });
 
             const [url, options] = mockFetch.mock.calls[0];
@@ -268,31 +266,28 @@ describe('SAPAIChatLanguageModel', () => {
             const mockResponse = createMockResponse('');
             mockFetch.mockResolvedValueOnce(mockResponse);
 
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
 
             const result = await model.doGenerate({
-                inputFormat: 'prompt',
-                prompt,
-                mode: { type: 'regular' }
+                prompt
             });
 
-            expect(result.text).toBe('');
+            // Should not add empty text content
+            expect(result.content).toHaveLength(0);
         });
 
         it('should set correct headers', async () => {
             const mockResponse = createMockResponse('Hello');
             mockFetch.mockResolvedValueOnce(mockResponse);
 
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
 
             await model.doGenerate({
-                inputFormat: 'prompt',
-                prompt,
-                mode: { type: 'regular' }
+                prompt
             });
 
             const [url, options] = mockFetch.mock.calls[0];
@@ -311,14 +306,12 @@ describe('SAPAIChatLanguageModel', () => {
             mockFetch.mockResolvedValueOnce(mockResponse);
 
             const abortController = new AbortController();
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
 
             await model.doGenerate({
-                inputFormat: 'prompt',
                 prompt,
-                mode: { type: 'regular' },
                 abortSignal: abortController.signal
             });
 
@@ -330,14 +323,12 @@ describe('SAPAIChatLanguageModel', () => {
             const mockResponse = createMockResponse('Hello');
             mockFetch.mockResolvedValueOnce(mockResponse);
 
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
 
             await model.doGenerate({
-                inputFormat: 'prompt',
                 prompt,
-                mode: { type: 'regular' },
                 headers: { 'Custom-Header': 'custom-value' }
             });
 
@@ -414,14 +405,12 @@ describe('SAPAIChatLanguageModel', () => {
                 .mockRejectedValueOnce(new Error('Streaming failed'))
                 .mockResolvedValueOnce(mockResponse);
 
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
 
             const result = await model.doStream({
-                inputFormat: 'prompt',
-                prompt,
-                mode: { type: 'regular' }
+                prompt
             });
 
             expect(result.stream).toBeInstanceOf(ReadableStream);
@@ -452,14 +441,12 @@ describe('SAPAIChatLanguageModel', () => {
 
             mockFetch.mockResolvedValueOnce(mockStreamResponse);
 
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
 
             const result = await model.doStream({
-                inputFormat: 'prompt',
-                prompt,
-                mode: { type: 'regular' }
+                prompt
             });
 
             expect(result.stream).toBeInstanceOf(ReadableStream);
@@ -470,14 +457,12 @@ describe('SAPAIChatLanguageModel', () => {
         it('should handle network errors', async () => {
             mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
 
             await expect(model.doGenerate({
-                inputFormat: 'prompt',
-                prompt,
-                mode: { type: 'regular' }
+                prompt
             })).rejects.toThrow('Network error');
         });
 
@@ -490,14 +475,12 @@ describe('SAPAIChatLanguageModel', () => {
                 text: async () => 'Unauthorized access'
             });
 
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
 
             await expect(model.doGenerate({
-                inputFormat: 'prompt',
-                prompt,
-                mode: { type: 'regular' }
+                prompt
             })).rejects.toThrow();
         });
     });
@@ -550,14 +533,12 @@ describe('SAPAIChatLanguageModel', () => {
     
             mockFetch.mockResolvedValueOnce(mockResponse);
     
-            const prompt: LanguageModelV1Prompt = [
+            const prompt: LanguageModelV2Prompt = [
                 { role: 'user', content: [{ type: 'text', text: 'Hello' }] }
             ];
     
             await model.doGenerate({
-                inputFormat: 'prompt',
-                prompt,
-                mode: { type: 'regular' }
+                prompt
             });
     
             const [url, options] = mockFetch.mock.calls[0];

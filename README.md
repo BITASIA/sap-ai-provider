@@ -1,7 +1,7 @@
 # SAP AI Core Provider for Vercel AI SDK
 
 [![npm version](https://badge.fury.io/js/@ai-sdk%2Fsap-ai.svg)](https://badge.fury.io/js/@ai-sdk%2Fsap-ai)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. This provider enables you to use SAP's enterprise-grade AI models through the familiar Vercel AI SDK interface.
 
@@ -58,7 +58,7 @@ npm install @ai-sdk/sap-ai
 3. Create a service key for your AI Core instance
 4. Copy the service key JSON
 
-### 2. Basic Usage
+### 2. Basic Usage (Direct Model API)
 
 ```typescript
 import { createSAPAIProvider } from '@ai-sdk/sap-ai';
@@ -70,8 +70,10 @@ const provider = await createSAPAIProvider({
 
 // Create a model instance
 const model = provider('gpt-4o', {
-  temperature: 0.7,
-  maxTokens: 1000
+  modelParams: {
+    temperature: 0.7,
+    maxTokens: 1000
+  }
 });
 
 // Generate text
@@ -79,15 +81,19 @@ const result = await model.doGenerate({
   prompt: [{ 
     role: 'user', 
     content: [{ type: 'text', text: 'Hello, how are you?' }] 
-  }],
-  mode: { type: 'regular' },
-  inputFormat: 'messages'
+  }]
 });
 
-console.log(result.text);
+// Extract text from content array
+const text = result.content
+  .filter(item => item.type === 'text')
+  .map(item => item.text)
+  .join('');
+
+console.log(text);
 ```
 
-### 3. Using with Vercel AI SDK
+### 3. Using with Vercel AI SDK (Recommended)
 
 ```typescript
 import { generateText } from 'ai';
@@ -112,73 +118,50 @@ console.log(result.text);
 ### Tool Calling (Function Calling)
 
 ```typescript
+import { generateText } from 'ai';
 import { createSAPAIProvider } from '@ai-sdk/sap-ai';
 import { tool } from 'ai';
+import { z } from 'zod';
 
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY
 });
 
-const model = provider('gpt-4o', {
-  tools: [
-    tool({
-      name: 'get_weather',
+const result = await generateText({
+  model: provider('gpt-4o'),
+  messages: [
+    { role: 'user', content: 'What\'s the weather like in Tokyo?' }
+  ],
+  tools: {
+    get_weather: tool({
       description: 'Get the current weather for a location',
-      parameters: {
-        type: 'object',
-        properties: {
-          location: {
-            type: 'string',
-            description: 'The city and state, e.g. San Francisco, CA'
-          }
-        },
-        required: ['location']
+      parameters: z.object({
+        location: z.string().describe('The city and state, e.g. San Francisco, CA')
+      }),
+      execute: async ({ location }) => {
+        // Your weather API implementation
+        return `The weather in ${location} is sunny and 25°C`;
       }
     })
-  ]
+  }
 });
 
-const result = await model.doGenerate({
-  prompt: [{ 
-    role: 'user', 
-    content: [{ type: 'text', text: 'What\'s the weather like in Tokyo?' }] 
-  }],
-  mode: { 
-    type: 'regular',
-    tools: [
-      tool({
-        name: 'get_weather',
-        description: 'Get the current weather for a location',
-        parameters: {
-          type: 'object',
-          properties: {
-            location: {
-              type: 'string',
-              description: 'The city and state, e.g. San Francisco, CA'
-            }
-          },
-          required: ['location']
-        }
-      })
-    ]
-  },
-  inputFormat: 'messages'
-});
+console.log(result.text);
 ```
 
 ### Multi-modal Input (Images)
 
 ```typescript
+import { generateText } from 'ai';
 import { createSAPAIProvider } from '@ai-sdk/sap-ai';
 
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY
 });
 
-const model = provider('gpt-4o');
-
-const result = await model.doGenerate({
-  prompt: [
+const result = await generateText({
+  model: provider('gpt-4o'),
+  messages: [
     {
       role: 'user',
       content: [
@@ -186,9 +169,7 @@ const result = await model.doGenerate({
         { type: 'image', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...' }
       ]
     }
-  ],
-  mode: { type: 'regular' },
-  inputFormat: 'messages'
+  ]
 });
 
 console.log(result.text);
@@ -197,65 +178,45 @@ console.log(result.text);
 ### Streaming
 
 ```typescript
+import { streamText } from 'ai';
 import { createSAPAIProvider } from '@ai-sdk/sap-ai';
 
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY
 });
 
-const model = provider('gpt-4o');
-
-const stream = await model.doStream({
-  prompt: [{ 
-    role: 'user', 
-    content: [{ type: 'text', text: 'Write a poem about AI.' }] 
-  }],
-  mode: { type: 'regular' },
-  inputFormat: 'messages'
+const result = await streamText({
+  model: provider('gpt-4o'),
+  prompt: 'Write a poem about AI.'
 });
 
-for await (const chunk of stream.textStream) {
-  process.stdout.write(chunk);
+for await (const textPart of result.textStream) {
+  process.stdout.write(textPart);
 }
 ```
 
 ### Structured Outputs
 
 ```typescript
+import { generateObject } from 'ai';
 import { createSAPAIProvider } from '@ai-sdk/sap-ai';
+import { z } from 'zod';
 
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY
 });
 
-const model = provider('gpt-4o', {
-  structuredOutputs: true
+const result = await generateObject({
+  model: provider('gpt-4o'),
+  prompt: 'Extract the name, age, and email from: John Doe, 30 years old, john@example.com',
+  schema: z.object({
+    name: z.string(),
+    age: z.number(),
+    email: z.string()
+  })
 });
 
-const result = await model.doGenerate({
-  prompt: [{ 
-    role: 'user', 
-    content: [{ type: 'text', text: 'Extract the name, age, and email from: John Doe, 30 years old, john@example.com' }] 
-  }],
-  mode: { 
-    type: 'regular',
-    responseFormat: {
-      type: 'json_object',
-      schema: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          age: { type: 'number' },
-          email: { type: 'string' }
-        },
-        required: ['name', 'age', 'email']
-      }
-    }
-  },
-  inputFormat: 'messages'
-});
-
-console.log(JSON.parse(result.text));
+console.log(result.object);
 ```
 
 ## Configuration Options
@@ -285,14 +246,6 @@ interface SAPAISettings {
   };
   safePrompt?: boolean;       // Enable safe prompt filtering
   structuredOutputs?: boolean; // Enable structured outputs
-  tools?: Array<{             // Tool definitions for function calling
-    type: 'function';
-    function: {
-      name: string;
-      description: string;
-      parameters: any;
-    };
-  }>;
 }
 ```
 
@@ -317,7 +270,10 @@ The provider includes comprehensive error handling with detailed error messages:
 import { SAPAIError } from '@ai-sdk/sap-ai';
 
 try {
-  const result = await model.doGenerate({...});
+  const result = await generateText({
+    model: provider('gpt-4o'),
+    prompt: 'Hello world'
+  });
 } catch (error) {
   if (error instanceof SAPAIError) {
     console.error('SAP AI Error:', error.message);
@@ -331,10 +287,10 @@ try {
 
 Check out the [examples directory](./examples) for complete working examples:
 
-- [Simple Chat Completion](./example-simple-chat-completion.ts)
-- [Tool Calling](./example-chat-completion-tool.ts)
-- [Image Recognition](./example-image-recognition.ts)
-- [Text Generation](./example-generate-text.ts)
+- [Simple Chat Completion](./examples/example-simple-chat-completion.ts)
+- [Tool Calling](./examples/example-chat-completion-tool.ts)
+- [Image Recognition](./examples/example-image-recognition.ts)
+- [Text Generation](./examples/example-generate-text.ts)
 
 ## Development
 
@@ -362,7 +318,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Apache License 2.0 - see [LICENSE](LICENSE.md) for details.
 
 ## Support
 

@@ -1,16 +1,19 @@
-import {
-  LanguageModelV2Prompt
-} from '@ai-sdk/provider';
 
-type SAPMessageContent =
-  | string
+import {
+  LanguageModelV2Prompt,
+  UnsupportedFunctionalityError
+} from '@ai-sdk/provider';
+import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
+
+type SAPMessageContent = 
+  | string 
   | Array<{
-    type: 'text' | 'image_url';
-    text?: string;
-    image_url?: {
-      url: string;
-    };
-  }>;
+      type: 'text' | 'image_url';
+      text?: string;
+      image_url?: {
+        url: string;
+      };
+    }>;
 
 type SAPMessage = {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -47,7 +50,7 @@ export function convertToSAPMessages(
             url: string;
           };
         }> = [];
-
+        
         for (const part of message.content) {
           switch (part.type) {
             case 'text': {
@@ -57,91 +60,50 @@ export function convertToSAPMessages(
               });
               break;
             }
-            //     case 'image_url': {
-            //       // Convert image to base64 data URL or use URL directly
-            //       let imageUrl: string;
-
-            //       if (part.image instanceof URL) {
-            //         imageUrl = part.image.toString();
-            //       } else {
-            //         // Handle all other cases (string, Uint8Array, Buffer, ArrayBuffer)
-            //         let base64Data: string;
-
-            //         if (typeof part.image === 'string') {
-            //           // Already a base64 string or data URL
-            //           if ((part.image as string).startsWith('data:')) {
-            //             imageUrl = part.image as string;
-            //           } else {
-            //             base64Data = part.image as string;
-            //             imageUrl = `data:${part.mimeType ?? 'image/jpeg'};base64,${base64Data}`;
-            //           }
-            //         } else {
-            //           // Binary data - convert to Uint8Array first, then to base64
-            //           let uint8Array: Uint8Array;
-            //           if (part.image instanceof ArrayBuffer) {
-            //             uint8Array = new Uint8Array(part.image);
-            //           } else {
-            //             uint8Array = part.image as Uint8Array;
-            //           }
-            //           base64Data = convertUint8ArrayToBase64(uint8Array);
-            //           imageUrl = `data:${part.mimeType ?? 'image/jpeg'};base64,${base64Data}`;
-            //         }
-            //       }
-
-            //       // Use SAP AI Core's exact format
-            //       contentParts.push({
-            //         type: 'image_url',
-            //         image_url: {
-            //           url: imageUrl,
-            //         },
-            //       });
-            //       break;
-            //     }
-            //     default: {
-            //       throw new UnsupportedFunctionalityError({
-            //         functionality: `Content type ${(part as any).type}`,
-            //       });
-            //     }
-            //   }
-            // }
             case 'file': {
-              if (part.mediaType?.startsWith('image/')) {
-                let imageUrl: string;
-
+              // Convert image to base64 data URL or use URL directly
+              let imageUrl: string;
+              
+              if (part.data instanceof URL) {
+                imageUrl = part.data.toString();
+              } else {
+                // Handle all other cases (string, Uint8Array, Buffer, ArrayBuffer)
+                let base64Data: string;
+                
                 if (typeof part.data === 'string') {
-                  if (part.data.startsWith('data:')) {
-                    imageUrl = part.data;
-                  } else if (part.data.startsWith('http')) {
-                    imageUrl = part.data;
+                  // Already a base64 string or data URL
+                  if ((part.data as string).startsWith('data:')) {
+                    imageUrl = part.data as string;
                   } else {
-                    // Assume base64
-                    imageUrl = `data:${part.mediaType};base64,${part.data}`;
+                    base64Data = part.data as string;
+                    imageUrl = `data:${part.mediaType ?? 'image/jpeg'};base64,${base64Data}`;
                   }
                 } else {
-                  try {
-                    let buffer: Buffer;
-
-                    if (part.data && typeof part.data === 'object' && 'href' in part.data) {
-                      imageUrl = (part.data as URL).toString();
-                    } else {
-                      buffer = Buffer.from(part.data as any);
-                      const base64Data = buffer.toString('base64');
-                      imageUrl = `data:${part.mediaType};base64,${base64Data}`;
-                    }
-                  } catch (error) {
-                    console.warn('Unsupported image data type:', part.data);
-                    continue;
+                  // Binary data - convert to Uint8Array first, then to base64
+                  let uint8Array: Uint8Array;
+                  if (part.data instanceof ArrayBuffer) {
+                    uint8Array = new Uint8Array(part.data);
+                  } else {
+                    uint8Array = part.data as Uint8Array;
                   }
-                }
-
-                if (imageUrl && imageUrl !== 'data:image/*;base64,') {
-                contentParts.push({
-                    type: 'image_url',
-                    image_url: { url: imageUrl },
-                  });
+                  base64Data = convertUint8ArrayToBase64(uint8Array);
+                  imageUrl = `data:${part.mediaType ?? 'image/jpeg'};base64,${base64Data}`;
                 }
               }
+              
+              // Use SAP AI Core's exact format
+              contentParts.push({
+                type: 'image_url',
+                image_url: {
+                  url: imageUrl,
+                },
+              });
               break;
+            }
+            default: {
+              throw new UnsupportedFunctionalityError({
+                functionality: `Content type ${(part as any).type}`,
+              });
             }
           }
         }
@@ -181,9 +143,7 @@ export function convertToSAPMessages(
                 type: 'function',
                 function: {
                   name: part.toolName,
-                  // arguments: JSON.stringify(part.args),
-                  // arguments: JSON.stringify(part.input)
-                  arguments: typeof part.input === 'string' ? part.input : JSON.stringify(part.input)
+                  arguments: JSON.stringify(part.input),
                 },
               });
               break;
@@ -207,12 +167,11 @@ export function convertToSAPMessages(
             messages.push({
               role: 'tool',
               tool_call_id: part.toolCallId,
-              // content: JSON.stringify(part.result),
-              content: typeof part.output === 'string' ? part.output : JSON.stringify(part.output),
+              content: JSON.stringify(part.output),
             });
           }
         }
-
+        
         // Create a tool response message that SAP AI Core expects
         // messages.push({
         //   role: 'assistant',
