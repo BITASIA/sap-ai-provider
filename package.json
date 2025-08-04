@@ -1,0 +1,44 @@
+{
+    "name": "@ai-sdk/sap-ai",
+    "version": "1.0.0",
+    "description": "SAP AI Core provider for AI SDK",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist/**/*",
+        "CHANGELOG.md"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "build:watch": "tsup --watch",
+        "clean": "rm -rf dist",
+        "lint": "eslint \"./**/*.ts*\"",
+        "type-check": "tsc --noEmit",
+        "prettier-check": "prettier --check \"./**/*.ts*\"",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:node": "vitest --config vitest.node.config.js --run",
+        "test:edge": "vitest --config vitest.edge.config.js --run",
+        "test:node:watch": "vitest --config vitest.node.config.js"
+    },
+    "dependencies": {
+        "@ai-sdk/provider": "^2.0.0",
+        "@ai-sdk/provider-utils": "^3.0.0",
+        "ai": "^5.0.0",
+        "zod": "^3.0.0"
+    },
+    "devDependencies": {
+        "@edge-runtime/vm": "^5.0.0",
+        "@types/node": "^20.0.0",
+        "tsup": "^8.5.0",
+        "typescript": "^5.0.0",
+        "vitest": "^1.6.1"
+    },
+    "peerDependencies": {
+        "zod": "^3.0.0"
+    },
+    "engines": {
+        "node": ">=18"
+    }
+}
