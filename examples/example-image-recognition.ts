@@ -1,5 +1,5 @@
 import { generateText } from 'ai';
-import { createSAPAIProvider } from './src/index';
+import { createSAPAIProvider } from '../src/index';
 
 (async () => {
   console.log('🖼️  SAP AI Core Image Recognition Example\n');
