@@ -3,13 +3,12 @@
 /**
  * SAP AI Provider Pattern Examples
  * 
- * This example demonstrates the different ways to use the SAP AI provider
+ * This example demonstrates the simple chat completion using the SAP AI SDK
  * following Vercel AI SDK patterns.
  */
 
-// Approach 1: Original createSAPAI function (still supported)
-
-// Approach 2: New Vercel AI SDK pattern (async version)
+// Load environment variables from .env file
+import 'dotenv/config';
 import { createSAPAIProvider } from '../src/sap-ai-provider';
 
 
@@ -19,9 +18,17 @@ async function simpleTest() {
   try {
     console.log('🔄 Creating provider using AICORE_SERVICE_KEY environment variable...');
     
+    // Get service key from environment variable
+    const serviceKey = process.env.AICORE_SERVICE_KEY;
+    if (!serviceKey) {
+      throw new Error('AICORE_SERVICE_KEY environment variable is required. Please set it in your .env file.');
+    }
+
     // This is all the user needs to do!
     // Make sure to set AICORE_SERVICE_KEY in your .env file
-    const provider = await createSAPAIProvider();
+    const provider = await createSAPAIProvider({
+      serviceKey: serviceKey
+    });
 
     console.log('📝 Testing text generation...');
     const model = provider('gpt-4o', {
@@ -32,14 +39,18 @@ async function simpleTest() {
 
 
     const result = await model.doGenerate({
-      prompt: [{ role: 'user', content: [{ type: 'text', text: 'How to cook a delicious chicken recipe?' }] }],
-      mode: { type: 'regular' },
-      inputFormat: 'messages',
+      prompt: [{ role: 'user', content: [{ type: 'text', text: 'How to cook a delicious chicken recipe?' }] }]
     });
 
+    // Extract text from content array
+    const text = result.content
+      .filter(item => item.type === 'text')
+      .map(item => item.text)
+      .join('');
+
     console.log('✅ Success!');
-    console.log('📄 Generated text:', result.text);
-    console.log('📊 Usage:', `${result.usage.promptTokens} prompt + ${result.usage.completionTokens} completion tokens`);
+    console.log('📄 Generated text:', text);
+    console.log('📊 Usage:', `${result.usage.inputTokens} prompt + ${result.usage.outputTokens} completion tokens`);
     console.log('🏁 Finish reason:', result.finishReason);
     console.log('');
 

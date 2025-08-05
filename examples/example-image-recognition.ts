@@ -1,13 +1,21 @@
 import { generateText } from 'ai';
 import { createSAPAIProvider } from '../src/index';
+import 'dotenv/config';
 
 (async () => {
   console.log('🖼️  SAP AI Core Image Recognition Example\n');
 
   // Create provider using AICORE_SERVICE_KEY environment variable
   // Make sure to set AICORE_SERVICE_KEY in your .env file
+  const serviceKey = process.env.AICORE_SERVICE_KEY;
+  if (!serviceKey) {
+    throw new Error('AICORE_SERVICE_KEY environment variable is required. Please set it in your .env file.');
+  }
+
+  // This is all the user needs to do!
+  // Make sure to set AICORE_SERVICE_KEY in your .env file
   const provider = await createSAPAIProvider({
-    deploymentId: process.env.SAP_AI_DEPLOYMENT_ID || 'd65d81e7c077e583'
+    serviceKey: serviceKey
   });
 
   // Example 1: Using a public URL
@@ -56,7 +64,6 @@ import { createSAPAIProvider } from '../src/index';
           {
             type: 'image',
             image: `data:image/png;base64,${base64Image}`,
-            mimeType: 'image/png'
           }
         ]
       }
@@ -87,7 +94,6 @@ import { createSAPAIProvider } from '../src/index';
           {
             type: 'image',
             image: `data:image/png;base64,${base64Image}`,
-            mimeType: 'image/png'
           }
         ]
       }
