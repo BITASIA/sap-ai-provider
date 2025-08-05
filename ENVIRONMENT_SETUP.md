@@ -1,8 +1,8 @@
 # Environment Setup
 
-## Setting up AICORE_SERVICE_KEY
+## Setting up SAP_AI_SERVICE_KEY
 
-To use the SAP AI provider with environment variables, you need to set up the `AICORE_SERVICE_KEY` environment variable.
+To use the SAP AI provider with environment variables, you need to set up the `SAP_AI_SERVICE_KEY` environment variable.
 
 ### 1. Create a .env file
 
@@ -10,7 +10,7 @@ Create a `.env` file in your project root:
 
 ```bash
 # .env
-AICORE_SERVICE_KEY={"serviceurls":{"AI_API_URL":"https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com"},"appname":"your-app-name","clientid":"your-client-id","clientsecret":"your-client-secret","identityzone":"your-identity-zone","identityzoneid":"your-identity-zone-id","url":"https://your-auth-url.authentication.region.hana.ondemand.com","credential-type":"binding-secret"}
+SAP_AI_SERVICE_KEY={"serviceurls":{"AI_API_URL":"https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com"},"appname":"your-app-name","clientid":"your-client-id","clientsecret":"your-client-secret","identityzone":"your-identity-zone","identityzoneid":"your-identity-zone-id","url":"https://your-auth-url.authentication.region.hana.ondemand.com","credential-type":"binding-secret"}
 ```
 
 ### 2. Get your service key from SAP BTP
@@ -26,10 +26,13 @@ AICORE_SERVICE_KEY={"serviceurls":{"AI_API_URL":"https://api.ai.prod.eu-central-
 With the environment variable set, you can now use the provider without passing the service key:
 
 ```typescript
-import { createSAPAIProvider } from './src/index';
+import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
+import 'dotenv/config';
 
-// This will automatically use AICORE_SERVICE_KEY from environment
-const provider = await createSAPAIProvider();
+// This will use SAP_AI_SERVICE_KEY from environment
+const provider = await createSAPAIProvider(
+  serviceKey: process.env.SAP_AI_SERVICE_KEY
+);
 
 // Use with any model
 const model = provider('gpt-4o');
@@ -44,7 +47,7 @@ All example files have been updated to use the environment variable approach:
 - `example-simple-chat-completion.ts` - Simple chat completion
 - `example-chat-completion-tool.ts` - Advanced tool calling and debugging
 
-Simply set your `AICORE_SERVICE_KEY` and run any example:
+Simply set your `SAP_AI_SERVICE_KEY` and run any example:
 
 ```bash
 npx tsx example-generate-text.ts
@@ -67,7 +70,7 @@ The provider checks for credentials in this order:
 
 1. `token` option (if provided)
 2. `serviceKey` option (if provided)  
-3. `AICORE_SERVICE_KEY` environment variable
+3. `SAP_AI_SERVICE_KEY` environment variable
 4. `SAP_AI_TOKEN` environment variable (for direct token)
 
 ## Security Note

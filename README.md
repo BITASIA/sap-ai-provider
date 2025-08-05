@@ -42,6 +42,8 @@ The provider supports a wide range of models available in SAP AI Core:
 - `meta--llama3-70b-instruct`, `meta--llama3.1-70b-instruct`
 - And many more...
 
+Note: Model availability may vary based on your SAP AI Core subscription and region. Some models may require additional configuration or permissions.
+
 ## Installation
 
 ```bash
@@ -60,7 +62,7 @@ npm install @mymediset/sap-ai-provider
 ### 2. Basic Usage (Direct Model API)
 
 ```typescript
-import { createSAPAIProvider } from '@ai-sdk/sap-ai';
+import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
 
 // Create the provider with your service key
 const provider = await createSAPAIProvider({
@@ -96,7 +98,7 @@ console.log(text);
 
 ```typescript
 import { generateText } from 'ai';
-import { createSAPAIProvider } from '@ai-sdk/sap-ai';
+import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
 
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY
@@ -118,7 +120,7 @@ console.log(result.text);
 
 ```typescript
 import { generateText } from 'ai';
-import { createSAPAIProvider } from '@ai-sdk/sap-ai';
+import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
 import { tool } from 'ai';
 import { z } from 'zod';
 
@@ -152,7 +154,7 @@ console.log(result.text);
 
 ```typescript
 import { generateText } from 'ai';
-import { createSAPAIProvider } from '@ai-sdk/sap-ai';
+import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
 
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY
@@ -178,7 +180,7 @@ console.log(result.text);
 
 ```typescript
 import { streamText } from 'ai';
-import { createSAPAIProvider } from '@ai-sdk/sap-ai';
+import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
 
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY
@@ -198,7 +200,7 @@ for await (const textPart of result.textStream) {
 
 ```typescript
 import { generateObject } from 'ai';
-import { createSAPAIProvider } from '@ai-sdk/sap-ai';
+import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
 import { z } from 'zod';
 
 const provider = await createSAPAIProvider({
@@ -227,7 +229,34 @@ interface SAPAIProviderSettings {
   serviceKey?: string;        // SAP AI Core service key JSON
   token?: string;             // Direct access token (alternative to serviceKey)
   baseURL?: string;           // Custom base URL for API calls
+  deploymentId?: string;      // SAP AI Core deployment ID (default: 'd65d81e7c077e583')
+  resourceGroup?: string;     // SAP AI Core resource group (default: 'default')
 }
+```
+
+### Deployment Configuration
+
+The SAP AI provider uses deployment IDs and resource groups to manage model deployments in SAP AI Core:
+
+#### Deployment ID
+- A unique identifier for your model deployment in SAP AI Core
+- Default: 'd65d81e7c077e583' (general-purpose deployment)
+- Can be found in your SAP AI Core deployment details
+- Set via `deploymentId` option or `SAP_AI_DEPLOYMENT_ID` environment variable
+
+#### Resource Group
+- Logical grouping of AI resources in SAP AI Core
+- Default: 'default'
+- Used for resource isolation and access control
+- Set via `resourceGroup` option or `SAP_AI_RESOURCE_GROUP` environment variable
+
+Example with custom deployment:
+```typescript
+const provider = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
+  deploymentId: 'your-custom-deployment-id',
+  resourceGroup: 'your-resource-group'
+});
 ```
 
 ### Model Settings
@@ -263,10 +292,39 @@ SAP_AI_BASE_URL='https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com'
 
 ## Error Handling
 
-The provider includes comprehensive error handling with detailed error messages:
+The provider includes comprehensive error handling with detailed error messages and automatic retries for certain error types.
+
+### Error Types
 
 ```typescript
-import { SAPAIError } from '@ai-sdk/sap-ai';
+class SAPAIError extends Error {
+  code?: number;           // Error code from SAP AI Core
+  location?: string;       // Where the error occurred
+  requestId?: string;      // Request ID for tracking
+  details?: string;        // Additional error details
+  response?: Response;     // Raw HTTP response
+}
+```
+
+### Common Error Codes
+
+| HTTP Status | Description | Retry? | Common Causes |
+|------------|-------------|--------|---------------|
+| 400 | Bad Request | No | Invalid parameters, malformed request |
+| 401 | Unauthorized | No | Invalid/expired token, wrong credentials |
+| 403 | Forbidden | No | Insufficient permissions, wrong resource group |
+| 404 | Not Found | No | Invalid model ID, deployment ID |
+| 429 | Too Many Requests | Yes | Rate limit exceeded |
+| 500 | Internal Server Error | Yes | SAP AI Core service issue |
+| 502 | Bad Gateway | Yes | Network/proxy issue |
+| 503 | Service Unavailable | Yes | Service temporarily down |
+| 504 | Gateway Timeout | Yes | Request timeout |
+
+### Error Handling Examples
+
+Basic error handling:
+```typescript
+import { SAPAIError } from '@mymediset/sap-ai-provider';
 
 try {
   const result = await generateText({
@@ -275,12 +333,28 @@ try {
   });
 } catch (error) {
   if (error instanceof SAPAIError) {
-    console.error('SAP AI Error:', error.message);
-    console.error('Status Code:', error.statusCode);
-    console.error('Request Body:', error.requestBodyValues);
+    console.error('Error Code:', error.code);
+    console.error('Request ID:', error.requestId);
+    console.error('Location:', error.location);
+    console.error('Details:', error.details);
+    
+    // Handle specific error types
+    if (error.code === 429) {
+      console.log('Rate limit exceeded - retrying after delay...');
+    } else if (error.code === 401) {
+      console.log('Authentication failed - check credentials');
+    }
   }
 }
 ```
+
+### Best Practices
+
+1. Use streaming for long responses to avoid token limits
+2. Implement request queuing for high-volume applications
+3. Monitor usage and adjust rate limits as needed
+4. Cache responses when possible
+5. Use batch requests efficiently
 
 ## Examples
 
