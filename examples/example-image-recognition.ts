@@ -5,15 +5,15 @@ import 'dotenv/config';
 (async () => {
   console.log('🖼️  SAP AI Core Image Recognition Example\n');
 
-  // Create provider using AICORE_SERVICE_KEY environment variable
-  // Make sure to set AICORE_SERVICE_KEY in your .env file
-  const serviceKey = process.env.AICORE_SERVICE_KEY;
+  // Create provider using SAP_AI_SERVICE_KEY environment variable
+  // Make sure to set SAP_AI_SERVICE_KEY in your .env file
+  const serviceKey = process.env.SAP_AI_SERVICE_KEY;
   if (!serviceKey) {
-    throw new Error('AICORE_SERVICE_KEY environment variable is required. Please set it in your .env file.');
+    throw new Error('SAP_AI_SERVICE_KEY environment variable is required. Please set it in your .env file.');
   }
 
   // This is all the user needs to do!
-  // Make sure to set AICORE_SERVICE_KEY in your .env file
+  // Make sure to set SAP_AI_SERVICE_KEY in your .env file
   const provider = await createSAPAIProvider({
     serviceKey: serviceKey
   });

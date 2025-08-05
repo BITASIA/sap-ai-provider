@@ -35,9 +35,9 @@ const weatherTool = tool({
 async function simpleToolExample() {
   console.log('🛠️  Simple SAP AI Tool Calling Example\n');
 
-  const serviceKey = process.env.AICORE_SERVICE_KEY;
+  const serviceKey = process.env.SAP_AI_SERVICE_KEY;
   if (!serviceKey) {
-    throw new Error('AICORE_SERVICE_KEY environment variable is required. Please set it in your .env file.');
+    throw new Error('SAP_AI_SERVICE_KEY environment variable is required. Please set it in your .env file.');
   }
   const provider = await createSAPAIProvider({
     serviceKey: serviceKey

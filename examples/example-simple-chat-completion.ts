@@ -16,16 +16,16 @@ async function simpleTest() {
   console.log('🧪 Simple SAP AI Test with Environment Variable (User-Friendly)\n');
 
   try {
-    console.log('🔄 Creating provider using AICORE_SERVICE_KEY environment variable...');
+    console.log('🔄 Creating provider using SAP_AI_SERVICE_KEY environment variable...');
     
     // Get service key from environment variable
-    const serviceKey = process.env.AICORE_SERVICE_KEY;
+    const serviceKey = process.env.SAP_AI_SERVICE_KEY;
     if (!serviceKey) {
-      throw new Error('AICORE_SERVICE_KEY environment variable is required. Please set it in your .env file.');
+      throw new Error('SAP_AI_SERVICE_KEY environment variable is required. Please set it in your .env file.');
     }
 
     // This is all the user needs to do!
-    // Make sure to set AICORE_SERVICE_KEY in your .env file
+    // Make sure to set SAP_AI_SERVICE_KEY in your .env file
     const provider = await createSAPAIProvider({
       serviceKey: serviceKey
     });
@@ -71,8 +71,6 @@ async function simpleTest() {
   }
 }
 
-if (require.main === module) {
-  simpleTest().catch(console.error);
-}
+simpleTest().catch(console.error);
 
 export { simpleTest };
