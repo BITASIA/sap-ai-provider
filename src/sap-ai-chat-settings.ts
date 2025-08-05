@@ -1,18 +1,79 @@
-
+/**
+ * Settings for configuring SAP AI Core model behavior.
+ */
 export interface SAPAISettings {
+  /**
+   * Specific version of the model to use.
+   * If not provided, the latest version will be used.
+   */
   modelVersion?: string;
+
+  /**
+   * Model generation parameters that control the output.
+   */
   modelParams?: {
+    /**
+     * Maximum number of tokens to generate.
+     * Higher values allow for longer responses but increase latency and cost.
+     * @default 1000
+     */
     maxTokens?: number;
+
+    /**
+     * Sampling temperature between 0 and 2.
+     * Higher values make output more random, lower values more deterministic.
+     * @default 0.7
+     */
     temperature?: number;
+
+    /**
+     * Nucleus sampling parameter between 0 and 1.
+     * Controls diversity via cumulative probability cutoff.
+     * @default 1
+     */
     topP?: number;
+
+    /**
+     * Frequency penalty between -2.0 and 2.0.
+     * Positive values penalize tokens based on their frequency.
+     * @default 0
+     */
     frequencyPenalty?: number;
+
+    /**
+     * Presence penalty between -2.0 and 2.0.
+     * Positive values penalize tokens that have appeared in the text.
+     * @default 0
+     */
     presencePenalty?: number;
+
+    /**
+     * Number of completions to generate.
+     * Multiple completions provide alternative responses.
+     * @default 1
+     */
     n?: number;
   };
+
+  /**
+   * Enable safe prompt filtering.
+   * When enabled, prompts are checked for harmful content.
+   * @default true
+   */
   safePrompt?: boolean;
+
+  /**
+   * Enable structured outputs.
+   * When enabled, responses will be formatted according to provided schemas.
+   * @default false
+   */
   structuredOutputs?: boolean;
 }
 
+/**
+ * Supported model IDs in SAP AI Core.
+ * Note: Model availability depends on your subscription and region.
+ */
 export type SAPAIModelId = 
 | 'amazon--nova-premier'
 | 'amazon--nova-pro'
