@@ -1,85 +1,85 @@
 {
-    "name": "@mymediset/sap-ai-provider",
-    "version": "1.0.3",
-    "description": "SAP AI Core provider for AI SDK",
-    "keywords": [
-        "ai",
-        "vercel",
-        "vercel-ai-sdk",
-        "sap",
-        "sap-ai-core",
-        "aicore",
-        "btp",
-        "cap",
-        "agent"
-    ],
-    "homepage": "https://github.com/BITASIA/sap-ai-provider#readme",
-    "bugs": {
-        "url": "https://github.com/BITASIA/sap-ai-provider/issues"
-    },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/BITASIA/sap-ai-provider.git"
-    },
-    "license": "Apache-2.0",
-    "author": "mymediset",
-    "main": "./dist/index.js",
-    "module": "./dist/index.mjs",
-    "types": "./dist/index.d.ts",
-    "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
-        }
-    },
-    "directories": {
-        "example": "examples"
-    },
-    "files": [
-        "dist/**/*",
-        "README.md",
-        "CHANGELOG.md",
-        "LICENSE"
-    ],
-    "scripts": {
-        "build": "tsup",
-        "build:watch": "tsup --watch",
-        "clean": "rm -rf dist",
-        "lint": "eslint \"src/**/*.ts\"",
-        "type-check": "tsc --noEmit",
-        "prettier-check": "prettier --check \"./**/*.ts\"",
-        "test": "vitest run",
-        "test:watch": "vitest",
-        "test:node": "vitest --config vitest.node.config.js --run",
-        "test:edge": "vitest --config vitest.edge.config.js --run",
-        "test:node:watch": "vitest --config vitest.node.config.js",
-        "prepare": "npm run build",
-        "prepublishOnly": "npm run type-check && npm run test && npm run build"
-    },
-    "dependencies": {
-        "@ai-sdk/provider": "^2.0.0",
-        "@ai-sdk/provider-utils": "^3.0.0",
-        "zod": "^3.0.0"
-    },
-    "devDependencies": {
-        "@edge-runtime/vm": "^5.0.0",
-        "@types/node": "^20.0.0",
-        "eslint": "^9.32.0",
-        "prettier": "^3.5.3",
-        "tsup": "^8.5.0",
-        "typescript": "^5.0.0",
-        "vitest": "^1.6.1",
-        "dotenv": "^17.2.1"
-    },
-    "peerDependencies": {
-        "ai": "^5.0.0",
-        "zod": "^3.0.0"
-    },
-    "engines": {
-        "node": ">=18"
-    },
-    "publishConfig": {
-        "access": "public"
+  "name": "@mymediset/sap-ai-provider",
+  "version": "1.0.3",
+  "description": "SAP AI Core provider for AI SDK",
+  "keywords": [
+    "ai",
+    "vercel",
+    "vercel-ai-sdk",
+    "sap",
+    "sap-ai-core",
+    "aicore",
+    "btp",
+    "cap",
+    "agent"
+  ],
+  "homepage": "https://github.com/BITASIA/sap-ai-provider#readme",
+  "bugs": {
+    "url": "https://github.com/BITASIA/sap-ai-provider/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BITASIA/sap-ai-provider.git"
+  },
+  "license": "Apache-2.0",
+  "author": "mymediset",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
     }
+  },
+  "directories": {
+    "example": "examples"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "build:watch": "tsup --watch",
+    "clean": "rm -rf dist",
+    "lint": "eslint \"src/**/*.ts\"",
+    "type-check": "tsc --noEmit",
+    "prettier-check": "prettier --check \"./**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:node": "vitest --config vitest.node.config.js --run",
+    "test:edge": "vitest --config vitest.edge.config.js --run",
+    "test:node:watch": "vitest --config vitest.node.config.js",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run type-check && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@ai-sdk/provider": "^2.0.0",
+    "@ai-sdk/provider-utils": "^3.0.0",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "eslint": "^9.32.0",
+    "prettier": "^3.5.3",
+    "tsup": "^8.5.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.6.1",
+    "dotenv": "^17.2.1"
+  },
+  "peerDependencies": {
+    "ai": "^5.0.0",
+    "zod": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

@@ -60,7 +60,7 @@ You can still pass the service key directly if needed:
 
 ```typescript
 const provider = await createSAPAIProvider({
-  serviceKey: '{"serviceurls":...}' // your service key JSON
+  serviceKey: '{"serviceurls":...}', // your service key JSON
 });
 ```
 
@@ -69,7 +69,7 @@ const provider = await createSAPAIProvider({
 The provider checks for credentials in this order:
 
 1. `token` option (if provided)
-2. `serviceKey` option (if provided)  
+2. `serviceKey` option (if provided)
 3. `SAP_AI_SERVICE_KEY` environment variable
 4. `SAP_AI_TOKEN` environment variable (for direct token)
 
