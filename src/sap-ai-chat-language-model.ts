@@ -5,19 +5,19 @@ import {
   LanguageModelV2Content,
   LanguageModelV2FinishReason,
   LanguageModelV2StreamPart,
-  LanguageModelV2Usage
-} from '@ai-sdk/provider';
+  LanguageModelV2Usage,
+} from "@ai-sdk/provider";
 import {
   FetchFunction,
   combineHeaders,
   createJsonResponseHandler,
-  postJsonToApi
-} from '@ai-sdk/provider-utils';
-import { z } from 'zod';
-import { convertToSAPMessages } from './convert-to-sap-messages';
-import { SAPAIModelId, SAPAISettings } from './sap-ai-chat-settings';
-import { sapAIFailedResponseHandler } from './sap-ai-error';
-import { sapAIResponseSchema } from './types/completion-response';
+  postJsonToApi,
+} from "@ai-sdk/provider-utils";
+import { z } from "zod";
+import { convertToSAPMessages } from "./convert-to-sap-messages";
+import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
+import { sapAIFailedResponseHandler } from "./sap-ai-error";
+import { sapAIResponseSchema } from "./types/completion-response";
 
 type SAPAIConfig = {
   provider: string;
@@ -27,8 +27,8 @@ type SAPAIConfig = {
 };
 
 export class SAPAIChatLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = 'v2';
-  readonly defaultObjectGenerationMode = 'json';
+  readonly specificationVersion = "v2";
+  readonly defaultObjectGenerationMode = "json";
   readonly supportsImageUrls = true;
   readonly modelId: SAPAIModelId;
   readonly supportsStructuredOutputs = true;
@@ -36,19 +36,23 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
   private readonly config: SAPAIConfig;
   private readonly settings: SAPAISettings;
 
-  constructor(modelId: SAPAIModelId, settings: SAPAISettings, config: SAPAIConfig) {
+  constructor(
+    modelId: SAPAIModelId,
+    settings: SAPAISettings,
+    config: SAPAIConfig,
+  ) {
     this.settings = settings;
     this.config = config;
     this.modelId = modelId;
   }
 
   supportsUrl(url: URL): boolean {
-    return url.protocol === 'https:';
+    return url.protocol === "https:";
   }
 
   get supportedUrls(): Record<string, RegExp[]> {
     return {
-      'image/*': [
+      "image/*": [
         /^https:\/\/.*\.(?:png|jpg|jpeg|gif|webp)$/i,
         /^data:image\/.*$/,
       ],
@@ -59,109 +63,115 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     return this.config.provider;
   }
 
-  private getArgs(options: LanguageModelV2CallOptions, streaming: boolean = false) {
+  private getArgs(
+    options: LanguageModelV2CallOptions,
+    streaming: boolean = false,
+  ) {
     const warnings: LanguageModelV2CallWarning[] = [];
-    
+
     // Extract tools from mode if available (for tool calling)
     let availableTools: any[] | undefined;
-    
+
     availableTools = options.tools;
-    
+
     // Check if model supports structured outputs (OpenAI and Gemini models do, Anthropic doesn't)
-    const supportsStructuredOutputs = !this.modelId.startsWith('anthropic--') && 
-                                     !this.modelId.startsWith('claude-');
-    
+    const supportsStructuredOutputs =
+      !this.modelId.startsWith("anthropic--") &&
+      !this.modelId.startsWith("claude-");
+
     const templatingConfig: any = {
       template: convertToSAPMessages(options.prompt),
       defaults: {},
-      tools: availableTools?.map(tool => {
-        if (tool.type === 'function') {
-          let parameters = tool.parameters;
-          
-          if (!parameters) {
-            const toolAny = tool as any;
-            if (toolAny.inputSchema) {
-              parameters = toolAny.inputSchema;
-            } else if (toolAny.schema) {
-              parameters = toolAny.schema;
-            } else if (toolAny.function?.parameters) {
-              parameters = toolAny.function.parameters;
+      tools: availableTools
+        ?.map((tool) => {
+          if (tool.type === "function") {
+            let parameters = tool.parameters;
+
+            if (!parameters) {
+              const toolAny = tool as any;
+              if (toolAny.inputSchema) {
+                parameters = toolAny.inputSchema;
+              } else if (toolAny.schema) {
+                parameters = toolAny.schema;
+              } else if (toolAny.function?.parameters) {
+                parameters = toolAny.function.parameters;
+              }
             }
-          }
-          
-          return {
-            type: tool.type,
-            function: {
-              name: tool.name,
-              description: tool.description,
-              parameters: parameters || { 
-                type: 'object', 
-                properties: {},
-                required: []
+
+            return {
+              type: tool.type,
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: parameters || {
+                  type: "object",
+                  properties: {},
+                  required: [],
+                },
               },
-            }
-          };
-        } else {
-          warnings.push({
-            type: 'unsupported-tool',
-            tool: tool,
-          });
-          return null;
-        }
-      }).filter(Boolean)
+            };
+          } else {
+            warnings.push({
+              type: "unsupported-tool",
+              tool: tool,
+            });
+            return null;
+          }
+        })
+        .filter(Boolean),
     };
 
     // Only add response_format for models that support it AND when no tools are available
     // (tools require flexible response format for tool calls)
     if (supportsStructuredOutputs && !availableTools?.length) {
       templatingConfig.response_format = {
-        type: 'json_schema',
+        type: "json_schema",
         json_schema: {
-          name: 'chat_completion_response',
+          name: "chat_completion_response",
           strict: true,
           schema: {
-            type: 'object',
+            type: "object",
             properties: {
-              role: { type: 'string', enum: ['assistant'] },
-              content: { type: 'string' }
+              role: { type: "string", enum: ["assistant"] },
+              content: { type: "string" },
             },
-            required: ['role', 'content'],
-            additionalProperties: false
-          }
-        }
+            required: ["role", "content"],
+            additionalProperties: false,
+          },
+        },
       };
     }
 
     const args = {
       orchestration_config: {
         stream: streaming,
-        stream_options: streaming ? {
-          include_usage: true
-        } : undefined,
+        stream_options: streaming
+          ? {
+              include_usage: true,
+            }
+          : undefined,
         module_configurations: {
           llm_module_config: {
             model_name: this.modelId,
-            model_version: this.settings.modelVersion ?? 'latest',
+            model_version: this.settings.modelVersion ?? "latest",
             model_params: {
               temperature: this.settings.modelParams?.temperature ?? 0.7,
               max_tokens: this.settings.modelParams?.maxTokens ?? 1000,
               top_p: this.settings.modelParams?.topP,
               frequency_penalty: this.settings.modelParams?.frequencyPenalty,
               presence_penalty: this.settings.modelParams?.presencePenalty,
-              n: this.settings.modelParams?.n ?? 1
-            }
+              n: this.settings.modelParams?.n ?? 1,
+            },
           },
-          templating_module_config: templatingConfig
-        }
-      }
+          templating_module_config: templatingConfig,
+        },
+      },
     };
 
     return { args, warnings };
   }
 
-  async doGenerate(
-    options: LanguageModelV2CallOptions,
-  ): Promise<{
+  async doGenerate(options: LanguageModelV2CallOptions): Promise<{
     content: LanguageModelV2Content[];
     finishReason: LanguageModelV2FinishReason;
     usage: LanguageModelV2Usage;
@@ -169,14 +179,21 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     warnings: LanguageModelV2CallWarning[];
   }> {
     const { args, warnings } = this.getArgs(options);
-    const headers = combineHeaders(this.config.headers(), options.headers ?? {});
+    const headers = combineHeaders(
+      this.config.headers(),
+      options.headers ?? {},
+    );
 
-    const { value: response } = await postJsonToApi<z.infer<typeof sapAIResponseSchema>>({
+    const { value: response } = await postJsonToApi<
+      z.infer<typeof sapAIResponseSchema>
+    >({
       url: this.config.baseURL,
       headers,
       body: args,
       failedResponseHandler: sapAIFailedResponseHandler,
-      successfulResponseHandler: createJsonResponseHandler(sapAIResponseSchema as any),
+      successfulResponseHandler: createJsonResponseHandler(
+        sapAIResponseSchema as any,
+      ),
       fetch: this.config.fetch,
       abortSignal: options.abortSignal,
     });
@@ -194,10 +211,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       } catch {
         text = firstChoice.message.content;
       }
-      
+
       if (text) {
         content.push({
-          type: 'text',
+          type: "text",
           text: text,
         });
       }
@@ -206,10 +223,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     if (firstChoice.message.tool_calls) {
       for (const toolCall of firstChoice.message.tool_calls) {
         content.push({
-          type: 'tool-call',
+          type: "tool-call",
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
-          input: toolCall.function.arguments, 
+          input: toolCall.function.arguments,
         });
       }
     }
@@ -230,22 +247,23 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     };
   }
 
-  async doStream(
-    options: LanguageModelV2CallOptions,
-  ): Promise<{
+  async doStream(options: LanguageModelV2CallOptions): Promise<{
     stream: ReadableStream<LanguageModelV2StreamPart>;
     rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
   }> {
     const { args, warnings } = this.getArgs(options, true);
-    const headers = combineHeaders(this.config.headers(), options.headers ?? {});
+    const headers = combineHeaders(
+      this.config.headers(),
+      options.headers ?? {},
+    );
 
     // Try streaming first, fallback to non-streaming if not supported
     try {
       const response = await fetch(this.config.baseURL, {
-        method: 'POST',
+        method: "POST",
         headers: {
           ...headers,
-          'Accept': 'text/event-stream',
+          Accept: "text/event-stream",
         },
         body: JSON.stringify(args),
         signal: options.abortSignal,
@@ -255,41 +273,47 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const contentType = response.headers.get('content-type') || '';
-      
+      const contentType = response.headers.get("content-type") || "";
+
       // Check if response is actually streaming (Server-Sent Events)
-      if (contentType.includes('text/event-stream') || contentType.includes('text/plain')) {
+      if (
+        contentType.includes("text/event-stream") ||
+        contentType.includes("text/plain")
+      ) {
         return {
           stream: this.createStreamFromSSE(response),
           rawCall: { rawPrompt: args, rawSettings: {} },
         };
       }
     } catch (error) {
-      console.warn('Streaming not supported, falling back to non-streaming:', error);
+      console.warn(
+        "Streaming not supported, falling back to non-streaming:",
+        error,
+      );
     }
 
     // Fallback to non-streaming implementation
     const response = await this.doGenerate(options);
-    
+
     // Extract text from V2 content array
-    let text = '';
+    let text = "";
     for (const content of response.content) {
-      if (content.type === 'text') {
+      if (content.type === "text") {
         text += content.text;
       }
     }
-    
+
     return {
       stream: new ReadableStream({
         start(controller) {
           // Simulate streaming by sending the text character by character
           let index = 0;
-          
+
           const sendNext = () => {
             if (index < text.length) {
               const chunk = text.slice(index, index + 10); // Send 10 chars at a time
               controller.enqueue({
-                type: 'text-delta',
+                type: "text-delta",
                 id: Math.random().toString(36).substring(2),
                 delta: chunk,
               });
@@ -298,25 +322,25 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             } else {
               // Send tool calls from content array
               for (const content of response.content) {
-                if (content.type === 'tool-call') {
+                if (content.type === "tool-call") {
                   controller.enqueue({
-                    type: 'tool-call',
+                    type: "tool-call",
                     toolCallId: content.toolCallId,
                     toolName: content.toolName,
                     input: content.input,
                   });
                 }
               }
-              
+
               controller.enqueue({
-                type: 'finish',
+                type: "finish",
                 finishReason: response.finishReason,
                 usage: response.usage,
               });
               controller.close();
             }
           };
-          
+
           sendNext();
         },
       }),
@@ -324,28 +348,32 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     };
   }
 
-  private createStreamFromSSE(response: Response): ReadableStream<LanguageModelV2StreamPart> {
+  private createStreamFromSSE(
+    response: Response,
+  ): ReadableStream<LanguageModelV2StreamPart> {
     const reader = response.body?.getReader();
     if (!reader) {
-      throw new Error('Response body is not readable');
+      throw new Error("Response body is not readable");
     }
 
     const decoder = new TextDecoder();
-    let buffer = '';
-    let usage: { inputTokens: number; outputTokens: number; totalTokens: number } | undefined;
+    let buffer = "";
+    let usage:
+      | { inputTokens: number; outputTokens: number; totalTokens: number }
+      | undefined;
 
     return new ReadableStream({
       async start(controller) {
         try {
           while (true) {
             const { done, value } = await reader.read();
-            
+
             if (done) {
               // Send final usage if available
               if (usage) {
                 controller.enqueue({
-                  type: 'finish',
-                  finishReason: 'stop',
+                  type: "finish",
+                  finishReason: "stop",
                   usage,
                 });
               }
@@ -354,21 +382,21 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             }
 
             buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
 
             for (const line of lines) {
               const trimmed = line.trim();
-              if (trimmed === '' || trimmed === 'data: [DONE]') continue;
-              
-              if (trimmed.startsWith('data: ')) {
+              if (trimmed === "" || trimmed === "data: [DONE]") continue;
+
+              if (trimmed.startsWith("data: ")) {
                 try {
                   const data = JSON.parse(trimmed.slice(6));
-                  
+
                   // Handle different types of streaming data
                   if (data.choices && data.choices[0]) {
                     const choice = data.choices[0];
-                    
+
                     if (choice.delta?.content) {
                       // Extract text from JSON response if needed
                       let textContent: string;
@@ -380,54 +408,67 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                       }
 
                       controller.enqueue({
-                        type: 'text-delta',
+                        type: "text-delta",
                         id: Math.random().toString(36).substring(2),
                         delta: textContent,
                       });
                     }
-                    
+
                     if (choice.delta?.tool_calls) {
                       for (const toolCall of choice.delta.tool_calls) {
                         controller.enqueue({
-                          type: 'tool-call',
+                          type: "tool-call",
                           toolCallId: toolCall.id,
                           toolName: toolCall.function.name,
                           input: toolCall.function.arguments,
                         });
                       }
                     }
-                    
+
                     if (choice.finish_reason) {
                       controller.enqueue({
-                        type: 'finish',
-                        finishReason: choice.finish_reason as LanguageModelV2FinishReason,
-                        usage: data.usage ? {
-                          inputTokens: data.usage.prompt_tokens,
-                          outputTokens: data.usage.completion_tokens,
-                          totalTokens: data.usage.prompt_tokens + data.usage.completion_tokens,
-                        } : usage ? {
-                          inputTokens: usage.inputTokens,
-                          outputTokens: usage.outputTokens,
-                          totalTokens: usage.totalTokens,
-                        } : {
-                          inputTokens: 0,
-                          outputTokens: 0,
-                          totalTokens: 0,
-                        },
+                        type: "finish",
+                        finishReason:
+                          choice.finish_reason as LanguageModelV2FinishReason,
+                        usage: data.usage
+                          ? {
+                              inputTokens: data.usage.prompt_tokens,
+                              outputTokens: data.usage.completion_tokens,
+                              totalTokens:
+                                data.usage.prompt_tokens +
+                                data.usage.completion_tokens,
+                            }
+                          : usage
+                            ? {
+                                inputTokens: usage.inputTokens,
+                                outputTokens: usage.outputTokens,
+                                totalTokens: usage.totalTokens,
+                              }
+                            : {
+                                inputTokens: 0,
+                                outputTokens: 0,
+                                totalTokens: 0,
+                              },
                       });
                     }
                   }
-                  
+
                   // Store usage for later if it's in a separate event
                   if (data.usage) {
                     usage = {
                       inputTokens: data.usage.prompt_tokens,
                       outputTokens: data.usage.completion_tokens,
-                      totalTokens: data.usage.prompt_tokens + data.usage.completion_tokens,
+                      totalTokens:
+                        data.usage.prompt_tokens + data.usage.completion_tokens,
                     };
                   }
                 } catch (parseError) {
-                  console.warn('Failed to parse SSE data:', parseError, 'Raw line:', trimmed);
+                  console.warn(
+                    "Failed to parse SSE data:",
+                    parseError,
+                    "Raw line:",
+                    trimmed,
+                  );
                 }
               }
             }
@@ -438,4 +479,4 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       },
     });
   }
-} 
+}
