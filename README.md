@@ -5,6 +5,10 @@
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. This provider enables you to use SAP's enterprise-grade AI models through the familiar Vercel AI SDK interface.
 
+## Important Note
+
+> **Third-Party Provider**: This SAP AI Core provider (`@mymediset/sap-ai-provider`) is developed and maintained by Mymediset, not by SAP SE. While it integrates with official SAP AI Core services, it is not an official SAP product. For official SAP AI solutions, please refer to the [SAP AI Core Documentation](https://help.sap.com/docs/ai-core).
+
 ## Features
 
 - 🔐 **Automatic OAuth Authentication** - Handles SAP AI Core authentication seamlessly
