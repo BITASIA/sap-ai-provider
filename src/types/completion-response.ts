@@ -32,10 +32,10 @@ const sapAITemplatingMessageSchema = z.object({
   tool_call_id: z.string().optional(),
 });
 
-// Schema for LLM result messages (always string content)
+// Schema for LLM result messages (content can be string or null for tool calls)
 const sapAIMessageSchema = z.object({
   role: z.enum(["assistant", "user", "system", "tool"]),
-  content: z.string(),
+  content: z.string().nullable(),
   tool_calls: z.array(sapAIToolCallSchema).optional(),
   tool_call_id: z.string().optional(),
 });
@@ -82,4 +82,43 @@ export const sapAIResponseSchema = z.object({
     .optional(),
 });
 
+// Streaming schemas for SAP AI Core responses
+const sapAIStreamChoiceSchema = z.object({
+  delta: z.object({
+    role: z.enum(["assistant"]).optional(),
+    content: z.string().optional(),
+    tool_calls: z.array(sapAIToolCallSchema).optional(),
+  }),
+  finish_reason: z.string().nullish(),
+  index: z.number(),
+});
+
+const sapAIStreamLLMResultSchema = z.object({
+  choices: z.array(sapAIStreamChoiceSchema),
+  usage: sapAIUsageSchema.nullish(),
+  id: z.string().optional(),
+  object: z.string().optional(),
+  created: z.number().optional(),
+  model: z.string().optional(),
+  system_fingerprint: z.string().optional(),
+});
+
+export const sapAIStreamResponseSchema = z.object({
+  request_id: z.string(),
+  module_results: z.object({
+    llm: sapAIStreamLLMResultSchema.optional(),
+    templating: z.array(sapAITemplatingMessageSchema).optional(),
+  }),
+  orchestration_result: z.object({
+    id: z.string().optional(),
+    object: z.string().optional(),
+    created: z.number().optional(),
+    model: z.string().optional(),
+    system_fingerprint: z.string().optional(),
+    choices: z.array(sapAIStreamChoiceSchema).optional(),
+    usage: sapAIUsageSchema.optional(),
+  }).optional(),
+});
+
 export type SAPAIResponse = z.infer<typeof sapAIResponseSchema>;
+export type SAPAIStreamResponse = z.infer<typeof sapAIStreamResponseSchema>;
