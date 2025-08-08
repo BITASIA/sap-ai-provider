@@ -77,7 +77,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     // Check if model supports structured outputs (OpenAI and Gemini models do, Anthropic doesn't)
     const supportsStructuredOutputs =
       !this.modelId.startsWith("anthropic--") &&
-      !this.modelId.startsWith("claude-");
+      !this.modelId.startsWith("claude-") &&
+      !this.modelId.startsWith("amazon--");
+
+    const supportsN = !this.modelId.startsWith("amazon--");
 
     const templatingConfig: any = {
       template: convertToSAPMessages(options.prompt),
@@ -160,7 +163,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               top_p: this.settings.modelParams?.topP,
               frequency_penalty: this.settings.modelParams?.frequencyPenalty,
               presence_penalty: this.settings.modelParams?.presencePenalty,
-              n: this.settings.modelParams?.n ?? 1,
+              n: supportsN ? this.settings.modelParams?.n ?? 1 : undefined,
             },
           },
           templating_module_config: templatingConfig,
