@@ -4,6 +4,8 @@ import {
   LanguageModelV2CallWarning,
   LanguageModelV2Content,
   LanguageModelV2FinishReason,
+  LanguageModelV2FunctionTool,
+  LanguageModelV2ProviderDefinedTool,
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
 } from "@ai-sdk/provider";
@@ -72,9 +74,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     const warnings: LanguageModelV2CallWarning[] = [];
 
     // Extract tools from mode if available (for tool calling)
-    let availableTools: any[] | undefined;
-
-    availableTools = options.tools;
+    const availableTools = options.tools as Array<LanguageModelV2FunctionTool | LanguageModelV2ProviderDefinedTool> | undefined;
 
     // Check if model supports structured outputs (OpenAI and Gemini models do, Anthropic doesn't)
     const supportsStructuredOutputs =
@@ -90,19 +90,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       tools: availableTools
         ?.map((tool) => {
           if (tool.type === "function") {
-            let parameters = tool.parameters;
-
-            if (!parameters) {
-              const toolAny = tool as any;
-              if (toolAny.inputSchema) {
-                parameters = toolAny.inputSchema;
-              } else if (toolAny.schema) {
-                parameters = toolAny.schema;
-              } else if (toolAny.function?.parameters) {
-                parameters = toolAny.function.parameters;
-              }
-            }
-
+            let parameters = tool.inputSchema;
             return {
               type: tool.type,
               function: {

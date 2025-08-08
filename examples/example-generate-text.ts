@@ -38,7 +38,6 @@ import "dotenv/config";
   console.log("Testing harmonizedAPI");
   console.log("--------------------------------");
   const multipleAI = [
-    "gpt-4o",
     "gemini-2.0-flash",
     "anthropic--claude-4-sonnet",
   ];
