@@ -54,10 +54,10 @@ jobs:
         run: npm ci
       - name: Run tests
         run: npm run test
-    #   - name: Run Node.js tests
-    #     run: npm run test:node
-    #   - name: Run Edge tests
-    #     run: npm run test:edge
+      - name: Run Node.js tests
+        run: npm run test:node
+      - name: Run Edge tests
+        run: npm run test:edge
 
   build:
     name: Build Package
