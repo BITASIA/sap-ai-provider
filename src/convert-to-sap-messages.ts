@@ -27,6 +27,7 @@ type SAPMessage = {
 export function convertToSAPMessages(
   prompt: LanguageModelV2Prompt,
 ): SAPMessage[] {
+  // Successful pr test
   const messages: SAPMessage[] = [];
 
   for (const message of prompt) {
