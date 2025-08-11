@@ -224,22 +224,20 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       }
     }
 
-    return "test";
-
-    // return {
-    //   content,
-    //   finishReason: firstChoice.finish_reason as LanguageModelV2FinishReason,
-    //   usage: {
-    //     inputTokens: usage.prompt_tokens,
-    //     outputTokens: usage.completion_tokens,
-    //     totalTokens: usage.total_tokens,
-    //   },
-    //   rawCall: {
-    //     rawPrompt: args,
-    //     rawSettings: {},
-    //   },
-    //   warnings,
-    // };
+    return {
+      content,
+      finishReason: firstChoice.finish_reason as LanguageModelV2FinishReason,
+      usage: {
+        inputTokens: usage.prompt_tokens,
+        outputTokens: usage.completion_tokens,
+        totalTokens: usage.total_tokens,
+      },
+      rawCall: {
+        rawPrompt: args,
+        rawSettings: {},
+      },
+      warnings,
+    };
   }
 
   async doStream(options: LanguageModelV2CallOptions): Promise<{
