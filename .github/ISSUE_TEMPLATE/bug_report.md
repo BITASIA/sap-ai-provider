@@ -15,10 +15,10 @@ A clear and concise description of the bug.
 3.
 
 ### Expected Behavior
-What you expected to happen.
+<!-- What you expected to happen. -->
 
 ### Actual Behavior
-What actually happened.
+<!-- What actually happened. -->
 
 ### Environment
 - Version:
@@ -26,4 +26,4 @@ What actually happened.
 - OS:
 
 ### Additional Context
-Add any other context, logs, or screenshots here.
+<!-- Add any other context, logs, or screenshots here. -->
