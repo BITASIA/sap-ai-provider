@@ -60,7 +60,7 @@ export function convertToSAPMessages(
             }
             case "file": {
               // Convert image to base64 data URL or use URL directly, SAP AI Core only supports image files
-              if (part.mediaType !== "image/") {
+              if (!part.mediaType.startsWith("image/")) {
                 throw new UnsupportedFunctionalityError({
                   functionality: "Only image files are supported",
                 });
