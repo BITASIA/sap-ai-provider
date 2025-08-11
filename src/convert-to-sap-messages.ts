@@ -6,12 +6,12 @@ import {
 type SAPMessageContent =
   | string
   | Array<{
-    type: "text" | "image_url";
-    text?: string;
-    image_url?: {
-      url: string;
-    };
-  }>;
+      type: "text" | "image_url";
+      text?: string;
+      image_url?: {
+        url: string;
+      };
+    }>;
 
 type SAPMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -66,7 +66,10 @@ export function convertToSAPMessages(
                 });
               }
 
-              const imageUrl = part.data instanceof URL ? part.data.toString() : `data:${part.mediaType};base64,${part.data}`;
+              const imageUrl =
+                part.data instanceof URL
+                  ? part.data.toString()
+                  : `data:${part.mediaType};base64,${part.data}`;
 
               // Use SAP AI Core's exact format
               contentParts.push({

@@ -21,7 +21,10 @@ import { z } from "zod";
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
 import { sapAIFailedResponseHandler } from "./sap-ai-error";
-import { sapAIResponseSchema, sapAIStreamResponseSchema } from "./types/completion-response";
+import {
+  sapAIResponseSchema,
+  sapAIStreamResponseSchema,
+} from "./types/completion-response";
 
 type SAPAIConfig = {
   provider: string;
@@ -74,7 +77,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     const warnings: LanguageModelV2CallWarning[] = [];
 
     // Extract tools from mode if available (for tool calling)
-    const availableTools = options.tools as Array<LanguageModelV2FunctionTool | LanguageModelV2ProviderDefinedTool> | undefined;
+    const availableTools = options.tools as
+      | Array<LanguageModelV2FunctionTool | LanguageModelV2ProviderDefinedTool>
+      | undefined;
 
     // Check if model supports structured outputs (OpenAI and Gemini models do, Anthropic doesn't)
     const supportsStructuredOutputs =
@@ -148,7 +153,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               top_p: this.settings.modelParams?.topP,
               frequency_penalty: this.settings.modelParams?.frequencyPenalty,
               presence_penalty: this.settings.modelParams?.presencePenalty,
-              n: supportsN ? this.settings.modelParams?.n ?? 1 : undefined,
+              n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
             },
           },
           templating_module_config: templatingConfig,
@@ -235,8 +240,6 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     };
   }
 
-
-
   async doStream(options: LanguageModelV2CallOptions): Promise<{
     stream: ReadableStream<LanguageModelV2StreamPart>;
     rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
@@ -256,7 +259,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       fetch: this.config.fetch,
     });
 
-    let finishReason: LanguageModelV2FinishReason = 'unknown';
+    let finishReason: LanguageModelV2FinishReason = "unknown";
     const usage: LanguageModelV2Usage = {
       inputTokens: undefined,
       outputTokens: undefined,
@@ -273,12 +276,12 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           LanguageModelV2StreamPart
         >({
           start(controller) {
-            controller.enqueue({ type: 'stream-start', warnings });
+            controller.enqueue({ type: "stream-start", warnings });
           },
 
           transform(chunk, controller) {
             if (!chunk.success) {
-              controller.enqueue({ type: 'error', error: chunk.error });
+              controller.enqueue({ type: "error", error: chunk.error });
               return;
             }
 
@@ -292,15 +295,17 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
             if (isFirstChunk) {
               isFirstChunk = false;
-              
+
               controller.enqueue({
-                type: 'response-metadata',
+                type: "response-metadata",
                 id: llmResult.id ?? undefined,
                 modelId: llmResult.model ?? undefined,
-                timestamp: llmResult.created ? new Date(llmResult.created * 1000) : undefined,
+                timestamp: llmResult.created
+                  ? new Date(llmResult.created * 1000)
+                  : undefined,
               });
             }
-            
+
             if (llmResult.usage != null) {
               usage.inputTokens = llmResult.usage.prompt_tokens;
               usage.outputTokens = llmResult.usage.completion_tokens;
@@ -322,13 +327,13 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               }
 
               if (!activeText) {
-                controller.enqueue({ type: 'text-start', id: '0' });
+                controller.enqueue({ type: "text-start", id: "0" });
                 activeText = true;
               }
 
               controller.enqueue({
-                type: 'text-delta',
-                id: '0',
+                type: "text-delta",
+                id: "0",
                 delta: textContent,
               });
             }
@@ -341,24 +346,24 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 const input = toolCall.function.arguments;
 
                 controller.enqueue({
-                  type: 'tool-input-start',
+                  type: "tool-input-start",
                   id: toolCallId,
                   toolName,
                 });
 
                 controller.enqueue({
-                  type: 'tool-input-delta',
+                  type: "tool-input-delta",
                   id: toolCallId,
                   delta: input,
                 });
 
                 controller.enqueue({
-                  type: 'tool-input-end',
+                  type: "tool-input-end",
                   id: toolCallId,
                 });
 
                 controller.enqueue({
-                  type: 'tool-call',
+                  type: "tool-call",
                   toolCallId,
                   toolName,
                   input,
@@ -367,17 +372,18 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             }
 
             if (choice.finish_reason != null) {
-              finishReason = choice.finish_reason as LanguageModelV2FinishReason;
+              finishReason =
+                choice.finish_reason as LanguageModelV2FinishReason;
             }
           },
 
           flush(controller) {
             if (activeText) {
-              controller.enqueue({ type: 'text-end', id: '0' });
+              controller.enqueue({ type: "text-end", id: "0" });
             }
 
             controller.enqueue({
-              type: 'finish',
+              type: "finish",
               finishReason,
               usage,
             });

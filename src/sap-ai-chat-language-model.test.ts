@@ -1,7 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import type {
-  LanguageModelV2Prompt,
-} from "@ai-sdk/provider";
+import type { LanguageModelV2Prompt } from "@ai-sdk/provider";
 import { SAPAIChatLanguageModel } from "./sap-ai-chat-language-model";
 
 const mockFetch = vi.fn();
@@ -16,7 +14,8 @@ describe("SAPAIChatLanguageModel", () => {
       {},
       {
         provider: "sap-ai",
-        baseURL: "https://api.ai.test.com/v2/inference/deployments/test-deployment/completion",
+        baseURL:
+          "https://api.ai.test.com/v2/inference/deployments/test-deployment/completion",
         headers: () => ({
           Authorization: "Bearer test-token",
           "Content-Type": "application/json",
@@ -37,11 +36,15 @@ describe("SAPAIChatLanguageModel", () => {
 
   describe("supportsUrl", () => {
     it("should support https URLs", () => {
-      expect(model.supportsUrl(new URL("https://example.com/image.jpg"))).toBe(true);
+      expect(model.supportsUrl(new URL("https://example.com/image.jpg"))).toBe(
+        true,
+      );
     });
 
     it("should not support http URLs", () => {
-      expect(model.supportsUrl(new URL("http://example.com/image.jpg"))).toBe(false);
+      expect(model.supportsUrl(new URL("http://example.com/image.jpg"))).toBe(
+        false,
+      );
     });
   });
 
@@ -76,28 +79,29 @@ describe("SAPAIChatLanguageModel", () => {
             templating: [],
           },
         }),
-        text: async () => JSON.stringify({
-          request_id: "test-request-id",
-          module_results: {
-            llm: {
-              choices: [
-                {
-                  message: {
-                    role: "assistant",
-                    content: "Hello, world!",
+        text: async () =>
+          JSON.stringify({
+            request_id: "test-request-id",
+            module_results: {
+              llm: {
+                choices: [
+                  {
+                    message: {
+                      role: "assistant",
+                      content: "Hello, world!",
+                    },
+                    finish_reason: "stop",
                   },
-                  finish_reason: "stop",
+                ],
+                usage: {
+                  prompt_tokens: 10,
+                  completion_tokens: 20,
+                  total_tokens: 30,
                 },
-              ],
-              usage: {
-                prompt_tokens: 10,
-                completion_tokens: 20,
-                total_tokens: 30,
               },
+              templating: [],
             },
-            templating: [],
-          },
-        }),
+          }),
         arrayBuffer: async () => new ArrayBuffer(0),
         blob: async () => new Blob(),
         formData: async () => new FormData(),
@@ -121,9 +125,7 @@ describe("SAPAIChatLanguageModel", () => {
         prompt,
       });
 
-      expect(result.content).toEqual([
-        { type: "text", text: "Hello, world!" },
-      ]);
+      expect(result.content).toEqual([{ type: "text", text: "Hello, world!" }]);
       expect(result.finishReason).toBe("stop");
       expect(result.usage).toEqual({
         inputTokens: 10,
@@ -162,28 +164,29 @@ describe("SAPAIChatLanguageModel", () => {
             templating: [],
           },
         }),
-        text: async () => JSON.stringify({
-          request_id: "test-request-id",
-          module_results: {
-            llm: {
-              choices: [
-                {
-                  message: {
-                    role: "assistant",
-                    content: '{"content": "Parsed JSON content"}',
+        text: async () =>
+          JSON.stringify({
+            request_id: "test-request-id",
+            module_results: {
+              llm: {
+                choices: [
+                  {
+                    message: {
+                      role: "assistant",
+                      content: '{"content": "Parsed JSON content"}',
+                    },
+                    finish_reason: "stop",
                   },
-                  finish_reason: "stop",
+                ],
+                usage: {
+                  prompt_tokens: 5,
+                  completion_tokens: 10,
+                  total_tokens: 15,
                 },
-              ],
-              usage: {
-                prompt_tokens: 5,
-                completion_tokens: 10,
-                total_tokens: 15,
               },
+              templating: [],
             },
-            templating: [],
-          },
-        }),
+          }),
         arrayBuffer: async () => new ArrayBuffer(0),
         blob: async () => new Blob(),
         formData: async () => new FormData(),
@@ -252,38 +255,39 @@ describe("SAPAIChatLanguageModel", () => {
             templating: [],
           },
         }),
-        text: async () => JSON.stringify({
-          request_id: "test-request-id",
-          module_results: {
-            llm: {
-              choices: [
-                {
-                  message: {
-                    role: "assistant",
-                    content: null,
-                    tool_calls: [
-                      {
-                        id: "tool-call-1",
-                        type: "function",
-                        function: {
-                          name: "get_weather",
-                          arguments: '{"location": "New York"}',
+        text: async () =>
+          JSON.stringify({
+            request_id: "test-request-id",
+            module_results: {
+              llm: {
+                choices: [
+                  {
+                    message: {
+                      role: "assistant",
+                      content: null,
+                      tool_calls: [
+                        {
+                          id: "tool-call-1",
+                          type: "function",
+                          function: {
+                            name: "get_weather",
+                            arguments: '{"location": "New York"}',
+                          },
                         },
-                      },
-                    ],
+                      ],
+                    },
+                    finish_reason: "tool_calls",
                   },
-                  finish_reason: "tool_calls",
+                ],
+                usage: {
+                  prompt_tokens: 15,
+                  completion_tokens: 25,
+                  total_tokens: 40,
                 },
-              ],
-              usage: {
-                prompt_tokens: 15,
-                completion_tokens: 25,
-                total_tokens: 40,
               },
+              templating: [],
             },
-            templating: [],
-          },
-        }),
+          }),
         arrayBuffer: async () => new ArrayBuffer(0),
         blob: async () => new Blob(),
         formData: async () => new FormData(),
@@ -300,7 +304,10 @@ describe("SAPAIChatLanguageModel", () => {
       mockFetch.mockResolvedValueOnce(mockResponse);
 
       const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "What's the weather like?" }] },
+        {
+          role: "user",
+          content: [{ type: "text", text: "What's the weather like?" }],
+        },
       ];
 
       const result = await model.doGenerate({
@@ -387,9 +394,10 @@ describe("SAPAIChatLanguageModel", () => {
         status: 400,
         statusText: "Bad Request",
         headers: new Headers([["content-type", "application/json"]]),
-        text: async () => JSON.stringify({
-          error: "Invalid request",
-        }),
+        text: async () =>
+          JSON.stringify({
+            error: "Invalid request",
+          }),
         json: async () => ({ error: "Invalid request" }),
         arrayBuffer: async () => new ArrayBuffer(0),
         blob: async () => new Blob(),
@@ -481,28 +489,29 @@ describe("SAPAIChatLanguageModel", () => {
             templating: [],
           },
         }),
-        text: async () => JSON.stringify({
-          request_id: "test-request-id",
-          module_results: {
-            llm: {
-              choices: [
-                {
-                  message: {
-                    role: "assistant",
-                    content: "Test response",
+        text: async () =>
+          JSON.stringify({
+            request_id: "test-request-id",
+            module_results: {
+              llm: {
+                choices: [
+                  {
+                    message: {
+                      role: "assistant",
+                      content: "Test response",
+                    },
+                    finish_reason: "stop",
                   },
-                  finish_reason: "stop",
+                ],
+                usage: {
+                  prompt_tokens: 5,
+                  completion_tokens: 10,
+                  total_tokens: 15,
                 },
-              ],
-              usage: {
-                prompt_tokens: 5,
-                completion_tokens: 10,
-                total_tokens: 15,
               },
+              templating: [],
             },
-            templating: [],
-          },
-        }),
+          }),
         arrayBuffer: async () => new ArrayBuffer(0),
         blob: async () => new Blob(),
         formData: async () => new FormData(),
@@ -542,9 +551,15 @@ describe("SAPAIChatLanguageModel", () => {
       const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(requestBody).toHaveProperty("orchestration_config");
       expect(requestBody.orchestration_config).toHaveProperty("stream", false);
-      expect(requestBody.orchestration_config).toHaveProperty("module_configurations");
-      expect(requestBody.orchestration_config.module_configurations).toHaveProperty("llm_module_config");
-      expect(requestBody.orchestration_config.module_configurations).toHaveProperty("templating_module_config");
+      expect(requestBody.orchestration_config).toHaveProperty(
+        "module_configurations",
+      );
+      expect(
+        requestBody.orchestration_config.module_configurations,
+      ).toHaveProperty("llm_module_config");
+      expect(
+        requestBody.orchestration_config.module_configurations,
+      ).toHaveProperty("templating_module_config");
     });
   });
 });

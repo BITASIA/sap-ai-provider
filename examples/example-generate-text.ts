@@ -37,10 +37,7 @@ import "dotenv/config";
   // HarmonizedAPI example
   console.log("Testing harmonizedAPI");
   console.log("--------------------------------");
-  const multipleAI = [
-    "gemini-2.0-flash",
-    "anthropic--claude-4-sonnet",
-  ];
+  const multipleAI = ["gemini-2.0-flash", "anthropic--claude-4-sonnet"];
   for (const model of multipleAI) {
     console.log("--------------------------------");
     console.log("Testing", model);

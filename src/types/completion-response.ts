@@ -109,15 +109,17 @@ export const sapAIStreamResponseSchema = z.object({
     llm: sapAIStreamLLMResultSchema.optional(),
     templating: z.array(sapAITemplatingMessageSchema).optional(),
   }),
-  orchestration_result: z.object({
-    id: z.string().optional(),
-    object: z.string().optional(),
-    created: z.number().optional(),
-    model: z.string().optional(),
-    system_fingerprint: z.string().optional(),
-    choices: z.array(sapAIStreamChoiceSchema).optional(),
-    usage: sapAIUsageSchema.optional(),
-  }).optional(),
+  orchestration_result: z
+    .object({
+      id: z.string().optional(),
+      object: z.string().optional(),
+      created: z.number().optional(),
+      model: z.string().optional(),
+      system_fingerprint: z.string().optional(),
+      choices: z.array(sapAIStreamChoiceSchema).optional(),
+      usage: sapAIUsageSchema.optional(),
+    })
+    .optional(),
 });
 
 export type SAPAIResponse = z.infer<typeof sapAIResponseSchema>;
