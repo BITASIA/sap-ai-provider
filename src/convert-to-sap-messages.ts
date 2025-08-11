@@ -3,16 +3,17 @@ import {
   UnsupportedFunctionalityError,
 } from "@ai-sdk/provider";
 import { convertUint8ArrayToBase64 } from "@ai-sdk/provider-utils";
+import { partial } from "zod/v4/core/util";
 
 type SAPMessageContent =
   | string
   | Array<{
-      type: "text" | "image_url";
-      text?: string;
-      image_url?: {
-        url: string;
-      };
-    }>;
+    type: "text" | "image_url";
+    text?: string;
+    image_url?: {
+      url: string;
+    };
+  }>;
 
 type SAPMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -60,35 +61,14 @@ export function convertToSAPMessages(
               break;
             }
             case "file": {
-              // Convert image to base64 data URL or use URL directly
-              let imageUrl: string;
-
-              if (part.data instanceof URL) {
-                imageUrl = part.data.toString();
-              } else {
-                // Handle all other cases (string, Uint8Array, Buffer, ArrayBuffer)
-                let base64Data: string;
-
-                if (typeof part.data === "string") {
-                  // Already a base64 string or data URL
-                  if ((part.data as string).startsWith("data:")) {
-                    imageUrl = part.data as string;
-                  } else {
-                    base64Data = part.data as string;
-                    imageUrl = `data:${part.mediaType ?? "image/jpeg"};base64,${base64Data}`;
-                  }
-                } else {
-                  // Binary data - convert to Uint8Array first, then to base64
-                  let uint8Array: Uint8Array;
-                  if (part.data instanceof ArrayBuffer) {
-                    uint8Array = new Uint8Array(part.data);
-                  } else {
-                    uint8Array = part.data as Uint8Array;
-                  }
-                  base64Data = convertUint8ArrayToBase64(uint8Array);
-                  imageUrl = `data:${part.mediaType ?? "image/jpeg"};base64,${base64Data}`;
-                }
+              // Convert image to base64 data URL or use URL directly, SAP AI Core only supports image files
+              if (part.mediaType !== "image/") {
+                throw new UnsupportedFunctionalityError({
+                  functionality: "Only image files are supported",
+                });
               }
+
+              const imageUrl = part.data instanceof URL ? part.data.toString() : `data:${part.mediaType};base64,${part.data}`;
 
               // Use SAP AI Core's exact format
               contentParts.push({
