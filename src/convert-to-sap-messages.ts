@@ -2,8 +2,6 @@ import {
   LanguageModelV2Prompt,
   UnsupportedFunctionalityError,
 } from "@ai-sdk/provider";
-import { convertUint8ArrayToBase64 } from "@ai-sdk/provider-utils";
-import { partial } from "zod/v4/core/util";
 
 type SAPMessageContent =
   | string
@@ -150,12 +148,6 @@ export function convertToSAPMessages(
             });
           }
         }
-
-        // Create a tool response message that SAP AI Core expects
-        // messages.push({
-        //   role: 'assistant',
-        //   content: `Tool call ${toolResult.toolCallId} completed successfully. Result: ${JSON.stringify(toolResult.result)}`,
-        // });
         break;
       }
 
