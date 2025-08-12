@@ -268,6 +268,28 @@ The SAP AI provider uses deployment IDs and resource groups to manage model depl
 - Used for resource isolation and access control
 - Set via `resourceGroup` option or `SAP_AI_RESOURCE_GROUP` environment variable
 
+#### Production Environments with xsenv
+
+In production environments like SAP BTP, you can use the `xsenv` package to automatically load service credentials:
+
+```typescript
+import xsenv from "@sap/xsenv";
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+
+// Automatically load service credentials from VCAP_SERVICES
+const services = xsenv.getServices({
+  aicore: { label: "aicore" }
+});
+
+const aiCoreServiceKey = services.aicore;
+
+const provider = await createSAPAIProvider({
+  serviceKey = aiCoreServiceKey;
+});
+```
+
+> **Note**: Install `@sap/xsenv` via `npm install @sap/xsenv` before using this method.
+
 Example with custom deployment:
 
 ```typescript
