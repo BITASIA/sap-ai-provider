@@ -173,6 +173,22 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     return { args, warnings };
   }
 
+  private extractAvailableTools(options: LanguageModelV2CallOptions) {
+    return options.tools as
+      | Array<LanguageModelV2FunctionTool | LanguageModelV2ProviderDefinedTool>
+      | undefined;
+  }
+
+  private getModelCapabilities() {
+    return {
+      supportsStructuredOutputs:
+        !this.modelId.startsWith(MODEL_PREFIXES.ANTHROPIC) &&
+        !this.modelId.startsWith(MODEL_PREFIXES.CLAUDE) &&
+        !this.modelId.startsWith(MODEL_PREFIXES.AMAZON),
+      supportsN: !this.modelId.startsWith(MODEL_PREFIXES.AMAZON),
+    };
+  }
+
   async doGenerate(options: LanguageModelV2CallOptions): Promise<{
     content: LanguageModelV2Content[];
     finishReason: LanguageModelV2FinishReason;
