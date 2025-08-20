@@ -3,27 +3,105 @@ import {
   UnsupportedFunctionalityError,
 } from "@ai-sdk/provider";
 
+/**
+ * Content types supported by SAP AI Core messages.
+ * Can be either a simple text string or an array of structured content parts
+ * for multi-modal interactions (text + images).
+ */
 type SAPMessageContent =
   | string
   | Array<{
+      /** Type of content part */
       type: "text" | "image_url";
+      /** Text content (for text type) */
       text?: string;
+      /** Image URL configuration (for image_url type) */
       image_url?: {
+        /** URL of the image (data URL or HTTP URL) */
         url: string;
       };
     }>;
 
+/**
+ * Message format expected by SAP AI Core API.
+ * This represents a single message in a conversation thread.
+ */
 type SAPMessage = {
+  /** Message role indicating the sender */
   role: "system" | "user" | "assistant" | "tool";
+  /** Message content (text or multi-modal) */
   content: SAPMessageContent | string;
+  /** Tool calls made by the assistant (for function calling) */
   tool_calls?: Array<{
+    /** Unique identifier for the tool call */
     id: string;
+    /** Type of tool call (currently only "function" is supported) */
     type: "function";
-    function: { name: string; arguments: string };
+    /** Function call details */
+    function: { 
+      /** Name of the function to call */
+      name: string; 
+      /** JSON string of function arguments */
+      arguments: string 
+    };
   }>;
+  /** ID linking tool result to original tool call */
   tool_call_id?: string;
 };
 
+/**
+ * Converts Vercel AI SDK prompt format to SAP AI Core message format.
+ * 
+ * This function transforms the standardized LanguageModelV2Prompt format
+ * used by the Vercel AI SDK into the specific message format expected
+ * by SAP AI Core's completion API.
+ * 
+ * **Supported Features:**
+ * - Text messages (system, user, assistant)
+ * - Multi-modal messages (text + images)
+ * - Tool calls and tool results
+ * - Conversation history
+ * 
+ * **Limitations:**
+ * - Images must be in data URL format or accessible HTTP URLs
+ * - Audio messages are not supported
+ * - File attachments are not supported
+ * 
+ * @param prompt - The Vercel AI SDK prompt to convert
+ * @returns Array of SAP AI Core compatible messages
+ * 
+ * @throws {UnsupportedFunctionalityError} When unsupported message types are encountered
+ * 
+ * @example
+ * ```typescript
+ * const prompt = [
+ *   { role: 'system', content: 'You are a helpful assistant.' },
+ *   { role: 'user', content: 'Hello!' }
+ * ];
+ * 
+ * const sapMessages = convertToSAPMessages(prompt);
+ * // Result: [
+ * //   { role: 'system', content: 'You are a helpful assistant.' },
+ * //   { role: 'user', content: 'Hello!' }
+ * // ]
+ * ```
+ * 
+ * @example
+ * **Multi-modal with Image**
+ * ```typescript
+ * const prompt = [
+ *   { 
+ *     role: 'user', 
+ *     content: [
+ *       { type: 'text', text: 'What do you see in this image?' },
+ *       { type: 'image', image: new URL('data:image/jpeg;base64,...') }
+ *     ]
+ *   }
+ * ];
+ * 
+ * const sapMessages = convertToSAPMessages(prompt);
+ * ```
+ */
 export function convertToSAPMessages(
   prompt: LanguageModelV2Prompt,
 ): SAPMessage[] {
