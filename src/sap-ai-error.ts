@@ -1,5 +1,6 @@
 import { createJsonErrorResponseHandler } from "@ai-sdk/provider-utils";
 import { z } from "zod";
+import { HTTP_STATUS_CODES, ERROR_NAME } from "./constants";
 
 /**
  * Schema for SAP AI Core error responses.
@@ -81,7 +82,7 @@ export class SAPAIError extends Error {
     public readonly response?: Response,
   ) {
     super(message);
-    this.name = "SAPAIError";
+    this.name = ERROR_NAME;
 
     if (data) {
       this.code = data.code;
@@ -110,14 +111,14 @@ export const sapAIFailedResponseHandler: any = createJsonErrorResponseHandler({
       "An error occurred during the SAP AI Core request."
     );
   },
-  isRetryable: (response: Response, error?: unknown) => {
+  isRetryable: (response: Response, _error?: unknown) => {
     const status = response.status;
     return (
-      status === 429 ||
-      status === 500 ||
-      status === 502 ||
-      status === 503 ||
-      status === 504
+      status === HTTP_STATUS_CODES.TOO_MANY_REQUESTS ||
+      status === HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR ||
+      status === HTTP_STATUS_CODES.BAD_GATEWAY ||
+      status === HTTP_STATUS_CODES.SERVICE_UNAVAILABLE ||
+      status === HTTP_STATUS_CODES.GATEWAY_TIMEOUT
     );
   },
 });

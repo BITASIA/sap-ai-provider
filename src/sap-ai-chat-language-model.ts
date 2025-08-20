@@ -25,6 +25,13 @@ import {
   sapAIResponseSchema,
   sapAIStreamResponseSchema,
 } from "./types/completion-response";
+import {
+  DEFAULT_MODEL_VERSION,
+  DEFAULT_TEMPERATURE,
+  DEFAULT_MAX_TOKENS,
+  MODEL_PREFIXES,
+  MILLISECONDS_PER_SECOND,
+} from "./constants";
 
 type SAPAIConfig = {
   provider: string;
@@ -83,11 +90,11 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
     // Check if model supports structured outputs (OpenAI and Gemini models do, Anthropic doesn't)
     const supportsStructuredOutputs =
-      !this.modelId.startsWith("anthropic--") &&
-      !this.modelId.startsWith("claude-") &&
-      !this.modelId.startsWith("amazon--");
+      !this.modelId.startsWith(MODEL_PREFIXES.ANTHROPIC) &&
+      !this.modelId.startsWith(MODEL_PREFIXES.CLAUDE) &&
+      !this.modelId.startsWith(MODEL_PREFIXES.AMAZON);
 
-    const supportsN = !this.modelId.startsWith("amazon--");
+    const supportsN = !this.modelId.startsWith(MODEL_PREFIXES.AMAZON);
 
     const templatingConfig: any = {
       template: convertToSAPMessages(options.prompt),
@@ -95,7 +102,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       tools: availableTools
         ?.map((tool) => {
           if (tool.type === "function") {
-            let parameters = tool.inputSchema;
+            const parameters = tool.inputSchema;
             return {
               type: tool.type,
               function: {
@@ -146,10 +153,12 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         module_configurations: {
           llm_module_config: {
             model_name: this.modelId,
-            model_version: this.settings.modelVersion ?? "latest",
+            model_version: this.settings.modelVersion ?? DEFAULT_MODEL_VERSION,
             model_params: {
-              temperature: this.settings.modelParams?.temperature ?? 0.7,
-              max_tokens: this.settings.modelParams?.maxTokens ?? 1000,
+              temperature:
+                this.settings.modelParams?.temperature ?? DEFAULT_TEMPERATURE,
+              max_tokens:
+                this.settings.modelParams?.maxTokens ?? DEFAULT_MAX_TOKENS,
               top_p: this.settings.modelParams?.topP,
               frequency_penalty: this.settings.modelParams?.frequencyPenalty,
               presence_penalty: this.settings.modelParams?.presencePenalty,
@@ -247,7 +256,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     const { args, warnings } = this.getArgs(options, true);
     const body = args;
 
-    const { responseHeaders, value: response } = await postJsonToApi({
+    const { value: response } = await postJsonToApi({
       url: this.config.baseURL,
       headers: combineHeaders(this.config.headers(), options.headers),
       body,
@@ -301,7 +310,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 id: llmResult.id ?? undefined,
                 modelId: llmResult.model ?? undefined,
                 timestamp: llmResult.created
-                  ? new Date(llmResult.created * 1000)
+                  ? new Date(llmResult.created * MILLISECONDS_PER_SECOND)
                   : undefined,
               });
             }
