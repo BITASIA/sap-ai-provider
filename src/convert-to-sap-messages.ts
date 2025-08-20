@@ -24,6 +24,11 @@ type SAPMessage = {
   tool_call_id?: string;
 };
 
+/**
+ * Converts Vercel AI SDK prompt to SAP AI Core messages format
+ * @param prompt The prompt from Vercel AI SDK
+ * @returns Array of SAP AI Core compatible messages
+ */
 export function convertToSAPMessages(
   prompt: LanguageModelV2Prompt,
 ): SAPMessage[] {
@@ -32,125 +37,22 @@ export function convertToSAPMessages(
   for (const message of prompt) {
     switch (message.role) {
       case "system": {
-        messages.push({
-          role: "system",
-          content: message.content,
-        });
+        messages.push(convertSystemMessage(message.content));
         break;
       }
 
       case "user": {
-        // Use SAP AI Core's structured content format for user messages
-        const contentParts: Array<{
-          type: "text" | "image_url";
-          text?: string;
-          image_url?: {
-            url: string;
-          };
-        }> = [];
-
-        for (const part of message.content) {
-          switch (part.type) {
-            case "text": {
-              contentParts.push({
-                type: "text",
-                text: part.text,
-              });
-              break;
-            }
-            case "file": {
-              // Convert image to base64 data URL or use URL directly, SAP AI Core only supports image files
-              if (!part.mediaType.startsWith("image/")) {
-                throw new UnsupportedFunctionalityError({
-                  functionality: "Only image files are supported",
-                });
-              }
-
-              const imageUrl =
-                part.data instanceof URL
-                  ? part.data.toString()
-                  : `data:${part.mediaType};base64,${part.data}`;
-
-              // Use SAP AI Core's exact format
-              contentParts.push({
-                type: "image_url",
-                image_url: {
-                  url: imageUrl,
-                },
-              });
-              break;
-            }
-            default: {
-              throw new UnsupportedFunctionalityError({
-                functionality: `Content type ${(part as any).type}`,
-              });
-            }
-          }
-        }
-
-        // If only text content, use simple string format, otherwise use structured format
-        if (contentParts.length === 1 && contentParts[0].type === "text") {
-          messages.push({
-            role: "user",
-            content: contentParts[0].text!,
-          });
-        } else {
-          messages.push({
-            role: "user",
-            content: contentParts,
-          });
-        }
+        messages.push(convertUserMessage(message.content));
         break;
       }
 
       case "assistant": {
-        let text = "";
-        const toolCalls: Array<{
-          id: string;
-          type: "function";
-          function: { name: string; arguments: string };
-        }> = [];
-
-        for (const part of message.content) {
-          switch (part.type) {
-            case "text": {
-              text += part.text;
-              break;
-            }
-            case "tool-call": {
-              toolCalls.push({
-                id: part.toolCallId,
-                type: "function",
-                function: {
-                  name: part.toolName,
-                  arguments: JSON.stringify(part.input),
-                },
-              });
-              break;
-            }
-          }
-        }
-
-        messages.push({
-          role: "assistant",
-          content: text,
-          tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-        });
+        messages.push(convertAssistantMessage(message.content));
         break;
       }
 
       case "tool": {
-        // SAP AI Core expects tool responses to follow tool calls
-        // Convert tool results to a format that SAP AI Core can understand
-        for (const part of message.content) {
-          if (part.type === "tool-result") {
-            messages.push({
-              role: "tool",
-              tool_call_id: part.toolCallId,
-              content: JSON.stringify(part.output),
-            });
-          }
-        }
+        messages.push(...convertToolMessages(message.content));
         break;
       }
 
@@ -158,6 +60,133 @@ export function convertToSAPMessages(
         const _exhaustiveCheck: never = message;
         throw new Error(`Unsupported role: ${_exhaustiveCheck}`);
       }
+    }
+  }
+
+  return messages;
+}
+
+/**
+ * Converts system message to SAP format
+ */
+function convertSystemMessage(content: string): SAPMessage {
+  return {
+    role: "system",
+    content: content,
+  };
+}
+
+/**
+ * Converts user message with potential multi-modal content
+ */
+function convertUserMessage(content: any[]): SAPMessage {
+  const contentParts = content.map(convertContentPart);
+
+  // If only text content, use simple string format
+  if (contentParts.length === 1 && contentParts[0].type === "text") {
+    return {
+      role: "user",
+      content: contentParts[0].text!,
+    };
+  }
+
+  return {
+    role: "user",
+    content: contentParts,
+  };
+}
+
+/**
+ * Converts individual content part (text or image)
+ */
+function convertContentPart(part: any) {
+  switch (part.type) {
+    case "text": {
+      return {
+        type: "text",
+        text: part.text,
+      };
+    }
+    case "file": {
+      return convertFilePart(part);
+    }
+    default: {
+      throw new UnsupportedFunctionalityError({
+        functionality: `Content type ${part.type}`,
+      });
+    }
+  }
+}
+
+/**
+ * Converts file part (currently only images supported)
+ */
+function convertFilePart(part: any) {
+  if (!part.mediaType.startsWith("image/")) {
+    throw new UnsupportedFunctionalityError({
+      functionality: "Only image files are supported",
+    });
+  }
+
+  const imageUrl =
+    part.data instanceof URL
+      ? part.data.toString()
+      : `data:${part.mediaType};base64,${part.data}`;
+
+  return {
+    type: "image_url",
+    image_url: {
+      url: imageUrl,
+    },
+  };
+}
+
+/**
+ * Converts assistant message with potential tool calls
+ */
+function convertAssistantMessage(content: any[]): SAPMessage {
+  let text = "";
+  const toolCalls: Array<{
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+  }> = [];
+
+  for (const part of content) {
+    if (part.type === "text") {
+      text += part.text;
+    } else if (part.type === "tool-call") {
+      toolCalls.push({
+        id: part.toolCallId,
+        type: "function",
+        function: {
+          name: part.toolName,
+          arguments: JSON.stringify(part.input),
+        },
+      });
+    }
+  }
+
+  return {
+    role: "assistant",
+    content: text,
+    tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+  };
+}
+
+/**
+ * Converts tool result messages
+ */
+function convertToolMessages(content: any[]): SAPMessage[] {
+  const messages: SAPMessage[] = [];
+
+  for (const part of content) {
+    if (part.type === "tool-result") {
+      messages.push({
+        role: "tool",
+        tool_call_id: part.toolCallId,
+        content: JSON.stringify(part.output),
+      });
     }
   }
 
