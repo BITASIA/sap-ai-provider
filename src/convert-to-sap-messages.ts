@@ -38,11 +38,11 @@ type SAPMessage = {
     /** Type of tool call (currently only "function" is supported) */
     type: "function";
     /** Function call details */
-    function: { 
+    function: {
       /** Name of the function to call */
-      name: string; 
+      name: string;
       /** JSON string of function arguments */
-      arguments: string 
+      arguments: string;
     };
   }>;
   /** ID linking tool result to original tool call */
@@ -51,54 +51,54 @@ type SAPMessage = {
 
 /**
  * Converts Vercel AI SDK prompt format to SAP AI Core message format.
- * 
+ *
  * This function transforms the standardized LanguageModelV2Prompt format
  * used by the Vercel AI SDK into the specific message format expected
  * by SAP AI Core's completion API.
- * 
+ *
  * **Supported Features:**
  * - Text messages (system, user, assistant)
  * - Multi-modal messages (text + images)
  * - Tool calls and tool results
  * - Conversation history
- * 
+ *
  * **Limitations:**
  * - Images must be in data URL format or accessible HTTP URLs
  * - Audio messages are not supported
  * - File attachments are not supported
- * 
+ *
  * @param prompt - The Vercel AI SDK prompt to convert
  * @returns Array of SAP AI Core compatible messages
- * 
+ *
  * @throws {UnsupportedFunctionalityError} When unsupported message types are encountered
- * 
+ *
  * @example
  * ```typescript
  * const prompt = [
  *   { role: 'system', content: 'You are a helpful assistant.' },
  *   { role: 'user', content: 'Hello!' }
  * ];
- * 
+ *
  * const sapMessages = convertToSAPMessages(prompt);
  * // Result: [
  * //   { role: 'system', content: 'You are a helpful assistant.' },
  * //   { role: 'user', content: 'Hello!' }
  * // ]
  * ```
- * 
+ *
  * @example
  * **Multi-modal with Image**
  * ```typescript
  * const prompt = [
- *   { 
- *     role: 'user', 
+ *   {
+ *     role: 'user',
  *     content: [
  *       { type: 'text', text: 'What do you see in this image?' },
  *       { type: 'image', image: new URL('data:image/jpeg;base64,...') }
  *     ]
  *   }
  * ];
- * 
+ *
  * const sapMessages = convertToSAPMessages(prompt);
  * ```
  */

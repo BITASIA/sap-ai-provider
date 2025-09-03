@@ -5,11 +5,11 @@ import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
 
 /**
  * SAP AI Core Service Key interface.
- * 
+ *
  * This interface represents the service key structure provided by SAP BTP (Business Technology Platform)
  * when you create a service key for your SAP AI Core instance. You can copy this JSON directly
  * from your SAP BTP cockpit.
- * 
+ *
  * @example
  * ```typescript
  * const serviceKey: SAPAIServiceKey = {
@@ -49,16 +49,16 @@ export interface SAPAIServiceKey {
 
 /**
  * SAP AI Provider interface.
- * 
+ *
  * This is the main interface for creating and configuring SAP AI Core models.
  * It extends the standard Vercel AI SDK ProviderV2 interface with SAP-specific functionality.
- * 
+ *
  * @example
  * ```typescript
  * const provider = await createSAPAIProvider({
  *   serviceKey: process.env.SAP_AI_SERVICE_KEY
  * });
- * 
+ *
  * // Create a model instance
  * const model = provider('gpt-4o', {
  *   modelParams: {
@@ -66,7 +66,7 @@ export interface SAPAIServiceKey {
  *     maxTokens: 1000
  *   }
  * });
- * 
+ *
  * // Or use the explicit chat method
  * const chatModel = provider.chat('gpt-4o');
  * ```
@@ -74,7 +74,7 @@ export interface SAPAIServiceKey {
 export interface SAPAIProvider extends ProviderV2 {
   /**
    * Create a language model instance.
-   * 
+   *
    * @param modelId - The SAP AI Core model identifier (e.g., 'gpt-4o', 'claude-3-sonnet')
    * @param settings - Optional model configuration settings
    * @returns Configured SAP AI chat language model instance
@@ -83,10 +83,10 @@ export interface SAPAIProvider extends ProviderV2 {
 
   /**
    * Explicit method for creating chat models.
-   * 
+   *
    * This method is equivalent to calling the provider function directly,
    * but provides a more explicit API for chat-based interactions.
-   * 
+   *
    * @param modelId - The SAP AI Core model identifier
    * @param settings - Optional model configuration settings
    * @returns Configured SAP AI chat language model instance
@@ -96,11 +96,11 @@ export interface SAPAIProvider extends ProviderV2 {
 
 /**
  * Configuration settings for the SAP AI Provider.
- * 
+ *
  * This interface defines all available options for configuring the SAP AI Core connection,
  * authentication, and deployment settings. You can use either a service key (recommended)
  * or direct token authentication.
- * 
+ *
  * @example
  * ```typescript
  * // Using service key (recommended)
@@ -109,7 +109,7 @@ export interface SAPAIProvider extends ProviderV2 {
  *   deploymentId: 'my-deployment-id',
  *   resourceGroup: 'production'
  * });
- * 
+ *
  * // Using direct token
  * const provider = await createSAPAIProvider({
  *   token: process.env.SAP_AI_TOKEN,
@@ -120,16 +120,16 @@ export interface SAPAIProvider extends ProviderV2 {
 export interface SAPAIProviderSettings {
   /**
    * SAP AI Core service key (JSON string or parsed object).
-   * 
+   *
    * This is what you get from SAP BTP when creating a service key.
    * You can copy/paste the entire JSON object or string here.
    * When provided, OAuth2 authentication will be handled automatically.
-   * 
+   *
    * @example
    * ```typescript
    * // As JSON string
    * serviceKey: '{"serviceurls":{"AI_API_URL":"https://..."},...}'
-   * 
+   *
    * // As parsed object
    * serviceKey: {
    *   serviceurls: { AI_API_URL: "https://..." },
@@ -142,10 +142,10 @@ export interface SAPAIProviderSettings {
 
   /**
    * Direct access token for SAP AI Core API.
-   * 
+   *
    * Alternative to serviceKey for advanced users who want to handle
    * authentication themselves. This should be a valid Bearer token.
-   * 
+   *
    * @example
    * ```typescript
    * token: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...'
@@ -155,11 +155,11 @@ export interface SAPAIProviderSettings {
 
   /**
    * SAP AI Core deployment ID.
-   * 
+   *
    * A unique identifier for your model deployment in SAP AI Core.
    * You can find this in your SAP AI Core deployment details.
    * Each deployment represents a specific model configuration.
-   * 
+   *
    * @default 'd65d81e7c077e583'
    * @example
    * ```typescript
@@ -171,11 +171,11 @@ export interface SAPAIProviderSettings {
 
   /**
    * SAP AI Core resource group.
-   * 
+   *
    * Logical grouping of AI resources in SAP AI Core.
    * Used for resource isolation and access control.
    * Different resource groups can have different permissions and quotas.
-   * 
+   *
    * @default 'default'
    * @example
    * ```typescript
@@ -188,12 +188,12 @@ export interface SAPAIProviderSettings {
 
   /**
    * Custom base URL for SAP AI Core API calls.
-   * 
+   *
    * Override the default API endpoint. Useful for:
    * - Different SAP AI Core regions
    * - Custom proxy configurations
    * - Development/testing environments
-   * 
+   *
    * @example
    * ```typescript
    * baseURL: 'https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com/v2'
@@ -204,9 +204,9 @@ export interface SAPAIProviderSettings {
 
   /**
    * Custom HTTP headers to include in all requests.
-   * 
+   *
    * Useful for adding custom authentication, tracking, or proxy headers.
-   * 
+   *
    * @example
    * ```typescript
    * headers: {
@@ -219,14 +219,14 @@ export interface SAPAIProviderSettings {
 
   /**
    * Custom fetch implementation.
-   * 
+   *
    * Override the default fetch function for custom networking behavior,
    * such as adding retries, custom timeouts, or proxy configurations.
-   * 
+   *
    * @example
    * ```typescript
    * import { fetch } from 'undici';
-   * 
+   *
    * fetch: fetch  // Use undici instead of global fetch
    * ```
    */
@@ -235,19 +235,19 @@ export interface SAPAIProviderSettings {
 
 /**
  * Obtains an OAuth2 access token from SAP AI Core using client credentials flow.
- * 
+ *
  * This function handles the OAuth2 authentication process with SAP AI Core.
  * It uses the client credentials from the service key to obtain a Bearer token
  * that can be used for subsequent API calls.
- * 
+ *
  * @param serviceKey - SAP AI Core service key containing OAuth2 credentials
  * @param customFetch - Optional custom fetch implementation
  * @returns Promise that resolves to an access token string
- * 
+ *
  * @throws {Error} When OAuth2 authentication fails
- * 
+ *
  * @internal This function is used internally by createSAPAIProvider
- * 
+ *
  * @example
  * ```typescript
  * const token = await getOAuthToken(serviceKey);
@@ -286,44 +286,44 @@ async function getOAuthToken(
 
 /**
  * Creates a SAP AI Core provider instance for use with Vercel AI SDK.
- * 
+ *
  * This is the main entry point for integrating SAP AI Core with the Vercel AI SDK.
  * It handles authentication, configuration, and provides a standardized interface
  * for accessing SAP AI Core models.
- * 
+ *
  * **Authentication Methods:**
  * 1. **Service Key (Recommended)**: Provide the JSON service key from SAP BTP
  * 2. **Direct Token**: Provide a valid OAuth2 access token
  * 3. **Environment Variables**: Use SAP_AI_SERVICE_KEY or SAP_AI_TOKEN
- * 
+ *
  * **Key Features:**
  * - Automatic OAuth2 token management
  * - Support for all SAP AI Core model types
  * - Built-in error handling and retries
  * - Type-safe configuration
  * - Compatible with Vercel AI SDK patterns
- * 
+ *
  * @param options - Configuration options for the provider
  * @returns Promise that resolves to a configured SAP AI provider
- * 
+ *
  * @throws {Error} When authentication fails or configuration is invalid
- * 
+ *
  * @example
  * **Basic Usage with Service Key**
  * ```typescript
  * import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
  * import { generateText } from 'ai';
- * 
+ *
  * const provider = await createSAPAIProvider({
  *   serviceKey: process.env.SAP_AI_SERVICE_KEY
  * });
- * 
+ *
  * const result = await generateText({
  *   model: provider('gpt-4o'),
  *   prompt: 'Hello, world!'
  * });
  * ```
- * 
+ *
  * @example
  * **Advanced Configuration**
  * ```typescript
@@ -335,7 +335,7 @@ async function getOAuthToken(
  *     'X-Custom-Header': 'value'
  *   }
  * });
- * 
+ *
  * // Use with specific model settings
  * const model = provider('gpt-4o', {
  *   modelParams: {
@@ -344,7 +344,7 @@ async function getOAuthToken(
  *   }
  * });
  * ```
- * 
+ *
  * @example
  * **With Custom Deployment**
  * ```typescript
@@ -354,7 +354,7 @@ async function getOAuthToken(
  *   baseURL: 'https://api.ai.prod.us-east-1.aws.ml.hana.ondemand.com/v2'
  * });
  * ```
- * 
+ *
  * @example
  * **Error Handling**
  * ```typescript
