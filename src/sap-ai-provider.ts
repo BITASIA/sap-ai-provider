@@ -231,6 +231,12 @@ export interface SAPAIProviderSettings {
    * ```
    */
   fetch?: typeof fetch;
+
+  /**
+   * Default model settings applied to every model instance created by this provider.
+   * Per-call settings provided to the model will override these.
+   */
+  defaultSettings?: SAPAISettings;
 }
 
 /**
@@ -420,7 +426,16 @@ export async function createSAPAIProvider(
 
   // Create the model factory function
   const createModel = (modelId: SAPAIModelId, settings: SAPAISettings = {}) => {
-    return new SAPAIChatLanguageModel(modelId, settings, {
+    const mergedSettings: SAPAISettings = {
+      ...options.defaultSettings,
+      ...settings,
+      modelParams: {
+        ...(options.defaultSettings?.modelParams ?? {}),
+        ...(settings.modelParams ?? {}),
+      },
+    };
+
+    return new SAPAIChatLanguageModel(modelId, mergedSettings, {
       provider: "sap-ai",
       baseURL: `${baseURL}/inference/deployments/${deploymentId}/completion`,
       headers: () => ({
@@ -464,7 +479,16 @@ export function createSAPAIProviderSync(
   const resourceGroup = options.resourceGroup ?? "default";
 
   const createModel = (modelId: SAPAIModelId, settings: SAPAISettings = {}) => {
-    return new SAPAIChatLanguageModel(modelId, settings, {
+    const mergedSettings: SAPAISettings = {
+      ...options.defaultSettings,
+      ...settings,
+      modelParams: {
+        ...(options.defaultSettings?.modelParams ?? {}),
+        ...(settings.modelParams ?? {}),
+      },
+    };
+
+    return new SAPAIChatLanguageModel(modelId, mergedSettings, {
       provider: "sap-ai",
       baseURL: `${baseURL}/inference/deployments/${deploymentId}/completion`,
       headers: () => ({

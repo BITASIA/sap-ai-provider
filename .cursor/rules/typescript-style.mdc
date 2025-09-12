@@ -1,0 +1,36 @@
+---
+globs: *.ts,*.tsx,*.mts,*.cts
+---
+# TypeScript Style Guide
+
+Follow these conventions across TypeScript sources to align with the existing configuration and code style.
+
+## Language and Types
+
+- Use strict typing (see [tsconfig.json](mdc:tsconfig.json)).
+- Prefer explicit function signatures for exported APIs.
+- Avoid `any`; model complex shapes with `zod` schemas where relevant.
+- Use meaningful, descriptive names. Avoid 1–2 character identifiers.
+- Prefer early returns and shallow control flow.
+
+## Modules and Imports
+
+- ESM modules by default (see `module` in [tsconfig.json](mdc:tsconfig.json)).
+- Keep public exports centralized in [src/index.ts](mdc:src/index.ts).
+
+## Errors and Handling
+
+- Do not swallow errors. Propagate or wrap with context via `SAPAIError` utilities when applicable (see [src/sap-ai-error.ts](mdc:src/sap-ai-error.ts)).
+- Only use `try/catch` where meaningful recovery or re-throw with context is performed.
+
+## Formatting and Linting
+
+- Respect [eslint.config.mjs](mdc:eslint.config.mjs) and Prettier (see `prettier-*` scripts in [package.json](mdc:package.json)).
+- Keep lines readable; prefer multi-line over dense one-liners.
+- Avoid inline explanatory comments; add brief comments above non-obvious logic.
+
+## Provider-specific Conventions
+
+- The provider function must not be invoked with `new` (explicitly guarded in [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)).
+- When adding model capabilities, ensure `SAPAIChatLanguageModel` maintains the `LanguageModelV2` contract (see [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)).
+

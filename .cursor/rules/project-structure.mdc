@@ -1,0 +1,50 @@
+---
+alwaysApply: true
+---
+# Project Structure Guide
+
+This repository provides an SAP AI Core provider compatible with the Vercel AI SDK. Use these anchors to navigate the codebase quickly.
+
+## Entry Points and Core Modules
+
+- Main package entry: [src/index.ts](mdc:src/index.ts)
+  - Re-exports provider factory and types.
+- Provider factory and default instance: [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)
+  - `createSAPAIProvider(options)` returns a function for model creation (async; handles OAuth when given a service key).
+  - `createSAPAIProviderSync(options)` for token-based sync usage.
+  - `sapai` default instance reads `SAP_AI_TOKEN` at call time.
+- Chat LLM implementation: [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)
+  - Implements Vercel AI SDK `LanguageModelV2` contract.
+  - Supports text, tool calls, streaming, structured outputs (varies by model family).
+- Message templating: [src/convert-to-sap-messages.ts](mdc:src/convert-to-sap-messages.ts)
+- Settings and model IDs: [src/sap-ai-chat-settings.ts](mdc:src/sap-ai-chat-settings.ts)
+- Error handling helpers: [src/sap-ai-error.ts](mdc:src/sap-ai-error.ts)
+- Types: [src/types/completion-response.ts](mdc:src/types/completion-response.ts), [src/types/completion-request.ts](mdc:src/types/completion-request.ts)
+
+## Build, Types, and Distribution
+
+- TypeScript config: [tsconfig.json](mdc:tsconfig.json)
+- Build config (CJS+ESM+DTS): [tsup.config.ts](mdc:tsup.config.ts)
+- ESLint config: [eslint.config.mjs](mdc:eslint.config.mjs)
+- Output: [dist/](mdc:dist/) produces `index.js`, `index.mjs`, `index.d.ts` with sourcemaps.
+- `package.json` exports are aligned for Node and ESM: [package.json](mdc:package.json)
+
+## Testing
+
+- Node environment tests: [vitest.node.config.js](mdc:vitest.node.config.js)
+- Edge runtime tests: [vitest.edge.config.js](mdc:vitest.edge.config.js)
+
+## Examples and Docs
+
+- README with usage and configuration: [README.md](mdc:README.md)
+- Examples: [examples/](mdc:examples/)
+  - Chat completion: [examples/example-simple-chat-completion.ts](mdc:examples/example-simple-chat-completion.ts)
+  - Tool calling: [examples/example-chat-completion-tool.ts](mdc:examples/example-chat-completion-tool.ts)
+  - Image recognition: [examples/example-image-recognition.ts](mdc:examples/example-image-recognition.ts)
+  - Text generation: [examples/example-generate-text.ts](mdc:examples/example-generate-text.ts)
+
+## Runtime Requirements
+
+- Node.js >= 18 (see `engines` in [package.json](mdc:package.json)).
+- Environment variables are used for credentials when no service key is provided.
+
