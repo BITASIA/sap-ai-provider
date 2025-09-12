@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 
 import { generateText } from "ai";
-import {
-  createSAPAIProvider,
-  type DpiConfig,
-} from "../src/index";
+import { createSAPAIProvider, type DpiConfig } from "../src/index";
 import "dotenv/config";
 
 (async () => {
@@ -21,8 +18,14 @@ import "dotenv/config";
     type: "sap_data_privacy_integration",
     method: "anonymization",
     entities: [
-      { type: "profile-email", replacement_strategy: { method: "fabricated_data" } },
-      { type: "profile-person", replacement_strategy: { method: "constant", value: "NAME_REDACTED" } },
+      {
+        type: "profile-email",
+        replacement_strategy: { method: "fabricated_data" },
+      },
+      {
+        type: "profile-person",
+        replacement_strategy: { method: "constant", value: "NAME_REDACTED" },
+      },
       {
         // Custom ID format, e.g., 1234-5678-901
         regex: "\\b[0-9]{4}-[0-9]{4}-[0-9]{3,5}\\b",
@@ -55,7 +58,7 @@ import "dotenv/config";
   });
 
   console.log("🤖 Response:", text);
-  console.log("\nNote: Personal data like names/emails/IDs should be masked by DPI before reaching the model, while 'SAP' is preserved due to the allowlist.");
+  console.log(
+    "\nNote: Personal data like names/emails/IDs should be masked by DPI before reaching the model, while 'SAP' is preserved due to the allowlist.",
+  );
 })();
-
-

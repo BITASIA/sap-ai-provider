@@ -670,7 +670,8 @@ describe("SAPAIChatLanguageModel", () => {
         requestBody.orchestration_config.module_configurations,
       ).toHaveProperty("masking_module_config");
       expect(
-        requestBody.orchestration_config.module_configurations.masking_module_config,
+        requestBody.orchestration_config.module_configurations
+          .masking_module_config,
       ).toEqual({
         masking_providers: [
           {
