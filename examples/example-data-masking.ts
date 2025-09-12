@@ -63,7 +63,9 @@ import "dotenv/config";
   );
 
   // Same prompt WITHOUT masking for comparison
-  console.log("\n---\n\n🧪 Running the same prompt WITHOUT data masking for comparison\n");
+  console.log(
+    "\n---\n\n🧪 Running the same prompt WITHOUT data masking for comparison\n",
+  );
   const providerNoMask = await createSAPAIProvider({ serviceKey });
   const modelNoMask = providerNoMask("gpt-4o");
   const { text: textNoMask } = await generateText({
@@ -79,7 +81,9 @@ import "dotenv/config";
   console.log("🤖 Response (no masking):", textNoMask);
 
   // Verbatim echo test to demonstrate masked input as seen by the LLM
-  console.log("\n---\n\n📎 Verbatim echo test (shows what the model actually receives)\n");
+  console.log(
+    "\n---\n\n📎 Verbatim echo test (shows what the model actually receives)\n",
+  );
   const original =
     "Please email Jane Doe (jane.doe@example.com) about order 1234-5678-901 and mention SAP.";
   const { text: echoMasked } = await generateText({
