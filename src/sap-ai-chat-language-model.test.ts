@@ -561,5 +561,128 @@ describe("SAPAIChatLanguageModel", () => {
         requestBody.orchestration_config.module_configurations,
       ).toHaveProperty("templating_module_config");
     });
+
+    it("should include masking module when masking settings are provided", async () => {
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers({
+          "content-type": "application/json",
+        }),
+        json: async () => ({
+          request_id: "test-request-id",
+          module_results: {
+            llm: {
+              choices: [
+                {
+                  message: {
+                    role: "assistant",
+                    content: "Test response",
+                  },
+                  finish_reason: "stop",
+                },
+              ],
+              usage: {
+                prompt_tokens: 5,
+                completion_tokens: 10,
+                total_tokens: 15,
+              },
+            },
+            templating: [],
+          },
+        }),
+        text: async () =>
+          JSON.stringify({
+            request_id: "test-request-id",
+            module_results: {
+              llm: {
+                choices: [
+                  {
+                    message: {
+                      role: "assistant",
+                      content: "Test response",
+                    },
+                    finish_reason: "stop",
+                  },
+                ],
+                usage: {
+                  prompt_tokens: 5,
+                  completion_tokens: 10,
+                  total_tokens: 15,
+                },
+              },
+              templating: [],
+            },
+          }),
+        arrayBuffer: async () => new ArrayBuffer(0),
+        blob: async () => new Blob(),
+        formData: async () => new FormData(),
+        clone: function () {
+          return this;
+        },
+        body: null,
+        bodyUsed: false,
+        redirected: false,
+        type: "basic" as ResponseType,
+        url: "",
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse);
+
+      // Recreate model with masking default in settings
+      model = new SAPAIChatLanguageModel(
+        "gpt-4o",
+        {
+          masking: {
+            masking_providers: [
+              {
+                type: "sap_data_privacy_integration",
+                method: "anonymization",
+                entities: [{ type: "profile-email" }],
+                allowlist: ["SAP"],
+                mask_grounding_input: { enabled: true },
+              },
+            ],
+          },
+        },
+        {
+          provider: "sap-ai",
+          baseURL:
+            "https://api.ai.test.com/v2/inference/deployments/test-deployment/completion",
+          headers: () => ({
+            Authorization: "Bearer test-token",
+            "Content-Type": "application/json",
+            "ai-resource-group": "default",
+          }),
+          fetch: mockFetch,
+        },
+      );
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Email me" }] },
+      ];
+
+      await model.doGenerate({ prompt });
+
+      const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(
+        requestBody.orchestration_config.module_configurations,
+      ).toHaveProperty("masking_module_config");
+      expect(
+        requestBody.orchestration_config.module_configurations
+          .masking_module_config,
+      ).toEqual({
+        masking_providers: [
+          {
+            type: "sap_data_privacy_integration",
+            method: "anonymization",
+            entities: [{ type: "profile-email" }],
+            allowlist: ["SAP"],
+            mask_grounding_input: { enabled: true },
+          },
+        ],
+      });
+    });
   });
 });

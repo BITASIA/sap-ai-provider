@@ -1,0 +1,30 @@
+---
+globs: **/*.test.ts,**/*.test.tsx
+---
+# Testing Guide (Vitest)
+
+## Test Environments
+
+- Node tests: [vitest.node.config.js](mdc:vitest.node.config.js)
+- Edge runtime tests: [vitest.edge.config.js](mdc:vitest.edge.config.js)
+
+Use Node environment for most unit tests. Use Edge runtime when covering streaming or runtime-specific behaviors.
+
+## Commands
+
+- Run all tests: `npm test`
+- Watch mode: `npm run test:watch`
+- Node only: `npm run test:node`
+- Edge only: `npm run test:edge`
+
+## Stubbing Network
+
+- Prefer injecting a custom `fetch` via provider settings for deterministic tests (see [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)).
+- For streaming flows, assert `LanguageModelV2StreamPart` events via the `doStream` pipeline (see [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)).
+
+## Test Patterns
+
+- Validate message templating: cover [src/convert-to-sap-messages.ts](mdc:src/convert-to-sap-messages.ts).
+- Validate error propagation using helpers in [src/sap-ai-error.ts](mdc:src/sap-ai-error.ts).
+- Assert structured output behavior varies by model family (Anthropic/Amazon do not support JSON schema formatting).
+

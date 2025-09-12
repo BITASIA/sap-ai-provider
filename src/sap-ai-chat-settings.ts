@@ -68,6 +68,13 @@ export interface SAPAISettings {
    * @default false
    */
   structuredOutputs?: boolean;
+
+  /**
+   * Masking configuration for SAP AI Core orchestration.
+   * When provided, sensitive information in prompts can be anonymized or
+   * pseudonymized by SAP Data Privacy Integration (DPI).
+   */
+  masking?: MaskingModuleConfig;
 }
 
 /**
@@ -115,3 +122,95 @@ export type SAPAIModelId =
   | "mistralai--pixtral-large-instruct"
   | "ibm--granite-13b-chat"
   | (string & {});
+
+/**
+ * Orchestration masking module configuration.
+ */
+export type MaskingModuleConfig = {
+  /**
+   * List of masking service providers. At least one is required.
+   */
+  masking_providers: MaskingProviderConfig[];
+};
+
+export type MaskingProviderConfig = DpiConfig;
+
+/**
+ * SAP Data Privacy Integration (DPI) masking provider configuration.
+ * Supports anonymization or pseudonymization with standard and custom entities.
+ */
+export type DpiConfig = {
+  /** Type of masking service provider */
+  type: "sap_data_privacy_integration";
+  /** Type of masking method to be used */
+  method: "anonymization" | "pseudonymization";
+  /** List of entities to be masked */
+  entities: DpiEntityConfig[];
+  /** List of strings that should not be masked */
+  allowlist?: string[];
+  /** Controls whether the input to the grounding module will be masked */
+  mask_grounding_input?: {
+    enabled?: boolean;
+  };
+};
+
+export type DpiEntityConfig = DPIStandardEntity | DPICustomEntity;
+
+export type DPIStandardEntity = {
+  type: DpiEntities;
+  /**
+   * Replacement strategy to be used for the entity
+   */
+  replacement_strategy?: DPIMethodConstant | DPIMethodFabricatedData;
+};
+export type DpiEntities =
+  | "profile-person"
+  | "profile-org"
+  | "profile-university"
+  | "profile-location"
+  | "profile-email"
+  | "profile-phone"
+  | "profile-address"
+  | "profile-sapids-internal"
+  | "profile-sapids-public"
+  | "profile-url"
+  | "profile-username-password"
+  | "profile-nationalid"
+  | "profile-iban"
+  | "profile-ssn"
+  | "profile-credit-card-number"
+  | "profile-passport"
+  | "profile-driverlicense"
+  | "profile-nationality"
+  | "profile-religious-group"
+  | "profile-political-group"
+  | "profile-pronouns-gender"
+  | "profile-ethnicity"
+  | "profile-gender"
+  | "profile-sexual-orientation"
+  | "profile-trade-union"
+  | "profile-sensitive-data";
+
+export type DPIMethodConstant = {
+  method: "constant";
+  /**
+   * Value to be used for replacement
+   * @example "NAME_REDACTED"
+   */
+  value: string;
+};
+
+export type DPIMethodFabricatedData = {
+  method: "fabricated_data";
+};
+
+export type DPICustomEntity = {
+  /**
+   * Regular expression to match the entity
+   */
+  regex: string;
+  /**
+   * Replacement strategy to be used for the entity
+   */
+  replacement_strategy: DPIMethodConstant;
+};

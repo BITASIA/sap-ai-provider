@@ -157,6 +157,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             },
           },
           templating_module_config: templatingConfig,
+          // Pass masking module configuration when provided
+          ...(this.settings.masking
+            ? { masking_module_config: this.settings.masking }
+            : {}),
         },
       },
     };

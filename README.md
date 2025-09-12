@@ -414,6 +414,55 @@ const result = await generateObject({
 console.log(result.object);
 ```
 
+### Data Masking (SAP Data Privacy Integration - DPI)
+
+Use SAP AI Core's native masking to anonymize or pseudonymize sensitive information before it reaches the model. You can configure it per-call or once at provider creation using `defaultSettings`.
+
+Provider-wide default (recommended):
+
+```typescript
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+
+const dpiMasking = {
+  type: "sap_data_privacy_integration",
+  method: "anonymization",
+  entities: [
+    { type: "profile-email", replacement_strategy: { method: "fabricated_data" } },
+    { type: "profile-person", replacement_strategy: { method: "constant", value: "NAME_REDACTED" } },
+    { regex: "\\\b[0-9]{4}-[0-9]{4}-[0-9]{3,5}\\\b", replacement_strategy: { method: "constant", value: "REDACTED_ID" } },
+  ],
+  allowlist: ["SAP"],
+  mask_grounding_input: { enabled: false },
+};
+
+const provider = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
+  defaultSettings: {
+    masking: { masking_providers: [dpiMasking] },
+  },
+});
+
+// All models from this provider will apply masking unless overridden
+const { text } = await generateText({
+  model: provider("gpt-4o"),
+  messages: [
+    {
+      role: "user",
+      content:
+        "Please email Jane Doe (jane.doe@example.com) about order 1234-5678-901 and mention SAP.",
+    },
+  ],
+});
+```
+
+Per-call masking (override provider default if needed):
+
+```typescript
+const model = provider("gpt-4o", {
+  masking: { masking_providers: [dpiMasking] },
+});
+```
+
 ## Configuration Options
 
 ### Provider Settings
@@ -425,6 +474,7 @@ interface SAPAIProviderSettings {
   baseURL?: string; // Custom base URL for API calls
   deploymentId?: string; // SAP AI Core deployment ID (default: 'd65d81e7c077e583')
   resourceGroup?: string; // SAP AI Core resource group (default: 'default')
+  defaultSettings?: SAPAISettings; // Defaults applied to all models (e.g., masking)
 }
 ```
 
@@ -493,6 +543,18 @@ interface SAPAISettings {
   };
   safePrompt?: boolean; // Enable safe prompt filtering
   structuredOutputs?: boolean; // Enable structured outputs
+  masking?: {
+    masking_providers: Array<{
+      type?: "sap_data_privacy_integration"; // DPI provider
+      method?: "anonymization" | "pseudonymization";
+      entities: Array<
+        | { type: string; replacement_strategy?: { method: "constant" | "fabricated_data"; value?: string } }
+        | { regex: string; replacement_strategy: { method: "constant"; value: string } }
+      >;
+      allowlist?: string[];
+      mask_grounding_input?: { enabled?: boolean };
+    }>;
+  };
 }
 ```
 
@@ -584,6 +646,7 @@ Check out the [examples directory](./examples) for complete working examples:
 - [Tool Calling](./examples/example-chat-completion-tool.ts)
 - [Image Recognition](./examples/example-image-recognition.ts)
 - [Text Generation](./examples/example-generate-text.ts)
+ - [Data Masking (DPI)](./examples/example-data-masking.ts)
 
 ## API Reference
 

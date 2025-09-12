@@ -1,0 +1,31 @@
+---
+description: Environment variables, credentials, and configuration guidance
+---
+# Environment and Configuration
+
+## Credentials
+
+- Preferred: Provide an SAP AI Core service key JSON to `createSAPAIProvider({ serviceKey })` (see [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)).
+- Alternative: Provide an OAuth token via `createSAPAIProviderSync({ token })` or set `SAP_AI_TOKEN`.
+
+## Environment Variables
+
+See details in [README.md](mdc:README.md).
+
+- `SAP_AI_SERVICE_KEY` — full JSON string of your service key.
+- `SAP_AI_TOKEN` — direct OAuth token (used by default instance `sapai`).
+- `SAP_AI_BASE_URL` — override base URL if needed.
+
+Do not commit secrets. Prefer local `.env` and CI secrets. `dotenv` is available for local development.
+
+## Deployment and Resource Group
+
+- Default `deploymentId`: `d65d81e7c077e583`
+- Default `resourceGroup`: `default`
+
+Both can be overridden in provider settings or via environment variables in your host app.
+
+## SAP BTP (xsenv)
+
+For BTP environments, consider loading credentials from `VCAP_SERVICES` via `@sap/xsenv` as shown in [README.md](mdc:README.md).
+
