@@ -160,6 +160,20 @@ const result = await generateText({
 });
 ```
 
+### Orchestration v2 endpoint
+
+SAP Orchestration v2 uses the completion endpoint `POST /v2/completion` (see docs: https://api.sap.com/api/ORCHESTRATION_API_v2/resource/Orchestrated_Completion).
+
+This provider defaults to a v2-compliant path under deployments. If your landscape expects the top-level v2 endpoint, override via `completionPath`:
+
+```ts
+const provider = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY!,
+  // Top-level v2 endpoint under your baseURL
+  completionPath: "/v2/completion",
+});
+```
+
 ### Streaming Responses
 
 Stream text as it's generated for real-time experiences:
@@ -175,6 +189,46 @@ const result = await streamText({
 for await (const delta of result.textStream) {
   process.stdout.write(delta);
 }
+```
+
+You can also use Vercel AI SDK's `streamText` helper:
+
+```ts
+import { streamText } from 'ai';
+
+const { textStream } = await streamText({
+  model: provider('gpt-4o'),
+  prompt: 'Write a story about a cat.',
+});
+
+for await (const textPart of textStream) {
+  process.stdout.write(textPart);
+}
+```
+
+### API versions and deprecation
+
+- v2 endpoint: `POST /v2/completion` (recommended)
+- v1 endpoint: `POST /completion` (deprecated; decommission on 31 Oct 2026)
+
+Recommended usage (v2 by default): leave `completionPath` unset or set to `/v2/completion`.
+
+```ts
+// v2 (recommended)
+const provider = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY!,
+  // If your baseURL is the host root (without /v2), set completionPath explicitly:
+  // baseURL: 'https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com',
+  // completionPath: '/v2/completion',
+});
+
+// v1 (legacy – will be decommissioned on 31 Oct 2026)
+const providerV1 = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY!,
+  // Ensure baseURL does not include '/v2' when targeting v1
+  baseURL: 'https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com',
+  completionPath: '/completion',
+});
 ```
 
 ### Model Configuration
