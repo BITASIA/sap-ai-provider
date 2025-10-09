@@ -93,12 +93,15 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     const explicitResponseFormat =
       (options as any)?.response_format ?? this.settings.responseFormat;
     const resolvedResponseFormat =
-      explicitResponseFormat ?? (availableTools?.length ? undefined : { type: "text" });
+      explicitResponseFormat ??
+      (availableTools?.length ? undefined : { type: "text" });
 
     const templatingPromptConfig: any = {
       template: convertToSAPMessages(options.prompt),
       defaults: {},
-      ...(resolvedResponseFormat ? { response_format: resolvedResponseFormat } : {}),
+      ...(resolvedResponseFormat
+        ? { response_format: resolvedResponseFormat }
+        : {}),
       tools: availableTools
         ?.map((tool) => {
           if (tool.type === "function") {
@@ -108,12 +111,11 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               function: {
                 name: tool.name,
                 description: tool.description,
-                parameters:
-                  parameters || {
-                    type: "object",
-                    properties: {},
-                    required: [],
-                  },
+                parameters: parameters || {
+                  type: "object",
+                  properties: {},
+                  required: [],
+                },
               },
             };
           } else {
@@ -152,9 +154,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             },
           },
           // Include masking module if provided by settings (backed by DPI)
-          ...(this.settings.masking
-            ? { masking: this.settings.masking }
-            : {}),
+          ...(this.settings.masking ? { masking: this.settings.masking } : {}),
         },
         ...(streaming ? { stream: { enabled: true } } : {}),
       },
@@ -213,7 +213,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
     let response: z.infer<typeof sapAIResponseSchema>;
     try {
-      const { value } = await postJsonToApi<z.infer<typeof sapAIResponseSchema>>({
+      const { value } = await postJsonToApi<
+        z.infer<typeof sapAIResponseSchema>
+      >({
         url: this.config.baseURL,
         headers,
         body: args,
@@ -234,7 +236,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       if (!requiresLegacy) {
         throw error;
       }
-      const { value } = await postJsonToApi<z.infer<typeof sapAIResponseSchema>>({
+      const { value } = await postJsonToApi<
+        z.infer<typeof sapAIResponseSchema>
+      >({
         url: this.config.baseURL,
         headers,
         body: argsLegacy,

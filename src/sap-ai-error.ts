@@ -40,7 +40,10 @@ const sapAIErrorLegacySchema = z.object({
     .optional(),
 });
 
-const sapAIErrorSchema = z.union([sapAIErrorEnvelopeSchema, sapAIErrorLegacySchema]);
+const sapAIErrorSchema = z.union([
+  sapAIErrorEnvelopeSchema,
+  sapAIErrorLegacySchema,
+]);
 
 export type SAPAIErrorData = z.infer<typeof sapAIErrorSchema>;
 
@@ -90,7 +93,9 @@ export class SAPAIError extends Error {
     if (data) {
       // v2 envelope
       if ((data as any).error) {
-        const inner = (data as any).error as z.infer<typeof sapAIErrorInnerSchema>;
+        const inner = (data as any).error as z.infer<
+          typeof sapAIErrorInnerSchema
+        >;
         this.code = inner.code;
         this.location = inner.location;
         this.requestId = inner.request_id;
@@ -120,7 +125,8 @@ export const sapAIFailedResponseHandler: any = createJsonErrorResponseHandler({
   errorSchema: sapAIErrorSchema as any,
   errorToMessage: (data: SAPAIErrorData) => {
     // Prefer v2 envelope message
-    if (data && (data as any).error?.message) return (data as any).error.message;
+    if (data && (data as any).error?.message)
+      return (data as any).error.message;
     // Legacy
     if ((data as any)?.message) return (data as any).message as string;
     return "An error occurred during the SAP AI Core request.";

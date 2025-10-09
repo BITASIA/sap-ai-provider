@@ -34,10 +34,7 @@ async function streamingChatExample() {
 
     // Print any warnings provided by the SDK
     if (warnings && Array.isArray(warnings) && warnings.length > 0) {
-      console.log(
-        "⚠️  Warnings:",
-        warnings.map((w: any) => w.type).join(", "),
-      );
+      console.log("⚠️  Warnings:", warnings.map((w: any) => w.type).join(", "));
     }
 
     let aggregated = "";
@@ -71,5 +68,3 @@ async function streamingChatExample() {
 streamingChatExample().catch(console.error);
 
 export { streamingChatExample };
-
-
