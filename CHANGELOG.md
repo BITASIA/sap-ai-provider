@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+- Orchestration v2 support
+  - Request body now built under `config.modules.prompt_templating` with `prompt.response_format` and `prompt.tools`
+  - Response schemas aligned to v2 (`intermediate_results`, `final_result`) with legacy fallback
+  - Tool calls surfaced via `tool_calls` in choices and stream deltas
+  - Added `messages_history` support in request schema
+  - Added `output_unmasking` to intermediate results
+- Endpoint selection
+  - Default endpoint: `${baseURL}/inference/deployments/{deploymentId}/v2/completion`
+  - New `completionPath` option to target top-level `/v2/completion`
+- Response formatting
+  - New `SAPAISettings.responseFormat` and per-call `options.response_format` to control `response_format`
+  - Default to `{ type: "text" }` when no tools are used
+- Examples
+  - New streaming example with Vercel AI SDK: `examples/example-streaming-chat.ts`
+  - Minor updates to examples to reflect v2 and streaming
+# Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

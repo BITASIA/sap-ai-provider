@@ -120,6 +120,21 @@ sequenceDiagram
     App->>SDK: streamText(options)
     SDK->>Provider: doStream(options)
     Provider->>SAP: POST /v2/inference/deployments/{id}/completion (stream=true)
+```
+
+### Orchestration v2 Endpoint
+
+- Default path used by this provider: `${baseURL}/inference/deployments/{deploymentId}/v2/completion`
+- Top-level v2 endpoint: `POST /v2/completion` ([docs](https://api.sap.com/api/ORCHESTRATION_API_v2/resource/Orchestrated_Completion))
+- Override with `completionPath: "/completion"` to target the top-level endpoint
+  - For v1, use `completionPath: "/completion"` (deprecated; decommission on 31 Oct 2026)
+  - Recommendation: prefer v2 and leave `completionPath` unset to use v2 by default
+
+### Templating and Tools (v2)
+
+- Request body is built under `config.modules.prompt_templating`
+- `prompt.response_format` supports `text`, `json_object`, and `json_schema`
+- Tools are passed under `prompt.tools` with function schemas
     SAP-->>Provider: Server-Sent Events
     loop For each SSE chunk
         Provider->>Provider: parseStreamChunk()

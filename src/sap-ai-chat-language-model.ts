@@ -89,13 +89,23 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
     const supportsN = !this.modelId.startsWith("amazon--");
 
-    const templatingConfig: any = {
+    // Decide response_format first, so we can inline it into templatingPromptConfig
+    const explicitResponseFormat =
+      (options as any)?.response_format ?? this.settings.responseFormat;
+    const resolvedResponseFormat =
+      explicitResponseFormat ??
+      (availableTools?.length ? undefined : { type: "text" });
+
+    const templatingPromptConfig: any = {
       template: convertToSAPMessages(options.prompt),
       defaults: {},
+      ...(resolvedResponseFormat
+        ? { response_format: resolvedResponseFormat }
+        : {}),
       tools: availableTools
         ?.map((tool) => {
           if (tool.type === "function") {
-            let parameters = tool.inputSchema;
+            const parameters = tool.inputSchema;
             return {
               type: tool.type,
               function: {
@@ -119,28 +129,49 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         .filter(Boolean),
     };
 
+    // templatingPromptConfig already carries response_format if applicable
+
     // Only add response_format for models that support it AND when no tools are available
     // (tools require flexible response format for tool calls)
-    if (supportsStructuredOutputs && !availableTools?.length) {
-      templatingConfig.response_format = {
-        type: "json_schema",
-        json_schema: {
-          name: "chat_completion_response",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              role: { type: "string", enum: ["assistant"] },
-              content: { type: "string" },
+    // Build orchestration v2 body
+    const argsV2 = {
+      config: {
+        modules: {
+          // Prompt templating module aggregates prompt + model configuration
+          prompt_templating: {
+            prompt: templatingPromptConfig,
+            model: {
+              name: this.modelId,
+              params: {
+                temperature: this.settings.modelParams?.temperature,
+                max_tokens: this.settings.modelParams?.maxTokens,
+                top_p: this.settings.modelParams?.topP,
+                frequency_penalty: this.settings.modelParams?.frequencyPenalty,
+                presence_penalty: this.settings.modelParams?.presencePenalty,
+                n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
+              },
+              version: this.settings.modelVersion ?? "latest",
             },
-            required: ["role", "content"],
-            additionalProperties: false,
           },
+          // Include masking module if provided by settings (backed by DPI)
+          ...(this.settings.masking ? { masking: this.settings.masking } : {}),
         },
-      };
-    }
+        ...(streaming ? { stream: { enabled: true } } : {}),
+      },
+      // placeholder_values are not used because we pass fully rendered messages
+    } as const;
 
-    const args = {
+    // Build legacy orchestration v1 body (with orchestration_config)
+    const templatingModuleConfigV1: any = {
+      template: templatingPromptConfig.template,
+      defaults: templatingPromptConfig.defaults,
+      tools: templatingPromptConfig.tools,
+      response_format: (templatingPromptConfig as any).response_format,
+    };
+
+    // response_format is already carried over from templatingPromptConfig
+
+    const argsV1 = {
       orchestration_config: {
         stream: streaming,
         module_configurations: {
@@ -148,24 +179,23 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             model_name: this.modelId,
             model_version: this.settings.modelVersion ?? "latest",
             model_params: {
-              temperature: this.settings.modelParams?.temperature ?? 0.7,
-              max_tokens: this.settings.modelParams?.maxTokens ?? 1000,
+              temperature: this.settings.modelParams?.temperature,
+              max_tokens: this.settings.modelParams?.maxTokens,
               top_p: this.settings.modelParams?.topP,
               frequency_penalty: this.settings.modelParams?.frequencyPenalty,
               presence_penalty: this.settings.modelParams?.presencePenalty,
               n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
             },
           },
-          templating_module_config: templatingConfig,
-          // Pass masking module configuration when provided
+          templating_module_config: templatingModuleConfigV1,
           ...(this.settings.masking
             ? { masking_module_config: this.settings.masking }
             : {}),
         },
       },
-    };
+    } as const;
 
-    return { args, warnings };
+    return { args: argsV2, argsLegacy: argsV1, warnings };
   }
 
   async doGenerate(options: LanguageModelV2CallOptions): Promise<{
@@ -175,28 +205,61 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
     warnings: LanguageModelV2CallWarning[];
   }> {
-    const { args, warnings } = this.getArgs(options);
+    const { args, argsLegacy, warnings } = this.getArgs(options);
     const headers = combineHeaders(
       this.config.headers(),
       options.headers ?? {},
     );
 
-    const { value: response } = await postJsonToApi<
-      z.infer<typeof sapAIResponseSchema>
-    >({
-      url: this.config.baseURL,
-      headers,
-      body: args,
-      failedResponseHandler: sapAIFailedResponseHandler,
-      successfulResponseHandler: createJsonResponseHandler(
-        sapAIResponseSchema as any,
-      ),
-      fetch: this.config.fetch,
-      abortSignal: options.abortSignal,
-    });
+    let response: z.infer<typeof sapAIResponseSchema>;
+    try {
+      const { value } = await postJsonToApi<
+        z.infer<typeof sapAIResponseSchema>
+      >({
+        url: this.config.baseURL,
+        headers,
+        body: args,
+        failedResponseHandler: sapAIFailedResponseHandler,
+        successfulResponseHandler: createJsonResponseHandler(
+          sapAIResponseSchema as any,
+        ),
+        fetch: this.config.fetch,
+        abortSignal: options.abortSignal,
+      });
+      response = value;
+    } catch (error: any) {
+      const message = String(error?.message ?? "");
 
-    const firstChoice = response.module_results.llm.choices[0];
-    const usage = response.module_results.llm.usage;
+      const requiresLegacy =
+        message.includes("orchestration_config") ||
+        message.includes("required property");
+      if (!requiresLegacy) {
+        throw error;
+      }
+      const { value } = await postJsonToApi<
+        z.infer<typeof sapAIResponseSchema>
+      >({
+        url: this.config.baseURL,
+        headers,
+        body: argsLegacy,
+        failedResponseHandler: sapAIFailedResponseHandler,
+        successfulResponseHandler: createJsonResponseHandler(
+          sapAIResponseSchema as any,
+        ),
+        fetch: this.config.fetch,
+        abortSignal: options.abortSignal,
+      });
+      response = value;
+    }
+
+    // Prefer v2 final_result, fall back to intermediate/module_results for backward compatibility
+    const llmResult =
+      (response as any).final_result ??
+      (response as any).intermediate_results?.llm ??
+      (response as any).module_results?.llm;
+
+    const firstChoice = llmResult.choices[0];
+    const usage = llmResult.usage;
 
     const content: LanguageModelV2Content[] = [];
 
@@ -232,9 +295,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       content,
       finishReason: firstChoice.finish_reason as LanguageModelV2FinishReason,
       usage: {
-        inputTokens: usage.prompt_tokens,
-        outputTokens: usage.completion_tokens,
-        totalTokens: usage.total_tokens,
+        inputTokens: usage?.prompt_tokens,
+        outputTokens: usage?.completion_tokens,
+        totalTokens: usage?.total_tokens,
       },
       rawCall: {
         rawPrompt: args,
@@ -248,20 +311,44 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     stream: ReadableStream<LanguageModelV2StreamPart>;
     rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
   }> {
-    const { args, warnings } = this.getArgs(options, true);
-    const body = args;
+    const { args, argsLegacy, warnings } = this.getArgs(options, true);
+    let body: unknown = args;
 
-    const { responseHeaders, value: response } = await postJsonToApi({
-      url: this.config.baseURL,
-      headers: combineHeaders(this.config.headers(), options.headers),
-      body,
-      failedResponseHandler: sapAIFailedResponseHandler,
-      successfulResponseHandler: createEventSourceResponseHandler(
-        sapAIStreamResponseSchema as any,
-      ),
-      abortSignal: options.abortSignal,
-      fetch: this.config.fetch,
-    });
+    let response: any;
+    try {
+      const result = await postJsonToApi({
+        url: this.config.baseURL,
+        headers: combineHeaders(this.config.headers(), options.headers),
+        body,
+        failedResponseHandler: sapAIFailedResponseHandler,
+        successfulResponseHandler: createEventSourceResponseHandler(
+          sapAIStreamResponseSchema as any,
+        ),
+        abortSignal: options.abortSignal,
+        fetch: this.config.fetch,
+      });
+      response = result.value as any;
+    } catch (error: any) {
+      const message = String(error?.message ?? "");
+      const requiresLegacy =
+        message.includes("orchestration_config") ||
+        message.includes("required property");
+      if (!requiresLegacy) {
+        throw error;
+      }
+      const result = await postJsonToApi({
+        url: this.config.baseURL,
+        headers: combineHeaders(this.config.headers(), options.headers),
+        body: argsLegacy,
+        failedResponseHandler: sapAIFailedResponseHandler,
+        successfulResponseHandler: createEventSourceResponseHandler(
+          sapAIStreamResponseSchema as any,
+        ),
+        abortSignal: options.abortSignal,
+        fetch: this.config.fetch,
+      });
+      response = result.value as any;
+    }
 
     let finishReason: LanguageModelV2FinishReason = "unknown";
     const usage: LanguageModelV2Usage = {
@@ -291,8 +378,11 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
             const value = chunk.value;
 
-            // Skip chunks that don't have LLM results (e.g., initial templating chunks)
-            const llmResult = value.module_results.llm;
+            // Support v2 stream shape; prefer intermediate_results.llm, then final_result, then legacy module_results.llm
+            const llmResult =
+              (value as any).intermediate_results?.llm ??
+              (value as any).final_result ??
+              (value as any).module_results?.llm;
             if (!llmResult) {
               return;
             }
@@ -311,9 +401,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             }
 
             if (llmResult.usage != null) {
-              usage.inputTokens = llmResult.usage.prompt_tokens;
-              usage.outputTokens = llmResult.usage.completion_tokens;
-              usage.totalTokens = llmResult.usage.total_tokens;
+              usage.inputTokens = llmResult.usage?.prompt_tokens;
+              usage.outputTokens = llmResult.usage?.completion_tokens;
+              usage.totalTokens = llmResult.usage?.total_tokens;
             }
 
             const choice = llmResult.choices[0];

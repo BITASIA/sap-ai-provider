@@ -203,6 +203,12 @@ export interface SAPAIProviderSettings {
   baseURL?: string;
 
   /**
+   * Completion endpoint path override. For Orchestration v2 this should be '/v2/completion'.
+   * Note: set baseURL to the API host root (without '/v2') when using this.
+   */
+  completionPath?: string;
+
+  /**
    * Custom HTTP headers to include in all requests.
    *
    * Useful for adding custom authentication, tracking, or proxy headers.
@@ -437,7 +443,10 @@ export async function createSAPAIProvider(
 
     return new SAPAIChatLanguageModel(modelId, mergedSettings, {
       provider: "sap-ai",
-      baseURL: `${baseURL}/inference/deployments/${deploymentId}/completion`,
+      baseURL:
+        options.completionPath != null
+          ? `${baseURL}${options.completionPath}`
+          : `${baseURL}/inference/deployments/${deploymentId}/v2/completion`,
       headers: () => ({
         Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
@@ -490,7 +499,10 @@ export function createSAPAIProviderSync(
 
     return new SAPAIChatLanguageModel(modelId, mergedSettings, {
       provider: "sap-ai",
-      baseURL: `${baseURL}/inference/deployments/${deploymentId}/completion`,
+      baseURL:
+        options.completionPath != null
+          ? `${baseURL}${options.completionPath}`
+          : `${baseURL}/inference/deployments/${deploymentId}/v2/completion`,
       headers: () => ({
         Authorization: `Bearer ${options.token}`,
         "Content-Type": "application/json",

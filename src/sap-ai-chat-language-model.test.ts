@@ -61,8 +61,13 @@ describe("SAPAIChatLanguageModel", () => {
           request_id: "test-request-id",
           module_results: {
             llm: {
+              id: "chatcmpl-1",
+              object: "chat.completion",
+              created: 1722510700,
+              model: "gpt-4o",
               choices: [
                 {
+                  index: 0,
                   message: {
                     role: "assistant",
                     content: "Hello, world!",
@@ -84,8 +89,13 @@ describe("SAPAIChatLanguageModel", () => {
             request_id: "test-request-id",
             module_results: {
               llm: {
+                id: "chatcmpl-1",
+                object: "chat.completion",
+                created: 1722510700,
+                model: "gpt-4o",
                 choices: [
                   {
+                    index: 0,
                     message: {
                       role: "assistant",
                       content: "Hello, world!",
@@ -146,8 +156,13 @@ describe("SAPAIChatLanguageModel", () => {
           request_id: "test-request-id",
           module_results: {
             llm: {
+              id: "chatcmpl-2",
+              object: "chat.completion",
+              created: 1722510700,
+              model: "gpt-4o",
               choices: [
                 {
+                  index: 0,
                   message: {
                     role: "assistant",
                     content: '{"content": "Parsed JSON content"}',
@@ -169,8 +184,13 @@ describe("SAPAIChatLanguageModel", () => {
             request_id: "test-request-id",
             module_results: {
               llm: {
+                id: "chatcmpl-2",
+                object: "chat.completion",
+                created: 1722510700,
+                model: "gpt-4o",
                 choices: [
                   {
+                    index: 0,
                     message: {
                       role: "assistant",
                       content: '{"content": "Parsed JSON content"}',
@@ -227,8 +247,13 @@ describe("SAPAIChatLanguageModel", () => {
           request_id: "test-request-id",
           module_results: {
             llm: {
+              id: "chatcmpl-3",
+              object: "chat.completion",
+              created: 1722510700,
+              model: "gpt-4o",
               choices: [
                 {
+                  index: 0,
                   message: {
                     role: "assistant",
                     content: null,
@@ -260,8 +285,13 @@ describe("SAPAIChatLanguageModel", () => {
             request_id: "test-request-id",
             module_results: {
               llm: {
+                id: "chatcmpl-3",
+                object: "chat.completion",
+                created: 1722510700,
+                model: "gpt-4o",
                 choices: [
                   {
+                    index: 0,
                     message: {
                       role: "assistant",
                       content: null,
@@ -396,9 +426,21 @@ describe("SAPAIChatLanguageModel", () => {
         headers: new Headers([["content-type", "application/json"]]),
         text: async () =>
           JSON.stringify({
-            error: "Invalid request",
+            error: {
+              request_id: "err-123",
+              code: 400,
+              message: "Invalid request",
+              location: "LLM Module",
+            },
           }),
-        json: async () => ({ error: "Invalid request" }),
+        json: async () => ({
+          error: {
+            request_id: "err-123",
+            code: 400,
+            message: "Invalid request",
+            location: "LLM Module",
+          },
+        }),
         arrayBuffer: async () => new ArrayBuffer(0),
         blob: async () => new Blob(),
         formData: async () => new FormData(),
@@ -459,7 +501,7 @@ describe("SAPAIChatLanguageModel", () => {
   });
 
   describe("request format", () => {
-    it("should create correct orchestration config structure", async () => {
+    it("should create correct v2 config structure", async () => {
       const mockResponse = {
         ok: true,
         status: 200,
@@ -471,8 +513,13 @@ describe("SAPAIChatLanguageModel", () => {
           request_id: "test-request-id",
           module_results: {
             llm: {
+              id: "chatcmpl-4",
+              object: "chat.completion",
+              created: 1722510700,
+              model: "gpt-4o",
               choices: [
                 {
+                  index: 0,
                   message: {
                     role: "assistant",
                     content: "Test response",
@@ -494,8 +541,13 @@ describe("SAPAIChatLanguageModel", () => {
             request_id: "test-request-id",
             module_results: {
               llm: {
+                id: "chatcmpl-4",
+                object: "chat.completion",
+                created: 1722510700,
+                model: "gpt-4o",
                 choices: [
                   {
+                    index: 0,
                     message: {
                       role: "assistant",
                       content: "Test response",
@@ -544,22 +596,20 @@ describe("SAPAIChatLanguageModel", () => {
             "Content-Type": "application/json",
             "ai-resource-group": "default",
           }),
-          body: expect.stringContaining('"orchestration_config"'),
+          body: expect.stringContaining('"config"'),
         }),
       );
 
       const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(requestBody).toHaveProperty("orchestration_config");
-      expect(requestBody.orchestration_config).toHaveProperty("stream", false);
-      expect(requestBody.orchestration_config).toHaveProperty(
-        "module_configurations",
+      expect(requestBody).toHaveProperty("config");
+      expect(requestBody.config).toHaveProperty("modules");
+      expect(requestBody.config.modules).toHaveProperty("prompt_templating");
+      expect(requestBody.config.modules.prompt_templating).toHaveProperty(
+        "prompt",
       );
-      expect(
-        requestBody.orchestration_config.module_configurations,
-      ).toHaveProperty("llm_module_config");
-      expect(
-        requestBody.orchestration_config.module_configurations,
-      ).toHaveProperty("templating_module_config");
+      expect(requestBody.config.modules.prompt_templating).toHaveProperty(
+        "model",
+      );
     });
 
     it("should include masking module when masking settings are provided", async () => {
@@ -574,8 +624,13 @@ describe("SAPAIChatLanguageModel", () => {
           request_id: "test-request-id",
           module_results: {
             llm: {
+              id: "chatcmpl-5",
+              object: "chat.completion",
+              created: 1722510700,
+              model: "gpt-4o",
               choices: [
                 {
+                  index: 0,
                   message: {
                     role: "assistant",
                     content: "Test response",
@@ -597,8 +652,13 @@ describe("SAPAIChatLanguageModel", () => {
             request_id: "test-request-id",
             module_results: {
               llm: {
+                id: "chatcmpl-5",
+                object: "chat.completion",
+                created: 1722510700,
+                model: "gpt-4o",
                 choices: [
                   {
+                    index: 0,
                     message: {
                       role: "assistant",
                       content: "Test response",
@@ -666,13 +726,8 @@ describe("SAPAIChatLanguageModel", () => {
       await model.doGenerate({ prompt });
 
       const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(
-        requestBody.orchestration_config.module_configurations,
-      ).toHaveProperty("masking_module_config");
-      expect(
-        requestBody.orchestration_config.module_configurations
-          .masking_module_config,
-      ).toEqual({
+      expect(requestBody.config.modules).toHaveProperty("masking");
+      expect(requestBody.config.modules.masking).toEqual({
         masking_providers: [
           {
             type: "sap_data_privacy_integration",
