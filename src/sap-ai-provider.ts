@@ -437,7 +437,7 @@ export async function createSAPAIProvider(
 
     return new SAPAIChatLanguageModel(modelId, mergedSettings, {
       provider: "sap-ai",
-      baseURL: `${baseURL}/inference/deployments/${deploymentId}/completion`,
+      baseURL: `${baseURL}/inference/deployments/${deploymentId}/v2/completion`,
       headers: () => ({
         Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
@@ -490,7 +490,7 @@ export function createSAPAIProviderSync(
 
     return new SAPAIChatLanguageModel(modelId, mergedSettings, {
       provider: "sap-ai",
-      baseURL: `${baseURL}/inference/deployments/${deploymentId}/completion`,
+      baseURL: `${baseURL}/inference/deployments/${deploymentId}/v2/completion`,
       headers: () => ({
         Authorization: `Bearer ${options.token}`,
         "Content-Type": "application/json",

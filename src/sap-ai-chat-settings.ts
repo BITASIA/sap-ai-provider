@@ -15,14 +15,13 @@ export interface SAPAISettings {
     /**
      * Maximum number of tokens to generate.
      * Higher values allow for longer responses but increase latency and cost.
-     * @default 1000
      */
     maxTokens?: number;
 
     /**
      * Sampling temperature between 0 and 2.
      * Higher values make output more random, lower values more deterministic.
-     * @default 0.7
+     * No default; omitted when unspecified or unsupported by the target model.
      */
     temperature?: number;
 
@@ -75,6 +74,25 @@ export interface SAPAISettings {
    * pseudonymized by SAP Data Privacy Integration (DPI).
    */
   masking?: MaskingModuleConfig;
+
+  /**
+   * Response format for templating prompt (OpenAI-compatible).
+   * When set, this will be sent to orchestration under
+   * config.modules.prompt_templating.prompt.response_format (v2)
+   * or orchestration_config.module_configurations.templating_module_config.response_format (legacy).
+   */
+  responseFormat?:
+    | { type: "text" }
+    | { type: "json_object" }
+    | {
+        type: "json_schema";
+        json_schema: {
+          name: string;
+          description?: string;
+          schema?: unknown;
+          strict?: boolean | null;
+        };
+      };
 }
 
 /**
