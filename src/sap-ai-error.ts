@@ -3,43 +3,44 @@ import { z } from "zod";
 
 /**
  * Schema for SAP AI Core error responses.
- * This matches the error format returned by the SAP AI Core API.
+ * Matches Orchestration v2 ErrorResponse shape and supports legacy fallback.
  */
-const sapAIErrorSchema = z
-  .object({
-    /** Unique identifier for tracking the request */
-    request_id: z.string().optional(),
+const sapAIErrorInnerSchema = z.object({
+  /** Unique identifier for tracking the request */
+  request_id: z.string(),
+  /** HTTP status code or custom error code */
+  code: z.number(),
+  /** Human-readable error message */
+  message: z.string(),
+  /** Where the error occurred (e.g., module name) */
+  location: z.string(),
+  /** Optional intermediate results for debugging */
+  intermediate_results: z.any().optional(),
+});
 
-    /** HTTP status code or custom error code */
-    code: z.number().optional(),
+// v2 envelope: { error: { ... } }
+const sapAIErrorEnvelopeSchema = z.object({
+  error: sapAIErrorInnerSchema,
+});
 
-    /** Human-readable error message */
-    message: z.string().optional(),
+// Legacy fallback (v1-style): top-level fields and optional nested error object
+const sapAIErrorLegacySchema = z.object({
+  request_id: z.string().optional(),
+  code: z.number().optional(),
+  message: z.string().optional(),
+  location: z.string().optional(),
+  details: z.string().optional(),
+  error: z
+    .object({
+      message: z.string().optional(),
+      code: z.string().optional(),
+      param: z.string().optional(),
+      type: z.string().optional(),
+    })
+    .optional(),
+});
 
-    /** Where the error occurred (e.g., endpoint, function) */
-    location: z.string().optional(),
-
-    /** Detailed error information */
-    error: z
-      .object({
-        /** Specific error message */
-        message: z.string().optional(),
-
-        /** Error type code */
-        code: z.string().optional(),
-
-        /** Parameter that caused the error */
-        param: z.string().optional(),
-
-        /** Error category (e.g., 'validation', 'auth') */
-        type: z.string().optional(),
-      })
-      .optional(),
-
-    /** Additional error context or debugging information */
-    details: z.string().optional(),
-  })
-  .optional();
+const sapAIErrorSchema = z.union([sapAIErrorEnvelopeSchema, sapAIErrorLegacySchema]);
 
 export type SAPAIErrorData = z.infer<typeof sapAIErrorSchema>;
 
@@ -73,6 +74,9 @@ export class SAPAIError extends Error {
   /** Additional error context or debugging information */
   public readonly details?: string;
 
+  /** Intermediate results returned with the error (v2 only) */
+  public readonly intermediateResults?: unknown;
+
   constructor(
     message: string,
     /** Raw error data from the API response */
@@ -84,10 +88,21 @@ export class SAPAIError extends Error {
     this.name = "SAPAIError";
 
     if (data) {
-      this.code = data.code;
-      this.location = data.location;
-      this.requestId = data.request_id;
-      this.details = data.details;
+      // v2 envelope
+      if ((data as any).error) {
+        const inner = (data as any).error as z.infer<typeof sapAIErrorInnerSchema>;
+        this.code = inner.code;
+        this.location = inner.location;
+        this.requestId = inner.request_id;
+        this.details = undefined;
+        this.intermediateResults = inner.intermediate_results;
+      } else {
+        // legacy top-level
+        this.code = (data as any).code;
+        this.location = (data as any).location;
+        this.requestId = (data as any).request_id;
+        this.details = (data as any).details;
+      }
     }
   }
 }
@@ -104,11 +119,11 @@ export class SAPAIError extends Error {
 export const sapAIFailedResponseHandler: any = createJsonErrorResponseHandler({
   errorSchema: sapAIErrorSchema as any,
   errorToMessage: (data: SAPAIErrorData) => {
-    return (
-      data?.error?.message ||
-      data?.message ||
-      "An error occurred during the SAP AI Core request."
-    );
+    // Prefer v2 envelope message
+    if (data && (data as any).error?.message) return (data as any).error.message;
+    // Legacy
+    if ((data as any)?.message) return (data as any).message as string;
+    return "An error occurred during the SAP AI Core request.";
   },
   isRetryable: (response: Response, error?: unknown) => {
     const status = response.status;
