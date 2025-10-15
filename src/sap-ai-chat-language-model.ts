@@ -149,6 +149,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 frequency_penalty: this.settings.modelParams?.frequencyPenalty,
                 presence_penalty: this.settings.modelParams?.presencePenalty,
                 n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
+                parallel_tool_calls:
+                  this.settings.modelParams?.parallelToolCalls,
               },
               version: this.settings.modelVersion ?? "latest",
             },
@@ -185,6 +187,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               frequency_penalty: this.settings.modelParams?.frequencyPenalty,
               presence_penalty: this.settings.modelParams?.presencePenalty,
               n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
+              parallel_tool_calls:
+                this.settings.modelParams?.parallelToolCalls,
             },
           },
           templating_module_config: templatingModuleConfigV1,

@@ -52,6 +52,13 @@ export interface SAPAISettings {
      * @default 1
      */
     n?: number;
+
+    /**
+     * Controls whether the model is allowed to execute tool calls in parallel.
+     * When set to false, tool calls will be serialized.
+     * This maps to SAP/OpenAI param `parallel_tool_calls`.
+     */
+    parallelToolCalls?: boolean;
   };
 
   /**
