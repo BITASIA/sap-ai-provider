@@ -656,7 +656,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       model = new SAPAIChatLanguageModel(
         "gpt-4o",
-        { modelParams: { parallel_tool_calls: true } as any },
+        { modelParams: { parallel_tool_calls: true } as { parallel_tool_calls: boolean } },
         {
           provider: "sap-ai",
           baseURL:
