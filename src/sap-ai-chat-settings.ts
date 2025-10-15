@@ -52,6 +52,12 @@ export interface SAPAISettings {
      * @default 1
      */
     n?: number;
+
+    /**
+     * Snake_case alias for compatibility with SAP/OpenAI naming.
+     * Prefer this in user code for consistency with upstream docs.
+     */
+    parallel_tool_calls?: boolean;
   };
 
   /**

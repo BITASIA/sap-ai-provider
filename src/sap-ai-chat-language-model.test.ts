@@ -501,6 +501,187 @@ describe("SAPAIChatLanguageModel", () => {
   });
 
   describe("request format", () => {
+    it("should include parallel_tool_calls when set (snake_case)", async () => {
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers({
+          "content-type": "application/json",
+        }),
+        json: async () => ({
+          request_id: "test-request-id",
+          module_results: {
+            llm: {
+              id: "chatcmpl-x",
+              object: "chat.completion",
+              created: 1722510700,
+              model: "gpt-4o",
+              choices: [
+                {
+                  index: 0,
+                  message: {
+                    role: "assistant",
+                    content: "ok",
+                  },
+                  finish_reason: "stop",
+                },
+              ],
+              usage: {
+                prompt_tokens: 1,
+                completion_tokens: 1,
+                total_tokens: 2,
+              },
+            },
+            templating: [],
+          },
+        }),
+        text: async () =>
+          JSON.stringify({
+            request_id: "test-request-id",
+            module_results: {
+              llm: {
+                id: "chatcmpl-x",
+                object: "chat.completion",
+                created: 1722510700,
+                model: "gpt-4o",
+                choices: [
+                  {
+                    index: 0,
+                    message: {
+                      role: "assistant",
+                      content: "ok",
+                    },
+                    finish_reason: "stop",
+                  },
+                ],
+                usage: {
+                  prompt_tokens: 1,
+                  completion_tokens: 1,
+                  total_tokens: 2,
+                },
+              },
+              templating: [],
+            },
+          }),
+        arrayBuffer: async () => new ArrayBuffer(0),
+        blob: async () => new Blob(),
+        formData: async () => new FormData(),
+        clone: function () {
+          return this;
+        },
+        body: null,
+        bodyUsed: false,
+        redirected: false,
+        type: "basic" as ResponseType,
+        url: "",
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse);
+
+      // Recreate model with snake_case param false
+      model = new SAPAIChatLanguageModel(
+        "gpt-4o",
+        { modelParams: { parallel_tool_calls: false } as any },
+        {
+          provider: "sap-ai",
+          baseURL:
+            "https://api.ai.test.com/v2/inference/deployments/test-deployment/completion",
+          headers: () => ({
+            Authorization: "Bearer test-token",
+            "Content-Type": "application/json",
+            "ai-resource-group": "default",
+          }),
+          fetch: mockFetch,
+        },
+      );
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      await model.doGenerate({ prompt });
+
+      const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(
+        requestBody.config.modules.prompt_templating.model.params
+          .parallel_tool_calls,
+      ).toBe(false);
+    });
+
+    it("should include parallel_tool_calls when true (snake_case)", async () => {
+      const mockBody = {
+        request_id: "test-request-id",
+        module_results: {
+          llm: {
+            id: "chatcmpl-x",
+            object: "chat.completion",
+            created: 1722510700,
+            model: "gpt-4o",
+            choices: [
+              {
+                index: 0,
+                message: { role: "assistant", content: "ok" },
+                finish_reason: "stop",
+              },
+            ],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          },
+          templating: [],
+        },
+      };
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers({
+          "content-type": "application/json",
+        }),
+        json: async () => mockBody,
+        text: async () => JSON.stringify(mockBody),
+        arrayBuffer: async () => new ArrayBuffer(0),
+        blob: async () => new Blob(),
+        formData: async () => new FormData(),
+        clone: function () {
+          return this;
+        },
+        body: null,
+        bodyUsed: false,
+        redirected: false,
+        type: "basic" as ResponseType,
+        url: "",
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse);
+
+      model = new SAPAIChatLanguageModel(
+        "gpt-4o",
+        { modelParams: { parallel_tool_calls: true } as any },
+        {
+          provider: "sap-ai",
+          baseURL:
+            "https://api.ai.test.com/v2/inference/deployments/test-deployment/completion",
+          headers: () => ({
+            Authorization: "Bearer test-token",
+            "Content-Type": "application/json",
+            "ai-resource-group": "default",
+          }),
+          fetch: mockFetch,
+        },
+      );
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      await model.doGenerate({ prompt });
+
+      const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(
+        requestBody.config.modules.prompt_templating.model.params
+          .parallel_tool_calls,
+      ).toBe(true);
+    });
     it("should create correct v2 config structure", async () => {
       const mockResponse = {
         ok: true,
