@@ -582,7 +582,11 @@ describe("SAPAIChatLanguageModel", () => {
       // Recreate model with snake_case param false
       model = new SAPAIChatLanguageModel(
         "gpt-4o",
-        { modelParams: { parallel_tool_calls: false } as { parallel_tool_calls: boolean } },
+        {
+          modelParams: { parallel_tool_calls: false } as {
+            parallel_tool_calls: boolean;
+          },
+        },
         {
           provider: "sap-ai",
           baseURL:
@@ -656,7 +660,11 @@ describe("SAPAIChatLanguageModel", () => {
 
       model = new SAPAIChatLanguageModel(
         "gpt-4o",
-        { modelParams: { parallel_tool_calls: true } as { parallel_tool_calls: boolean } },
+        {
+          modelParams: { parallel_tool_calls: true } as {
+            parallel_tool_calls: boolean;
+          },
+        },
         {
           provider: "sap-ai",
           baseURL:
