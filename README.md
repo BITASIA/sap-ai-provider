@@ -372,8 +372,13 @@ const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY,
 });
 
+// Enable or disable parallel execution of independent tool calls
+const model = provider("gpt-4o", {
+  modelParams: { parallel_tool_calls: true },
+});
+
 const result = await generateText({
-  model: provider("gpt-4o"),
+  model,
   messages: [{ role: "user", content: "What's the weather like in Tokyo?" }],
   tools: {
     get_weather: tool({
@@ -392,6 +397,55 @@ const result = await generateText({
 });
 
 console.log(result.text);
+```
+
+#### Parallel tool calls (multiple tools)
+
+Use `modelParams.parallel_tool_calls` to allow the model to invoke independent tools concurrently. For dependent, chained calls, the model will still serialize due to data dependencies.
+
+```typescript
+import { generateText, tool } from "ai";
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+import { z } from "zod";
+
+const provider = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
+});
+
+// Two independent tools
+const calculate = tool({
+  description: "Add two numbers",
+  parameters: z.object({ a: z.number(), b: z.number() }),
+  execute: async ({ a, b }) => a + b,
+});
+
+const getWeather = tool({
+  description: "Get weather for a city",
+  parameters: z.object({ city: z.string() }),
+  execute: async ({ city }) => `Weather in ${city}: sunny, 25°C`,
+});
+
+// Enable parallel tool execution
+const model = provider("gpt-4o", {
+  modelParams: { parallel_tool_calls: true },
+});
+
+const result = await generateText({
+  model,
+  messages: [
+    {
+      role: "user",
+      content:
+        "Please add 100 and 23 using the tool, and also tell me the weather in Tokyo using the tool.",
+    },
+  ],
+  tools: { calculate, getWeather },
+});
+
+console.log(result.text);
+
+// To force serialized execution of tool calls, set:
+// const model = provider("gpt-4o", { modelParams: { parallel_tool_calls: false } });
 ```
 
 ### Multi-modal Input (Images)
@@ -594,6 +648,7 @@ interface SAPAISettings {
     frequencyPenalty?: number; // Frequency penalty (-2 to 2)
     presencePenalty?: number; // Presence penalty (-2 to 2)
     n?: number; // Number of completions
+    parallel_tool_calls?: boolean; // Allow the model to execute tool calls in parallel (for OpenAI models)
   };
   safePrompt?: boolean; // Enable safe prompt filtering
   structuredOutputs?: boolean; // Enable structured outputs
@@ -759,6 +814,7 @@ Fine-tune model behavior with these parameters:
 | `frequencyPenalty` | `number` | -2 to 2 | `0` | Frequency penalty |
 | `presencePenalty` | `number` | -2 to 2 | `0` | Presence penalty |
 | `n` | `number` | 1-10 | `1` | Number of completions |
+| `parallel_tool_calls` | `boolean` | - | - | Enable parallel execution of independent tool calls (for OpenAI models) |
 
 ### `SAPAIError`
 
