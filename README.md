@@ -28,7 +28,7 @@ A community provider for SAP AI Core that integrates seamlessly with the Vercel 
 
 ## Important Note
 
-> **Third-Party Provider**: This SAP AI Core provider (`@mymediset/sap-ai-provider`) is developed and maintained by Mymediset, not by SAP SE. While it integrates with official SAP AI Core services, it is not an official SAP product. For official SAP AI solutions, please refer to the [SAP AI Core Documentation](https://help.sap.com/docs/ai-core).
+> **Third-Party Provider**: This SAP AI Core provider (`@mymediset/sap-ai-provider`) is developed and maintained by mymediset, not by SAP SE. While it integrates with official SAP AI Core services, it is not an official SAP product. For official SAP AI solutions, please refer to the [SAP AI Core Documentation](https://help.sap.com/docs/ai-core).
 
 ## Features
 
@@ -55,7 +55,7 @@ const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY
 });
 
-// Generate text with GPT-4
+// Generate text with gpt-4o
 const result = await generateText({
   model: provider('gpt-4o'),
   prompt: 'Explain quantum computing in simple terms.'
@@ -152,7 +152,7 @@ Create interactive chat experiences:
 import { generateText } from 'ai';
 
 const result = await generateText({
-  model: provider('claude-3.5-sonnet'),
+  model: provider('anthropic--claude-3.5-sonnet'),
   messages: [
     { role: 'system', content: 'You are a helpful coding assistant.' },
     { role: 'user', content: 'How do I implement binary search in TypeScript?' }
@@ -212,6 +212,7 @@ for await (const textPart of textStream) {
 - v1 endpoint: `POST /completion` (deprecated; decommission on 31 Oct 2026)
 
 Recommended usage (v2 by default): leave `completionPath` unset or set to `/v2/completion`.
+For more information, see [SAP AI Core API Documentation](https://api.sap.com/package/SAPAICore/rest).
 
 ```ts
 // v2 (recommended)
@@ -285,6 +286,7 @@ The provider supports a wide range of models available in SAP AI Core:
 - And many more...
 
 Note: Model availability may vary based on your SAP AI Core subscription and region. Some models may require additional configuration or permissions.
+For more information, see [SAP AI Core Model Documentation](https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/supported-models).
 
 ## Installation
 
@@ -300,6 +302,8 @@ npm install @mymediset/sap-ai-provider
 2. Navigate to your AI Core instance
 3. Create a service key for your AI Core instance
 4. Copy the service key JSON
+
+For more information, see [SAP AI Core Initial Setup Documentation](https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/initial-setup).
 
 ### 2. Basic Usage (Direct Model API)
 
@@ -755,7 +759,8 @@ Check out the [examples directory](./examples) for complete working examples:
 - [Tool Calling](./examples/example-chat-completion-tool.ts)
 - [Image Recognition](./examples/example-image-recognition.ts)
 - [Text Generation](./examples/example-generate-text.ts)
- - [Data Masking (DPI)](./examples/example-data-masking.ts)
+- [Data Masking (DPI)](./examples/example-data-masking.ts)
+- [Streaming](./examples/example-streaming-chat.ts)
 
 ## API Reference
 
@@ -773,7 +778,7 @@ Creates a SAP AI Core provider instance.
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY,
   deploymentId: 'custom-deployment',
-  resourceGroup: 'production'
+  resourceGroup: 'default'
 });
 ```
 
@@ -880,7 +885,7 @@ try {
 ```typescript
 // List available models for your deployment
 const availableModels = [
-  'gpt-4o', 'gpt-4o-mini', 'claude-3.5-sonnet', 'gemini-1.5-pro'
+  'gpt-4o', 'gpt-4o-mini', 'anthropic--claude-3.5-sonnet', 'gemini-2.0-pro'
 ];
 ```
 
@@ -1000,7 +1005,7 @@ const quickModel = provider('gpt-4o-mini'); // Fast, cost-effective
 const powerfulModel = provider('gpt-4o'); // More capable, slower
 
 // For specific domains
-const codeModel = provider('claude-3.5-sonnet'); // Great for coding
+const codeModel = provider('anthropic--claude-3.5-sonnet'); // Great for coding
 const visionModel = provider('gpt-4o'); // Best for image analysis
 ```
 
