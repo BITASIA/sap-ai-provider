@@ -124,17 +124,197 @@ sequenceDiagram
 
 ### Orchestration v2 Endpoint
 
-- Default path used by this provider: `${baseURL}/inference/deployments/{deploymentId}/v2/completion`
-- Top-level v2 endpoint: `POST /v2/completion` ([docs](https://api.sap.com/api/ORCHESTRATION_API_v2/resource/Orchestrated_Completion))
-- Override with `completionPath: "/completion"` to target the top-level endpoint
-  - For v1, use `completionPath: "/completion"` (deprecated; decommission on 31 Oct 2026)
-  - Recommendation: prefer v2 and leave `completionPath` unset to use v2 by default
+SAP AI Core Orchestration v2 introduces a more structured API with improved capabilities:
+
+**Default Path:**
+```
+${baseURL}/inference/deployments/{deploymentId}/v2/completion
+```
+
+**Top-level v2 endpoint:**
+```
+POST /v2/completion
+```
+([documentation](https://api.sap.com/api/ORCHESTRATION_API_v2/resource/Orchestrated_Completion))
+
+**Configuration:**
+```typescript
+// Default (recommended): uses deployment-specific v2 endpoint
+const provider = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY
+});
+
+// Top-level v2 endpoint
+const provider = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
+  baseURL: 'https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com',
+  completionPath: '/v2/completion'
+});
+
+// v1 (legacy - deprecated, decommission on 31 Oct 2026)
+const providerV1 = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
+  baseURL: 'https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com',
+  completionPath: '/completion'
+});
+```
+
+### Request Structure (v2)
+
+The v2 API uses a modular configuration structure:
+
+```typescript
+{
+  config: {
+    modules: {
+      prompt_templating: {
+        prompt: {
+          template: [ /* messages */ ],
+          defaults: { /* placeholder defaults */ },
+          response_format: { /* text | json_object | json_schema */ },
+          tools: [ /* function definitions */ ]
+        },
+        model: {
+          name: "gpt-4o",
+          version: "latest",
+          params: {
+            temperature: 0.7,
+            max_tokens: 2000,
+            // ... other params
+          }
+        }
+      },
+      masking: { /* optional DPI configuration */ }
+    },
+    stream: { /* optional streaming config */ }
+  },
+  placeholder_values: { /* optional values for template placeholders */ },
+  messages_history: [ /* optional conversation history */ ]
+}
+```
+
+### Response Structure (v2)
+
+```typescript
+{
+  request_id: "uuid",
+  intermediate_results: {
+    templating: [ /* resolved messages */ ],
+    llm: {
+      id: "chatcmpl-xxx",
+      object: "chat.completion",
+      created: 1234567890,
+      model: "gpt-4o-2024-08-06",
+      choices: [{
+        index: 0,
+        message: {
+          role: "assistant",
+          content: "response text",
+          tool_calls: [ /* if any */ ]
+        },
+        finish_reason: "stop"
+      }],
+      usage: {
+        prompt_tokens: 100,
+        completion_tokens: 50,
+        total_tokens: 150
+      }
+    },
+    output_unmasking: [ /* if masking enabled */ ]
+  },
+  final_result: { /* same structure as llm result */ }
+}
+```
 
 ### Templating and Tools (v2)
 
-- Request body is built under `config.modules.prompt_templating`
-- `prompt.response_format` supports `text`, `json_object`, and `json_schema`
-- Tools are passed under `prompt.tools` with function schemas
+**Prompt Templating:**
+- Messages are passed under `config.modules.prompt_templating.prompt.template`
+- Supports system, user, assistant, tool, and developer roles
+- Multi-modal content (text + images) supported
+
+**Response Format:**
+```typescript
+// Text (default when no tools)
+response_format: { type: "text" }
+
+// JSON object
+response_format: { type: "json_object" }
+
+// JSON schema (structured output)
+response_format: {
+  type: "json_schema",
+  json_schema: {
+    name: "user_profile",
+    description: "User profile schema",
+    schema: {
+      type: "object",
+      properties: { /* JSON schema */ },
+      required: [ /* required fields */ ]
+    },
+    strict: true
+  }
+}
+```
+
+**Tool Definitions:**
+```typescript
+tools: [{
+  type: "function",
+  function: {
+    name: "calculator",
+    description: "Perform arithmetic operations",
+    parameters: {
+      type: "object",
+      properties: {
+        operation: { type: "string", enum: ["add", "subtract"] },
+        a: { type: "number" },
+        b: { type: "number" }
+      },
+      required: ["operation", "a", "b"]
+    }
+  }
+}]
+```
+
+### Data Masking Module (v2)
+
+The masking module integrates with SAP Data Privacy Integration (DPI):
+
+```typescript
+modules: {
+  prompt_templating: { /* ... */ },
+  masking: {
+    masking_providers: [{
+      type: "sap_data_privacy_integration",
+      method: "anonymization",  // or "pseudonymization"
+      entities: [
+        {
+          type: "profile-email",
+          replacement_strategy: { method: "fabricated_data" }
+        },
+        {
+          type: "profile-person",
+          replacement_strategy: { method: "constant", value: "REDACTED" }
+        },
+        {
+          regex: "\\b[0-9]{4}-[0-9]{4}\\b",
+          replacement_strategy: { method: "constant", value: "ID_REDACTED" }
+        }
+      ],
+      allowlist: ["SAP", "BTP"],
+      mask_grounding_input: { enabled: false }
+    }]
+  }
+}
+```
+
+**Masking Flow:**
+1. Input passes through masking module
+2. Sensitive data is anonymized/pseudonymized
+3. Masked data sent to LLM
+4. Response passes through output_unmasking (if configured)
+5. Original values restored in final output
     SAP-->>Provider: Server-Sent Events
     loop For each SSE chunk
         Provider->>Provider: parseStreamChunk()

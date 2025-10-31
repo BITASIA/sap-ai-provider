@@ -1,68 +1,80 @@
 # Changelog
 
-## Unreleased
-
-- Orchestration v2 support
-  - Request body now built under `config.modules.prompt_templating` with `prompt.response_format` and `prompt.tools`
-  - Response schemas aligned to v2 (`intermediate_results`, `final_result`) with legacy fallback
-  - Tool calls surfaced via `tool_calls` in choices and stream deltas
-  - Added `messages_history` support in request schema
-  - Added `output_unmasking` to intermediate results
-- Endpoint selection
-  - Default endpoint: `${baseURL}/inference/deployments/{deploymentId}/v2/completion`
-  - New `completionPath` option to target top-level `/v2/completion`
-- Response formatting
-  - New `SAPAISettings.responseFormat` and per-call `options.response_format` to control `response_format`
-  - Default to `{ type: "text" }` when no tools are used
-- Examples
-  - New streaming example with Vercel AI SDK: `examples/example-streaming-chat.ts`
-  - Minor updates to examples to reflect v2 and streaming
-# Changelog
-
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+---
+
 ## [Unreleased]
 
 ### Added
+
+**Documentation:**
 - Comprehensive JSDoc comments throughout codebase for better IDE support
+- API_REFERENCE.md with complete API documentation
+- MIGRATION_GUIDE.md for version upgrade guidance
+- Enhanced ARCHITECTURE.md with v2 API details
 - Table of Contents in README.md for improved navigation
-- Quick Start section in README.md for immediate usage
-- Detailed API Reference section with complete parameter documentation
-- Comprehensive Troubleshooting guide with common issues and solutions
-- Performance & Best Practices section with optimization tips
-- ARCHITECTURE.md document explaining internal design and patterns
-- Enhanced type documentation with detailed property descriptions
-- Advanced usage examples in README.md
+- Quick Start section in README.md
+- Troubleshooting guide with common issues and solutions
+- Performance & Best Practices section
 - Security best practices documentation
-- Production deployment guidelines
 - Debug mode instructions
-- Request retry and error handling patterns
 
-### Improved
-- Enhanced documentation for all public interfaces and classes
-- Better inline code documentation with usage examples
-- More detailed error handling documentation with code examples
+**Features:**
+- Orchestration v2 API support
+  - Request body built under `config.modules.prompt_templating`
+  - Response schemas aligned to v2 (`intermediate_results`, `final_result`)
+  - Tool calls surfaced via `tool_calls` in choices and stream deltas
+  - `messages_history` support in request schema
+  - `output_unmasking` in intermediate results
+- Data masking with SAP Data Privacy Integration (DPI)
+  - Anonymization and pseudonymization support
+  - Standard and custom entity detection
+  - Allowlist configuration
+- Response format control
+  - `SAPAISettings.responseFormat` for text/json/json_schema
+  - Default to `{ type: "text" }` when no tools are used
+- `createSAPAIProviderSync` for synchronous initialization with token
+- `defaultSettings` option for provider-wide configuration
+- `completionPath` option for custom endpoint paths
+- Enhanced error messages with `intermediateResults`
+- Improved streaming support with better error handling
+
+**Examples:**
+- New streaming example: `examples/example-streaming-chat.ts`
+- Updated examples to reflect v2 API and new features
+- Data masking example: `examples/example-data-masking.ts`
+
+### Changed
+
+**API:**
+- Default endpoint: `${baseURL}/inference/deployments/{deploymentId}/v2/completion`
+- Legacy v1 endpoint support maintained for backward compatibility
+- Enhanced `SAPAIError` with `intermediateResults` property
+- Improved type definitions with better JSDoc
+
+**Documentation:**
+- Enhanced documentation for all public interfaces
+- More detailed error handling examples
 - Expanded configuration options documentation
-- Improved authentication setup instructions
 - Better model selection guidance
-- Enhanced code examples with real-world scenarios
+- Real-world code examples
 
-### Documentation
-- Added comprehensive JSDoc comments to `SAPAIProvider` interface
-- Added comprehensive JSDoc comments to `SAPAIProviderSettings` interface
-- Added comprehensive JSDoc comments to `SAPAIServiceKey` interface
-- Added comprehensive JSDoc comments to `createSAPAIProvider` function
-- Added comprehensive JSDoc comments to `getOAuthToken` function
-- Enhanced `convertToSAPMessages` function documentation
-- Added detailed type documentation for all message formats
-- Added extensive API reference with parameter tables
-- Added troubleshooting section with common issues and solutions
-- Added performance optimization guide
-- Added production deployment best practices
-- Added security considerations documentation
+### Deprecated
+
+- v1 completion endpoint (`POST /completion`) - Decommission on October 31, 2026
+- Use v2 endpoint (`POST /v2/completion`) instead (default)
+
+### Fixed
+
+- Improved error messages for authentication failures
+- Better handling of v1/v2 API fallback
+- Enhanced stream processing reliability
+
+---
 
 ## [1.0.3] - 2024-01-XX
 
