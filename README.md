@@ -1216,6 +1216,34 @@ export async function POST(request: Request) {
 }
 ```
 
+## Documentation
+
+### Core Documentation
+
+- **[API Reference](./API_REFERENCE.md)** - Complete API documentation with all functions, types, and examples
+- **[Migration Guide](./MIGRATION_GUIDE.md)** - Version upgrade guide with breaking changes
+- **[Architecture](./ARCHITECTURE.md)** - Internal design and implementation details
+
+### Additional Resources
+
+- **[Environment Setup](./ENVIRONMENT_SETUP.md)** - Environment variable configuration
+- **[cURL Testing Guide](./CURL_API_TESTING_GUIDE.md)** - Manual API testing with cURL
+- **[Contributing](./CONTRIBUTING.md)** - Contribution guidelines
+- **[Changelog](./CHANGELOG.md)** - Version history and changes
+
+### External Links
+
+- [Vercel AI SDK Documentation](https://sdk.vercel.ai/)
+- [Vercel AI SDK Community Providers Guide](https://ai-sdk.dev/providers/community-providers)
+- [SAP AI Core Documentation](https://help.sap.com/docs/sap-ai-core)
+- [SAP AI Core Schema](https://api.sap.com/api/ORCHESTRATION_API_v2/schema)
+- [SAP Cloud SDK for AI](https://sap.github.io/ai-sdk/)
+- [SAP BTP Documentation](https://help.sap.com/docs/btp)
+- [GitHub Repository](https://github.com/BITASIA/sap-ai-provider)
+- [npm Package](https://www.npmjs.com/package/@mymediset/sap-ai-provider)
+
+---
+
 ## Development
 
 ### Building
