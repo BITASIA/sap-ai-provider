@@ -2,6 +2,7 @@ import type {
   MaskingModule,
   FilteringModule,
   ChatModel,
+  ChatCompletionTool,
 } from "@sap-ai-sdk/orchestration";
 
 /**
@@ -143,6 +144,39 @@ export interface SAPAISettings {
           strict?: boolean | null;
         };
       };
+
+  /**
+   * Tool definitions in SAP AI SDK format.
+   *
+   * Use this to pass tools directly with proper JSON Schema definitions.
+   * This bypasses the AI SDK's Zod conversion which may have issues.
+   *
+   * Note: This should be used in conjunction with AI SDK's tool handling
+   * to provide the actual tool implementations (execute functions).
+   *
+   * @example
+   * ```typescript
+   * const model = provider('gpt-4o', {
+   *   tools: [
+   *     {
+   *       type: 'function',
+   *       function: {
+   *         name: 'get_weather',
+   *         description: 'Get weather for a location',
+   *         parameters: {
+   *           type: 'object',
+   *           properties: {
+   *             location: { type: 'string', description: 'City name' }
+   *           },
+   *           required: ['location']
+   *         }
+   *       }
+   *     }
+   *   ]
+   * });
+   * ```
+   */
+  tools?: ChatCompletionTool[];
 }
 
 /**

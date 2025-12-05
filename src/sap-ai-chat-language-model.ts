@@ -21,8 +21,26 @@ import type {
   ResourceGroupConfig,
   DeploymentIdConfig,
 } from "@sap-ai-sdk/ai-api/internal.js";
+// Note: zodToJsonSchema and isZodSchema are kept for potential future use
+// when AI SDK Zod conversion issues are resolved
+import { zodToJsonSchema } from "zod-to-json-schema";
+import type { ZodType } from "zod";
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
+
+/**
+ * Type guard to check if an object is a Zod schema.
+ * @internal
+ */
+function isZodSchema(obj: unknown): obj is ZodType {
+  return (
+    obj !== null &&
+    typeof obj === "object" &&
+    "_def" in obj &&
+    "parse" in obj &&
+    typeof (obj as { parse: unknown }).parse === "function"
+  );
+}
 
 /**
  * Internal configuration for the SAP AI Chat Language Model.
@@ -160,36 +178,101 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     // Convert AI SDK prompt to SAP messages
     const messages = convertToSAPMessages(options.prompt);
 
-    // Extract tools from options
-    const availableTools = options.tools as
-      | Array<LanguageModelV2FunctionTool | LanguageModelV2ProviderDefinedTool>
-      | undefined;
+    // Get tools - prefer settings.tools if provided (proper JSON Schema),
+    // otherwise try to convert from AI SDK tools
+    let tools: ChatCompletionTool[] | undefined;
 
-    // Convert tools to SAP AI SDK format
-    const tools: ChatCompletionTool[] | undefined = availableTools
-      ?.map((tool): ChatCompletionTool | null => {
-        if (tool.type === "function") {
-          return {
-            type: "function",
-            function: {
-              name: tool.name,
-              description: tool.description,
-              parameters: tool.inputSchema || {
+    if (this.settings.tools && this.settings.tools.length > 0) {
+      // Use tools from settings (already in SAP format with proper schemas)
+      tools = this.settings.tools;
+    } else {
+      // Extract tools from options and convert
+      const availableTools = options.tools as
+        | Array<
+            LanguageModelV2FunctionTool | LanguageModelV2ProviderDefinedTool
+          >
+        | undefined;
+
+      tools = availableTools
+        ?.map((tool): ChatCompletionTool | null => {
+          if (tool.type === "function") {
+            // Get the input schema - AI SDK provides this as JSONSchema7
+            // But in some cases, it might be a Zod schema or have empty properties
+            const inputSchema = tool.inputSchema as
+              | Record<string, unknown>
+              | undefined;
+
+            // Also check for raw Zod schema in 'parameters' field (AI SDK internal)
+            const toolWithParams = tool as LanguageModelV2FunctionTool & {
+              parameters?: unknown;
+            };
+
+            // Build parameters ensuring type: "object" is always present
+            // SAP AI Core requires explicit type: "object" in the schema
+            let parameters: Record<string, unknown>;
+
+            // First, check if there's a Zod schema we need to convert
+            if (
+              toolWithParams.parameters &&
+              isZodSchema(toolWithParams.parameters)
+            ) {
+              // Convert Zod schema to JSON Schema
+              const jsonSchema = zodToJsonSchema(toolWithParams.parameters, {
+                $refStrategy: "none",
+              }) as Record<string, unknown>;
+              // Remove $schema property as SAP doesn't need it
+              delete jsonSchema.$schema;
+              parameters = {
+                type: "object",
+                ...jsonSchema,
+              };
+            } else if (inputSchema && Object.keys(inputSchema).length > 0) {
+              // Check if schema has properties (it's a proper object schema)
+              const hasProperties =
+                inputSchema.properties &&
+                typeof inputSchema.properties === "object" &&
+                Object.keys(inputSchema.properties as object).length > 0;
+
+              if (hasProperties) {
+                parameters = {
+                  type: "object",
+                  ...inputSchema,
+                };
+              } else {
+                // Schema exists but has no properties - use default empty schema
+                parameters = {
+                  type: "object",
+                  properties: {},
+                  required: [],
+                };
+              }
+            } else {
+              // No schema provided - use default empty schema
+              parameters = {
                 type: "object",
                 properties: {},
                 required: [],
+              };
+            }
+
+            return {
+              type: "function",
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters,
               },
-            },
-          };
-        } else {
-          warnings.push({
-            type: "unsupported-tool",
-            tool: tool,
-          });
-          return null;
-        }
-      })
-      .filter((t): t is ChatCompletionTool => t !== null);
+            };
+          } else {
+            warnings.push({
+              type: "unsupported-tool",
+              tool: tool,
+            });
+            return null;
+          }
+        })
+        .filter((t): t is ChatCompletionTool => t !== null);
+    }
 
     // Check if model supports certain features
     const supportsN =
@@ -305,6 +388,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           type: "tool-call",
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
+          // AI SDK expects input as a JSON string, which it parses internally
           input: toolCall.function.arguments,
         });
       }
