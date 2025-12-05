@@ -1,9 +1,9 @@
 #!/usr/bin/env npx tsx
 /**
  * Quick test script for SAP AI Provider v2
- * 
+ *
  * Usage: npx tsx test-quick.ts
- * 
+ *
  * Make sure AICORE_SERVICE_KEY is set in .env or environment
  */
 
@@ -18,7 +18,9 @@ async function quickTest() {
   if (!process.env.AICORE_SERVICE_KEY) {
     console.error("❌ AICORE_SERVICE_KEY environment variable is not set!");
     console.error("\nSet it in .env file:");
-    console.error('AICORE_SERVICE_KEY=\'{"serviceurls":{"AI_API_URL":"..."},...}\'');
+    console.error(
+      'AICORE_SERVICE_KEY=\'{"serviceurls":{"AI_API_URL":"..."},...}\'',
+    );
     process.exit(1);
   }
 
@@ -37,9 +39,11 @@ async function quickTest() {
 
     console.log("\n✅ SUCCESS!");
     console.log("📄 Response:", text);
-    console.log("📊 Tokens:", `${usage.inputTokens} in / ${usage.outputTokens} out`);
+    console.log(
+      "📊 Tokens:",
+      `${usage.inputTokens} in / ${usage.outputTokens} out`,
+    );
     console.log("🏁 Finish:", finishReason);
-
   } catch (error) {
     console.error("\n❌ Test failed:", error);
     process.exit(1);
@@ -47,4 +51,3 @@ async function quickTest() {
 }
 
 quickTest();
-

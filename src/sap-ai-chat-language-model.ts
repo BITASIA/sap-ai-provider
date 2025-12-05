@@ -219,7 +219,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       // Include masking module if provided
       ...(this.settings.masking ? { masking: this.settings.masking } : {}),
       // Include filtering module if provided
-      ...(this.settings.filtering ? { filtering: this.settings.filtering } : {}),
+      ...(this.settings.filtering
+        ? { filtering: this.settings.filtering }
+        : {}),
     };
 
     return { orchestrationConfig, messages, warnings };

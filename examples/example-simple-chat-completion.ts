@@ -71,12 +71,13 @@ async function simpleTest() {
     console.log("🏁 Finish reason:", result.finishReason);
     console.log("");
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("❌ Test failed:", errorMessage);
 
     console.error("\n💡 Troubleshooting tips:");
-    console.error("   - Ensure AICORE_SERVICE_KEY is set with valid credentials");
+    console.error(
+      "   - Ensure AICORE_SERVICE_KEY is set with valid credentials",
+    );
     console.error("   - Check that your SAP AI Core instance is accessible");
     console.error("   - Verify the model is available in your deployment");
   }

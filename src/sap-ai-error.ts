@@ -70,11 +70,14 @@ export class SAPAIError extends Error {
     if (Array.isArray(error)) {
       // ErrorList - get first error
       const firstError = error[0];
-      return new SAPAIError(firstError?.message ?? "Unknown orchestration error", {
-        code: firstError?.code,
-        location: firstError?.location,
-        requestId: firstError?.request_id,
-      });
+      return new SAPAIError(
+        firstError?.message ?? "Unknown orchestration error",
+        {
+          code: firstError?.code,
+          location: firstError?.location,
+          requestId: firstError?.request_id,
+        },
+      );
     } else {
       // Single Error object
       return new SAPAIError(error?.message ?? "Unknown orchestration error", {
