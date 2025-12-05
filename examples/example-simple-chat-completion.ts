@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * SAP AI Provider Pattern Examples
+ * SAP AI Provider - Simple Chat Completion Example
  *
- * This example demonstrates the simple chat completion using the SAP AI SDK
- * following Vercel AI SDK patterns.
+ * This example demonstrates basic chat completion using the SAP AI Provider
+ * powered by @sap-ai-sdk/orchestration.
+ *
+ * Authentication:
+ * - On SAP BTP: Automatically uses service binding (VCAP_SERVICES)
+ * - Locally: Set AICORE_SERVICE_KEY environment variable with your service key JSON
  */
 
 // Load environment variables from .env file
@@ -12,34 +16,33 @@ import "dotenv/config";
 import { createSAPAIProvider } from "../src/sap-ai-provider";
 
 async function simpleTest() {
-  console.log(
-    "🧪 Simple SAP AI Test with Environment Variable (User-Friendly)\n",
-  );
+  console.log("🧪 Simple SAP AI Chat Completion Example\n");
 
   try {
-    console.log(
-      "🔄 Creating provider using SAP_AI_SERVICE_KEY environment variable...",
-    );
-
-    // Get service key from environment variable
-    const serviceKey = process.env.SAP_AI_SERVICE_KEY;
-    if (!serviceKey) {
-      throw new Error(
-        "SAP_AI_SERVICE_KEY environment variable is required. Please set it in your .env file.",
+    // Verify AICORE_SERVICE_KEY is set for local development
+    if (!process.env.AICORE_SERVICE_KEY && !process.env.VCAP_SERVICES) {
+      console.warn(
+        "⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.",
+      );
+      console.warn(
+        "   Set it in your .env file or environment for local development.\n",
       );
     }
 
-    // This is all the user needs to do!
-    // Make sure to set SAP_AI_SERVICE_KEY in your .env file
-    const provider = await createSAPAIProvider({
-      serviceKey: serviceKey,
+    console.log("🔄 Creating SAP AI provider...");
+
+    // Create provider - authentication is handled automatically by SAP AI SDK
+    const provider = createSAPAIProvider({
+      resourceGroup: "default", // Optional: specify resource group
     });
 
-    console.log("📝 Testing text generation...");
+    console.log("📝 Testing text generation with gpt-4o...");
+
     const model = provider("gpt-4o", {
-      modelParams: { temperature: 0.7 },
-      safePrompt: true,
-      structuredOutputs: true,
+      modelParams: {
+        temperature: 0.7,
+        maxTokens: 1000,
+      },
     });
 
     const result = await model.doGenerate({
@@ -67,20 +70,16 @@ async function simpleTest() {
     );
     console.log("🏁 Finish reason:", result.finishReason);
     console.log("");
-  } catch (error: any) {
-    console.error("❌ Test failed:", error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("❌ Test failed:", errorMessage);
 
-    if (error.message.includes("Failed to get OAuth access token")) {
-      console.error("💡 Troubleshooting: OAuth authentication failed");
-      console.error("   - Check if your service key is valid");
-      console.error("   - Ensure the service key has the correct permissions");
-    } else if (error.message.includes("Invalid service key JSON format")) {
-      console.error("💡 Troubleshooting: Invalid service key format");
-      console.error("   - Make sure the service key is valid JSON");
-      console.error("   - Copy the exact service key from SAP BTP");
-    } else {
-      console.error("💡 General error - check the details above");
-    }
+    console.error("\n💡 Troubleshooting tips:");
+    console.error(
+      "   - Ensure AICORE_SERVICE_KEY is set with valid credentials",
+    );
+    console.error("   - Check that your SAP AI Core instance is accessible");
+    console.error("   - Verify the model is available in your deployment");
   }
 }
 

@@ -1,17 +1,19 @@
 {
   "name": "@mymediset/sap-ai-provider",
-  "version": "1.0.3",
-  "description": "SAP AI Core provider for AI SDK",
+  "version": "2.0.0",
+  "description": "SAP AI Core provider for AI SDK (powered by @sap-ai-sdk/orchestration)",
   "keywords": [
     "ai",
     "vercel",
     "vercel-ai-sdk",
     "sap",
     "sap-ai-core",
+    "sap-ai-sdk",
     "aicore",
     "btp",
     "cap",
-    "agent"
+    "agent",
+    "orchestration"
   ],
   "homepage": "https://github.com/BITASIA/sap-ai-provider#readme",
   "bugs": {
@@ -62,7 +64,7 @@
   "dependencies": {
     "@ai-sdk/provider": "^2.0.0",
     "@ai-sdk/provider-utils": "^3.0.0",
-    "zod": "^3.25.0"
+    "@sap-ai-sdk/orchestration": "^2.3.0"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
@@ -78,8 +80,7 @@
     "vitest": "^1.6.1"
   },
   "peerDependencies": {
-    "ai": "^5.0.0",
-    "zod": "^3.25.0"
+    "ai": "^5.0.0"
   },
   "engines": {
     "node": ">=18"

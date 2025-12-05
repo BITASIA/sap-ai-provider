@@ -10,21 +10,37 @@ import {
   LanguageModelV2Usage,
 } from "@ai-sdk/provider";
 import {
-  FetchFunction,
-  combineHeaders,
-  createEventSourceResponseHandler,
-  createJsonResponseHandler,
-  ParseResult,
-  postJsonToApi,
-} from "@ai-sdk/provider-utils";
-import { z } from "zod";
+  OrchestrationClient,
+  OrchestrationModuleConfig,
+  ChatModel,
+  ChatMessage,
+  ChatCompletionTool,
+} from "@sap-ai-sdk/orchestration";
+import type { HttpDestinationOrFetchOptions } from "@sap-cloud-sdk/connectivity";
+import type {
+  ResourceGroupConfig,
+  DeploymentIdConfig,
+} from "@sap-ai-sdk/ai-api/internal.js";
+// Note: zodToJsonSchema and isZodSchema are kept for potential future use
+// when AI SDK Zod conversion issues are resolved
+import { zodToJsonSchema } from "zod-to-json-schema";
+import type { ZodType } from "zod";
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
-import { sapAIFailedResponseHandler } from "./sap-ai-error";
-import {
-  sapAIResponseSchema,
-  sapAIStreamResponseSchema,
-} from "./types/completion-response";
+
+/**
+ * Type guard to check if an object is a Zod schema.
+ * @internal
+ */
+function isZodSchema(obj: unknown): obj is ZodType {
+  return (
+    obj !== null &&
+    typeof obj === "object" &&
+    "_def" in obj &&
+    "parse" in obj &&
+    typeof (obj as { parse: unknown }).parse === "function"
+  );
+}
 
 /**
  * Internal configuration for the SAP AI Chat Language Model.
@@ -33,38 +49,36 @@ import {
 type SAPAIConfig = {
   /** Provider identifier */
   provider: string;
-  /** Base URL for API calls */
-  baseURL: string;
-  /** Function that returns request headers */
-  headers: () => Record<string, string | undefined>;
-  /** Optional custom fetch implementation */
-  fetch?: FetchFunction;
+  /** Deployment configuration for SAP AI SDK */
+  deploymentConfig: ResourceGroupConfig | DeploymentIdConfig;
+  /** Optional custom destination */
+  destination?: HttpDestinationOrFetchOptions;
 };
 
 /**
  * SAP AI Chat Language Model implementation.
  *
  * This class implements the Vercel AI SDK's `LanguageModelV2` interface,
- * providing a bridge between the AI SDK and SAP AI Core's Orchestration API.
+ * providing a bridge between the AI SDK and SAP AI Core's Orchestration API
+ * using the official SAP AI SDK (@sap-ai-sdk/orchestration).
  *
  * **Features:**
  * - Text generation (streaming and non-streaming)
  * - Tool calling (function calling)
  * - Multi-modal input (text + images)
- * - Structured outputs (JSON schema)
  * - Data masking (SAP DPI)
+ * - Content filtering
  *
  * **Model Support:**
- * - OpenAI models
- * - Anthropic Claude models
- * - Google Gemini models
- * - Amazon Nova and Titan models
- * - Open source models (Llama, Mistral, etc.)
+ * - Azure OpenAI models (gpt-4o, gpt-4o-mini, o1, o3, etc.)
+ * - Google Vertex AI models (gemini-2.0-flash, gemini-2.5-pro, etc.)
+ * - AWS Bedrock models (anthropic--claude-*, amazon--nova-*, etc.)
+ * - AI Core open source models (mistralai--, cohere--, etc.)
  *
  * @example
  * ```typescript
  * // Create via provider
- * const provider = await createSAPAIProvider({ serviceKey });
+ * const provider = createSAPAIProvider();
  * const model = provider('gpt-4o');
  *
  * // Use with AI SDK
@@ -83,7 +97,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
   readonly defaultObjectGenerationMode = "json";
   /** Whether the model supports image URLs */
   readonly supportsImageUrls = true;
-  /** The model identifier (e.g., 'gpt-4o', 'claude-3.5-sonnet') */
+  /** The model identifier (e.g., 'gpt-4o', 'anthropic--claude-3.5-sonnet') */
   readonly modelId: SAPAIModelId;
   /** Whether the model supports structured outputs */
   readonly supportsStructuredOutputs = true;
@@ -98,7 +112,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    *
    * @param modelId - The model identifier
    * @param settings - Model-specific configuration settings
-   * @param config - Internal configuration (base URL, headers, etc.)
+   * @param config - Internal configuration (deployment config, destination, etc.)
    *
    * @internal This constructor is not meant to be called directly.
    * Use the provider function instead.
@@ -147,63 +161,106 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
   }
 
   /**
-   * Builds request arguments for SAP AI Core API.
-   *
-   * This private method prepares the request body for both v2 and v1 (legacy) API formats.
-   * It handles model-specific capabilities, tool configurations, response formats, and masking.
+   * Builds orchestration module config for SAP AI SDK.
    *
    * @param options - Call options from the AI SDK
-   * @param streaming - Whether this is a streaming request
-   * @returns Object containing v2 args, legacy v1 args, and warnings
+   * @returns Object containing orchestration config and warnings
    *
    * @internal
    */
-  private getArgs(
-    options: LanguageModelV2CallOptions,
-    streaming: boolean = false,
-  ) {
+  private buildOrchestrationConfig(options: LanguageModelV2CallOptions): {
+    orchestrationConfig: OrchestrationModuleConfig;
+    messages: ChatMessage[];
+    warnings: LanguageModelV2CallWarning[];
+  } {
     const warnings: LanguageModelV2CallWarning[] = [];
 
-    // Extract tools from mode if available (for tool calling)
-    const availableTools = options.tools as
-      | Array<LanguageModelV2FunctionTool | LanguageModelV2ProviderDefinedTool>
-      | undefined;
+    // Convert AI SDK prompt to SAP messages
+    const messages = convertToSAPMessages(options.prompt);
 
-    // Check if model supports structured outputs (OpenAI and Gemini models do, Anthropic doesn't)
-    const supportsStructuredOutputs =
-      !this.modelId.startsWith("anthropic--") &&
-      !this.modelId.startsWith("claude-") &&
-      !this.modelId.startsWith("amazon--");
+    // Get tools - prefer settings.tools if provided (proper JSON Schema),
+    // otherwise try to convert from AI SDK tools
+    let tools: ChatCompletionTool[] | undefined;
 
-    const supportsN = !this.modelId.startsWith("amazon--");
+    if (this.settings.tools && this.settings.tools.length > 0) {
+      // Use tools from settings (already in SAP format with proper schemas)
+      tools = this.settings.tools;
+    } else {
+      // Extract tools from options and convert
+      const availableTools = options.tools as
+        | Array<
+            LanguageModelV2FunctionTool | LanguageModelV2ProviderDefinedTool
+          >
+        | undefined;
 
-    // Decide response_format first, so we can inline it into templatingPromptConfig
-    const explicitResponseFormat =
-      (options as any)?.response_format ?? this.settings.responseFormat;
-    const resolvedResponseFormat =
-      explicitResponseFormat ??
-      (availableTools?.length ? undefined : { type: "text" });
-
-    const templatingPromptConfig: any = {
-      template: convertToSAPMessages(options.prompt),
-      defaults: {},
-      ...(resolvedResponseFormat
-        ? { response_format: resolvedResponseFormat }
-        : {}),
-      tools: availableTools
-        ?.map((tool) => {
+      tools = availableTools
+        ?.map((tool): ChatCompletionTool | null => {
           if (tool.type === "function") {
-            const parameters = tool.inputSchema;
-            return {
-              type: tool.type,
-              function: {
-                name: tool.name,
-                description: tool.description,
-                parameters: parameters || {
+            // Get the input schema - AI SDK provides this as JSONSchema7
+            // But in some cases, it might be a Zod schema or have empty properties
+            const inputSchema = tool.inputSchema as
+              | Record<string, unknown>
+              | undefined;
+
+            // Also check for raw Zod schema in 'parameters' field (AI SDK internal)
+            const toolWithParams = tool as LanguageModelV2FunctionTool & {
+              parameters?: unknown;
+            };
+
+            // Build parameters ensuring type: "object" is always present
+            // SAP AI Core requires explicit type: "object" in the schema
+            let parameters: Record<string, unknown>;
+
+            // First, check if there's a Zod schema we need to convert
+            if (
+              toolWithParams.parameters &&
+              isZodSchema(toolWithParams.parameters)
+            ) {
+              // Convert Zod schema to JSON Schema
+              const jsonSchema = zodToJsonSchema(toolWithParams.parameters, {
+                $refStrategy: "none",
+              }) as Record<string, unknown>;
+              // Remove $schema property as SAP doesn't need it
+              delete jsonSchema.$schema;
+              parameters = {
+                type: "object",
+                ...jsonSchema,
+              };
+            } else if (inputSchema && Object.keys(inputSchema).length > 0) {
+              // Check if schema has properties (it's a proper object schema)
+              const hasProperties =
+                inputSchema.properties &&
+                typeof inputSchema.properties === "object" &&
+                Object.keys(inputSchema.properties as object).length > 0;
+
+              if (hasProperties) {
+                parameters = {
+                  type: "object",
+                  ...inputSchema,
+                };
+              } else {
+                // Schema exists but has no properties - use default empty schema
+                parameters = {
                   type: "object",
                   properties: {},
                   required: [],
-                },
+                };
+              }
+            } else {
+              // No schema provided - use default empty schema
+              parameters = {
+                type: "object",
+                properties: {},
+                required: [],
+              };
+            }
+
+            return {
+              type: "function",
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters,
               },
             };
           } else {
@@ -214,80 +271,59 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             return null;
           }
         })
-        .filter(Boolean),
-    };
+        .filter((t): t is ChatCompletionTool => t !== null);
+    }
 
-    // templatingPromptConfig already carries response_format if applicable
+    // Check if model supports certain features
+    const supportsN =
+      !this.modelId.startsWith("amazon--") &&
+      !this.modelId.startsWith("anthropic--");
 
-    // Only add response_format for models that support it AND when no tools are available
-    // (tools require flexible response format for tool calls)
-    // Build orchestration v2 body
-    const argsV2 = {
-      config: {
-        modules: {
-          // Prompt templating module aggregates prompt + model configuration
-          prompt_templating: {
-            prompt: templatingPromptConfig,
-            model: {
-              name: this.modelId,
-              params: {
-                temperature: this.settings.modelParams?.temperature,
-                max_tokens: this.settings.modelParams?.maxTokens,
-                top_p: this.settings.modelParams?.topP,
-                frequency_penalty: this.settings.modelParams?.frequencyPenalty,
-                presence_penalty: this.settings.modelParams?.presencePenalty,
-                n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
-                parallel_tool_calls:
-                  this.settings.modelParams?.parallel_tool_calls,
-              },
-              version: this.settings.modelVersion ?? "latest",
-            },
+    // Build orchestration config
+    const orchestrationConfig: OrchestrationModuleConfig = {
+      promptTemplating: {
+        model: {
+          name: this.modelId as ChatModel,
+          version: this.settings.modelVersion ?? "latest",
+          params: {
+            max_tokens: this.settings.modelParams?.maxTokens,
+            temperature: this.settings.modelParams?.temperature,
+            top_p: this.settings.modelParams?.topP,
+            frequency_penalty: this.settings.modelParams?.frequencyPenalty,
+            presence_penalty: this.settings.modelParams?.presencePenalty,
+            n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
           },
-          // Include masking module if provided by settings (backed by DPI)
-          ...(this.settings.masking ? { masking: this.settings.masking } : {}),
         },
-        ...(streaming ? { stream: { enabled: true } } : {}),
-      },
-      // placeholder_values are not used because we pass fully rendered messages
-    } as const;
-
-    // Build legacy orchestration v1 body (with orchestration_config)
-    const templatingModuleConfigV1: any = {
-      template: templatingPromptConfig.template,
-      defaults: templatingPromptConfig.defaults,
-      tools: templatingPromptConfig.tools,
-      response_format: (templatingPromptConfig as any).response_format,
-    };
-
-    // response_format is already carried over from templatingPromptConfig
-
-    const argsV1 = {
-      orchestration_config: {
-        stream: streaming,
-        module_configurations: {
-          llm_module_config: {
-            model_name: this.modelId,
-            model_version: this.settings.modelVersion ?? "latest",
-            model_params: {
-              temperature: this.settings.modelParams?.temperature,
-              max_tokens: this.settings.modelParams?.maxTokens,
-              top_p: this.settings.modelParams?.topP,
-              frequency_penalty: this.settings.modelParams?.frequencyPenalty,
-              presence_penalty: this.settings.modelParams?.presencePenalty,
-              n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
-              parallel_tool_calls:
-                this.settings.modelParams?.parallel_tool_calls,
-            },
-          },
-          templating_module_config: templatingModuleConfigV1,
-          ...(this.settings.masking
-            ? { masking_module_config: this.settings.masking }
-            : {}),
+        prompt: {
+          template: [],
+          tools: tools && tools.length > 0 ? tools : undefined,
         },
       },
-    } as const;
+      // Include masking module if provided
+      ...(this.settings.masking ? { masking: this.settings.masking } : {}),
+      // Include filtering module if provided
+      ...(this.settings.filtering
+        ? { filtering: this.settings.filtering }
+        : {}),
+    };
 
-    return { args: argsV2, argsLegacy: argsV1, warnings };
+    return { orchestrationConfig, messages, warnings };
+  }
+
+  /**
+   * Creates an OrchestrationClient instance.
+   *
+   * @param config - Orchestration module configuration
+   * @returns OrchestrationClient instance
+   *
+   * @internal
+   */
+  private createClient(config: OrchestrationModuleConfig): OrchestrationClient {
+    return new OrchestrationClient(
+      config,
+      this.config.deploymentConfig,
+      this.config.destination,
+    );
   }
 
   /**
@@ -297,21 +333,13 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * sending a request to SAP AI Core and returning the complete response.
    *
    * **Features:**
-   * - Automatic v2/v1 API fallback
    * - Tool calling support
    * - Multi-modal input (text + images)
-   * - Structured outputs (for supported models)
    * - Data masking (if configured)
-   *
-   * **Model-Specific Behavior:**
-   * - Structured outputs: Not supported by Anthropic and Amazon models
-   * - Multiple completions (n): Not supported by Amazon models
-   * - Parallel tool calls: Full support for OpenAI (can be disable with modelParams.parallel_tool_calls), limited for Gemini
+   * - Content filtering (if configured)
    *
    * @param options - Generation options including prompt, tools, and settings
    * @returns Promise resolving to the generation result with content, usage, and metadata
-   *
-   * @throws {SAPAIError} When the API request fails
    *
    * @example
    * ```typescript
@@ -332,102 +360,57 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
     warnings: LanguageModelV2CallWarning[];
   }> {
-    const { args, argsLegacy, warnings } = this.getArgs(options);
-    const headers = combineHeaders(
-      this.config.headers(),
-      options.headers ?? {},
-    );
+    const { orchestrationConfig, messages, warnings } =
+      this.buildOrchestrationConfig(options);
 
-    let response: z.infer<typeof sapAIResponseSchema>;
-    try {
-      const { value } = await postJsonToApi<
-        z.infer<typeof sapAIResponseSchema>
-      >({
-        url: this.config.baseURL,
-        headers,
-        body: args,
-        failedResponseHandler: sapAIFailedResponseHandler,
-        successfulResponseHandler: createJsonResponseHandler(
-          sapAIResponseSchema as any,
-        ),
-        fetch: this.config.fetch,
-        abortSignal: options.abortSignal,
-      });
-      response = value;
-    } catch (error: any) {
-      const message = String(error?.message ?? "");
+    const client = this.createClient(orchestrationConfig);
 
-      const requiresLegacy =
-        message.includes("orchestration_config") ||
-        message.includes("required property");
-      if (!requiresLegacy) {
-        throw error;
-      }
-      const { value } = await postJsonToApi<
-        z.infer<typeof sapAIResponseSchema>
-      >({
-        url: this.config.baseURL,
-        headers,
-        body: argsLegacy,
-        failedResponseHandler: sapAIFailedResponseHandler,
-        successfulResponseHandler: createJsonResponseHandler(
-          sapAIResponseSchema as any,
-        ),
-        fetch: this.config.fetch,
-        abortSignal: options.abortSignal,
-      });
-      response = value;
-    }
-
-    // Prefer v2 final_result, fall back to intermediate/module_results for backward compatibility
-    const llmResult =
-      (response as any).final_result ??
-      (response as any).intermediate_results?.llm ??
-      (response as any).module_results?.llm;
-
-    const firstChoice = llmResult.choices[0];
-    const usage = llmResult.usage;
+    const response = await client.chatCompletion({
+      messages,
+    });
 
     const content: LanguageModelV2Content[] = [];
 
-    if (firstChoice.message.content) {
-      let text: string;
-      try {
-        const parsed = JSON.parse(firstChoice.message.content);
-        text = parsed.content || firstChoice.message.content;
-      } catch {
-        text = firstChoice.message.content;
-      }
-
-      if (text) {
-        content.push({
-          type: "text",
-          text: text,
-        });
-      }
+    // Extract text content
+    const textContent = response.getContent();
+    if (textContent) {
+      content.push({
+        type: "text",
+        text: textContent,
+      });
     }
 
-    if (firstChoice.message.tool_calls) {
-      for (const toolCall of firstChoice.message.tool_calls) {
+    // Extract tool calls
+    const toolCalls = response.getToolCalls();
+    if (toolCalls) {
+      for (const toolCall of toolCalls) {
         content.push({
           type: "tool-call",
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
+          // AI SDK expects input as a JSON string, which it parses internally
           input: toolCall.function.arguments,
         });
       }
     }
 
+    // Get usage
+    const tokenUsage = response.getTokenUsage();
+
+    // Map finish reason
+    const finishReasonRaw = response.getFinishReason();
+    const finishReason = mapFinishReason(finishReasonRaw);
+
     return {
       content,
-      finishReason: firstChoice.finish_reason as LanguageModelV2FinishReason,
+      finishReason,
       usage: {
-        inputTokens: usage?.prompt_tokens,
-        outputTokens: usage?.completion_tokens,
-        totalTokens: usage?.total_tokens,
+        inputTokens: tokenUsage.prompt_tokens,
+        outputTokens: tokenUsage.completion_tokens,
+        totalTokens: tokenUsage.total_tokens,
       },
       rawCall: {
-        rawPrompt: args,
+        rawPrompt: { config: orchestrationConfig, messages },
         rawSettings: {},
       },
       warnings,
@@ -450,16 +433,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * - `finish` - Stream completes with usage and finish reason
    * - `error` - Error occurred
    *
-   * **Features:**
-   * - Real-time token streaming
-   * - Tool call detection in stream
-   * - Automatic v2/v1 API fallback
-   * - Error handling in stream
-   *
    * @param options - Streaming options including prompt, tools, and settings
    * @returns Promise resolving to stream and raw call metadata
-   *
-   * @throws {SAPAIError} When the initial request fails
    *
    * @example
    * ```typescript
@@ -480,44 +455,16 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     stream: ReadableStream<LanguageModelV2StreamPart>;
     rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
   }> {
-    const { args, argsLegacy, warnings } = this.getArgs(options, true);
-    let body: unknown = args;
+    const { orchestrationConfig, messages, warnings } =
+      this.buildOrchestrationConfig(options);
 
-    let response: any;
-    try {
-      const result = await postJsonToApi({
-        url: this.config.baseURL,
-        headers: combineHeaders(this.config.headers(), options.headers),
-        body,
-        failedResponseHandler: sapAIFailedResponseHandler,
-        successfulResponseHandler: createEventSourceResponseHandler(
-          sapAIStreamResponseSchema as any,
-        ),
-        abortSignal: options.abortSignal,
-        fetch: this.config.fetch,
-      });
-      response = result.value as any;
-    } catch (error: any) {
-      const message = String(error?.message ?? "");
-      const requiresLegacy =
-        message.includes("orchestration_config") ||
-        message.includes("required property");
-      if (!requiresLegacy) {
-        throw error;
-      }
-      const result = await postJsonToApi({
-        url: this.config.baseURL,
-        headers: combineHeaders(this.config.headers(), options.headers),
-        body: argsLegacy,
-        failedResponseHandler: sapAIFailedResponseHandler,
-        successfulResponseHandler: createEventSourceResponseHandler(
-          sapAIStreamResponseSchema as any,
-        ),
-        abortSignal: options.abortSignal,
-        fetch: this.config.fetch,
-      });
-      response = result.value as any;
-    }
+    const client = this.createClient(orchestrationConfig);
+
+    const streamResponse = await client.stream(
+      { messages },
+      options.abortSignal,
+      { promptTemplating: { include_usage: true } },
+    );
 
     let finishReason: LanguageModelV2FinishReason = "unknown";
     const usage: LanguageModelV2Usage = {
@@ -529,131 +476,187 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     let isFirstChunk = true;
     let activeText = false;
 
-    return {
-      stream: response.pipeThrough(
-        new TransformStream<
-          ParseResult<z.infer<typeof sapAIStreamResponseSchema>>,
-          LanguageModelV2StreamPart
-        >({
-          start(controller) {
-            controller.enqueue({ type: "stream-start", warnings });
-          },
+    // Track tool calls being built up
+    const toolCallsInProgress: Map<
+      number,
+      { id: string; name: string; arguments: string }
+    > = new Map();
 
-          transform(chunk, controller) {
-            if (!chunk.success) {
-              controller.enqueue({ type: "error", error: chunk.error });
-              return;
-            }
+    const sdkStream = streamResponse.stream;
 
-            const value = chunk.value;
+    const transformedStream = new ReadableStream<LanguageModelV2StreamPart>({
+      async start(controller) {
+        controller.enqueue({ type: "stream-start", warnings });
 
-            // Support v2 stream shape; prefer intermediate_results.llm, then final_result, then legacy module_results.llm
-            const llmResult =
-              (value as any).intermediate_results?.llm ??
-              (value as any).final_result ??
-              (value as any).module_results?.llm;
-            if (!llmResult) {
-              return;
-            }
-
+        try {
+          for await (const chunk of sdkStream) {
             if (isFirstChunk) {
               isFirstChunk = false;
-
               controller.enqueue({
                 type: "response-metadata",
-                id: llmResult.id ?? undefined,
-                modelId: llmResult.model ?? undefined,
-                timestamp: llmResult.created
-                  ? new Date(llmResult.created * 1000)
-                  : undefined,
+                id: undefined,
+                modelId: undefined,
+                timestamp: new Date(),
               });
             }
 
-            if (llmResult.usage != null) {
-              usage.inputTokens = llmResult.usage?.prompt_tokens;
-              usage.outputTokens = llmResult.usage?.completion_tokens;
-              usage.totalTokens = llmResult.usage?.total_tokens;
-            }
-
-            const choice = llmResult.choices[0];
-            const delta = choice.delta;
-
-            // Handle text content
-            if (delta.content != null && delta.content.length > 0) {
-              // Extract text from JSON response if needed
-              let textContent: string;
-              try {
-                const parsed = JSON.parse(delta.content);
-                textContent = parsed.content || delta.content;
-              } catch {
-                textContent = delta.content;
-              }
-
+            // Get delta content
+            const deltaContent = chunk.getDeltaContent();
+            if (deltaContent) {
               if (!activeText) {
                 controller.enqueue({ type: "text-start", id: "0" });
                 activeText = true;
               }
-
               controller.enqueue({
                 type: "text-delta",
                 id: "0",
-                delta: textContent,
+                delta: deltaContent,
               });
             }
 
             // Handle tool calls
-            if (delta.tool_calls != null) {
-              for (const toolCall of delta.tool_calls) {
-                const toolCallId = toolCall.id;
-                const toolName = toolCall.function.name;
-                const input = toolCall.function.arguments;
+            const deltaToolCalls = chunk.getDeltaToolCalls();
+            if (deltaToolCalls) {
+              for (const toolCallChunk of deltaToolCalls) {
+                const index = toolCallChunk.index;
 
-                controller.enqueue({
-                  type: "tool-input-start",
-                  id: toolCallId,
-                  toolName,
-                });
+                // Initialize tool call if new
+                if (!toolCallsInProgress.has(index)) {
+                  toolCallsInProgress.set(index, {
+                    id: toolCallChunk.id || `tool_${index}`,
+                    name: toolCallChunk.function?.name || "",
+                    arguments: "",
+                  });
 
-                controller.enqueue({
-                  type: "tool-input-delta",
-                  id: toolCallId,
-                  delta: input,
-                });
+                  // Emit tool-input-start
+                  const tc = toolCallsInProgress.get(index)!;
+                  if (toolCallChunk.function?.name) {
+                    controller.enqueue({
+                      type: "tool-input-start",
+                      id: tc.id,
+                      toolName: tc.name,
+                    });
+                  }
+                }
 
-                controller.enqueue({
-                  type: "tool-input-end",
-                  id: toolCallId,
-                });
+                const tc = toolCallsInProgress.get(index)!;
 
-                controller.enqueue({
-                  type: "tool-call",
-                  toolCallId,
-                  toolName,
-                  input,
-                });
+                // Update tool call ID if provided
+                if (toolCallChunk.id) {
+                  tc.id = toolCallChunk.id;
+                }
+
+                // Update function name if provided
+                if (toolCallChunk.function?.name) {
+                  tc.name = toolCallChunk.function.name;
+                }
+
+                // Accumulate arguments
+                if (toolCallChunk.function?.arguments) {
+                  tc.arguments += toolCallChunk.function.arguments;
+                  controller.enqueue({
+                    type: "tool-input-delta",
+                    id: tc.id,
+                    delta: toolCallChunk.function.arguments,
+                  });
+                }
               }
             }
 
-            if (choice.finish_reason != null) {
-              finishReason =
-                choice.finish_reason as LanguageModelV2FinishReason;
-            }
-          },
-
-          flush(controller) {
-            if (activeText) {
-              controller.enqueue({ type: "text-end", id: "0" });
+            // Check for finish reason
+            const chunkFinishReason = chunk.getFinishReason();
+            if (chunkFinishReason) {
+              finishReason = mapFinishReason(chunkFinishReason);
             }
 
+            // Get usage from chunk
+            const chunkUsage = chunk.getTokenUsage();
+            if (chunkUsage) {
+              usage.inputTokens = chunkUsage.prompt_tokens;
+              usage.outputTokens = chunkUsage.completion_tokens;
+              usage.totalTokens = chunkUsage.total_tokens;
+            }
+          }
+
+          // Emit completed tool calls
+          const toolCalls = Array.from(toolCallsInProgress.values());
+          for (const tc of toolCalls) {
             controller.enqueue({
-              type: "finish",
-              finishReason,
-              usage,
+              type: "tool-input-end",
+              id: tc.id,
             });
-          },
-        }),
-      ),
-      rawCall: { rawPrompt: body, rawSettings: {} },
+            controller.enqueue({
+              type: "tool-call",
+              toolCallId: tc.id,
+              toolName: tc.name,
+              input: tc.arguments,
+            });
+          }
+
+          if (activeText) {
+            controller.enqueue({ type: "text-end", id: "0" });
+          }
+
+          // Try to get final usage from stream response
+          const finalUsage = streamResponse.getTokenUsage();
+          if (finalUsage) {
+            usage.inputTokens = finalUsage.prompt_tokens;
+            usage.outputTokens = finalUsage.completion_tokens;
+            usage.totalTokens = finalUsage.total_tokens;
+          }
+
+          // Get final finish reason
+          const finalFinishReason = streamResponse.getFinishReason();
+          if (finalFinishReason) {
+            finishReason = mapFinishReason(finalFinishReason);
+          }
+
+          controller.enqueue({
+            type: "finish",
+            finishReason,
+            usage,
+          });
+
+          controller.close();
+        } catch (error) {
+          controller.enqueue({
+            type: "error",
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+          controller.close();
+        }
+      },
+    });
+
+    return {
+      stream: transformedStream,
+      rawCall: {
+        rawPrompt: { config: orchestrationConfig, messages },
+        rawSettings: {},
+      },
     };
+  }
+}
+
+/**
+ * Maps SAP AI Core finish reasons to AI SDK finish reasons.
+ */
+function mapFinishReason(
+  reason: string | undefined,
+): LanguageModelV2FinishReason {
+  if (!reason) return "unknown";
+
+  switch (reason.toLowerCase()) {
+    case "stop":
+      return "stop";
+    case "length":
+      return "length";
+    case "tool_calls":
+    case "function_call":
+      return "tool-calls";
+    case "content_filter":
+      return "content-filter";
+    default:
+      return "unknown";
   }
 }

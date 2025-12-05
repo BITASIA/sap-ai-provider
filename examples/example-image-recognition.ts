@@ -1,24 +1,34 @@
+#!/usr/bin/env node
+
+/**
+ * SAP AI Provider - Image Recognition Example
+ *
+ * This example demonstrates multi-modal capabilities (text + images)
+ * using the SAP AI Provider with vision-enabled models.
+ *
+ * Authentication:
+ * - On SAP BTP: Automatically uses service binding (VCAP_SERVICES)
+ * - Locally: Set AICORE_SERVICE_KEY environment variable with your service key JSON
+ */
+
 import { generateText } from "ai";
 import { createSAPAIProvider } from "../src/index";
 import "dotenv/config";
 
 (async () => {
-  console.log("🖼️  SAP AI Core Image Recognition Example\n");
+  console.log("🖼️  SAP AI Image Recognition Example\n");
 
-  // Create provider using SAP_AI_SERVICE_KEY environment variable
-  // Make sure to set SAP_AI_SERVICE_KEY in your .env file
-  const serviceKey = process.env.SAP_AI_SERVICE_KEY;
-  if (!serviceKey) {
-    throw new Error(
-      "SAP_AI_SERVICE_KEY environment variable is required. Please set it in your .env file.",
+  // Verify AICORE_SERVICE_KEY is set for local development
+  if (!process.env.AICORE_SERVICE_KEY && !process.env.VCAP_SERVICES) {
+    console.warn(
+      "⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.",
+    );
+    console.warn(
+      "   Set it in your .env file or environment for local development.\n",
     );
   }
 
-  // This is all the user needs to do!
-  // Make sure to set SAP_AI_SERVICE_KEY in your .env file
-  const provider = await createSAPAIProvider({
-    serviceKey: serviceKey,
-  });
+  const provider = createSAPAIProvider();
 
   // Example 1: Using a public URL
   console.log("📸 Example 1: Public URL Image");

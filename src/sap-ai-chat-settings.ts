@@ -1,3 +1,10 @@
+import type {
+  MaskingModule,
+  FilteringModule,
+  ChatModel,
+  ChatCompletionTool,
+} from "@sap-ai-sdk/orchestration";
+
 /**
  * Settings for configuring SAP AI Core model behavior.
  */
@@ -49,43 +56,81 @@ export interface SAPAISettings {
     /**
      * Number of completions to generate.
      * Multiple completions provide alternative responses.
+     * Note: Not supported by Amazon and Anthropic models.
      * @default 1
      */
     n?: number;
 
     /**
-     * Snake_case alias for compatibility with SAP/OpenAI naming.
-     * Prefer this in user code for consistency with upstream docs.
+     * Whether to enable parallel tool calls.
+     * When enabled, the model can call multiple tools in parallel.
      */
     parallel_tool_calls?: boolean;
   };
 
   /**
-   * Enable safe prompt filtering.
-   * When enabled, prompts are checked for harmful content.
-   * @default true
-   */
-  safePrompt?: boolean;
-
-  /**
-   * Enable structured outputs.
-   * When enabled, responses will be formatted according to provided schemas.
-   * @default false
-   */
-  structuredOutputs?: boolean;
-
-  /**
    * Masking configuration for SAP AI Core orchestration.
    * When provided, sensitive information in prompts can be anonymized or
    * pseudonymized by SAP Data Privacy Integration (DPI).
+   *
+   * @example
+   * ```typescript
+   * import { buildDpiMaskingProvider } from '@sap-ai-sdk/orchestration';
+   *
+   * const model = provider('gpt-4o', {
+   *   masking: {
+   *     masking_providers: [
+   *       buildDpiMaskingProvider({
+   *         method: 'anonymization',
+   *         entities: ['profile-email', 'profile-phone']
+   *       })
+   *     ]
+   *   }
+   * });
+   * ```
    */
-  masking?: MaskingModuleConfig;
+  masking?: MaskingModule;
+
+  /**
+   * Filtering configuration for input and output content safety.
+   * Supports Azure Content Safety and Llama Guard filters.
+   *
+   * @example
+   * ```typescript
+   * import { buildAzureContentSafetyFilter } from '@sap-ai-sdk/orchestration';
+   *
+   * const model = provider('gpt-4o', {
+   *   filtering: {
+   *     input: {
+   *       filters: [
+   *         buildAzureContentSafetyFilter('input', {
+   *           hate: 'ALLOW_SAFE',
+   *           violence: 'ALLOW_SAFE_LOW_MEDIUM'
+   *         })
+   *       ]
+   *     }
+   *   }
+   * });
+   * ```
+   */
+  filtering?: FilteringModule;
 
   /**
    * Response format for templating prompt (OpenAI-compatible).
-   * When set, this will be sent to orchestration under
-   * config.modules.prompt_templating.prompt.response_format (v2)
-   * or orchestration_config.module_configurations.templating_module_config.response_format (legacy).
+   * Allows specifying structured output formats.
+   *
+   * @example
+   * ```typescript
+   * const model = provider('gpt-4o', {
+   *   responseFormat: {
+   *     type: 'json_schema',
+   *     json_schema: {
+   *       name: 'response',
+   *       schema: { type: 'object', properties: { answer: { type: 'string' } } }
+   *     }
+   *   }
+   * });
+   * ```
    */
   responseFormat?:
     | { type: "text" }
@@ -99,142 +144,76 @@ export interface SAPAISettings {
           strict?: boolean | null;
         };
       };
+
+  /**
+   * Tool definitions in SAP AI SDK format.
+   *
+   * Use this to pass tools directly with proper JSON Schema definitions.
+   * This bypasses the AI SDK's Zod conversion which may have issues.
+   *
+   * Note: This should be used in conjunction with AI SDK's tool handling
+   * to provide the actual tool implementations (execute functions).
+   *
+   * @example
+   * ```typescript
+   * const model = provider('gpt-4o', {
+   *   tools: [
+   *     {
+   *       type: 'function',
+   *       function: {
+   *         name: 'get_weather',
+   *         description: 'Get weather for a location',
+   *         parameters: {
+   *           type: 'object',
+   *           properties: {
+   *             location: { type: 'string', description: 'City name' }
+   *           },
+   *           required: ['location']
+   *         }
+   *       }
+   *     }
+   *   ]
+   * });
+   * ```
+   */
+  tools?: ChatCompletionTool[];
 }
 
 /**
  * Supported model IDs in SAP AI Core.
- * Note: Model availability depends on your subscription and region.
+ *
+ * These models are available through the SAP AI Core Orchestration service.
+ * Model availability depends on your subscription and region.
+ *
+ * **Azure OpenAI Models:**
+ * - gpt-4o, gpt-4o-mini
+ * - gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
+ * - o1, o3, o3-mini, o4-mini
+ *
+ * **Google Vertex AI Models:**
+ * - gemini-2.0-flash, gemini-2.0-flash-lite
+ * - gemini-2.5-flash, gemini-2.5-pro
+ *
+ * **AWS Bedrock Models:**
+ * - anthropic--claude-3-haiku, anthropic--claude-3-sonnet, anthropic--claude-3-opus
+ * - anthropic--claude-3.5-sonnet, anthropic--claude-3.7-sonnet
+ * - anthropic--claude-4-sonnet, anthropic--claude-4-opus
+ * - amazon--nova-pro, amazon--nova-lite, amazon--nova-micro, amazon--nova-premier
+ *
+ * **AI Core Open Source Models:**
+ * - mistralai--mistral-large-instruct, mistralai--mistral-medium-instruct, mistralai--mistral-small-instruct
+ * - cohere--command-a-reasoning
  */
-export type SAPAIModelId =
-  | "amazon--nova-premier"
-  | "amazon--nova-pro"
-  | "amazon--nova-lite"
-  | "amazon--nova-micro"
-  | "gpt-4"
-  | "gpt-4o"
-  | "gpt-4o-mini"
-  | "gpt-4.1"
-  | "gpt-4.1-mini"
-  | "gpt-4.1-nano"
-  | "o1"
-  | "o1-mini"
-  | "o3"
-  | "o3-mini"
-  | "o4-mini"
-  | "gemini-1.5-pro"
-  | "gemini-1.5-flash"
-  | "gemini-2.0-pro"
-  | "gemini-2.0-flash"
-  | "gemini-2.0-flash-thinking"
-  | "gemini-2.0-flash-lite"
-  | "gemini-2.5-pro"
-  | "gemini-2.5-flash"
-  | "anthropic--claude-3-haiku"
-  | "anthropic--claude-3-sonnet"
-  | "anthropic--claude-3-opus"
-  | "anthropic--claude-3.5-sonnet"
-  | "anthropic--claude-3.7-sonnet"
-  | "anthropic--claude-4-sonnet"
-  | "anthropic--claude-4-opus"
-  | "amazon--titan-text-lite"
-  | "amazon--titan-text-express"
-  | "alephalpha-pharia-1-7b-control"
-  | "meta--llama3-70b-instruct"
-  | "meta--llama3.1-70b-instruct"
-  | "mistralai--mistral-large-instruct"
-  | "mistralai--mistral-small-instruct"
-  | "mistralai--pixtral-large-instruct"
-  | "ibm--granite-13b-chat"
-  | (string & {});
+export type SAPAIModelId = ChatModel;
 
-/**
- * Orchestration masking module configuration.
- */
-export type MaskingModuleConfig = {
-  /**
-   * List of masking service providers. At least one is required.
-   */
-  masking_providers: MaskingProviderConfig[];
-};
+// Re-export useful types from SAP AI SDK for convenience
+export type { MaskingModule, FilteringModule } from "@sap-ai-sdk/orchestration";
 
-export type MaskingProviderConfig = DpiConfig;
-
-/**
- * SAP Data Privacy Integration (DPI) masking provider configuration.
- * Supports anonymization or pseudonymization with standard and custom entities.
- */
-export type DpiConfig = {
-  /** Type of masking service provider */
-  type: "sap_data_privacy_integration";
-  /** Type of masking method to be used */
-  method: "anonymization" | "pseudonymization";
-  /** List of entities to be masked */
-  entities: DpiEntityConfig[];
-  /** List of strings that should not be masked */
-  allowlist?: string[];
-  /** Controls whether the input to the grounding module will be masked */
-  mask_grounding_input?: {
-    enabled?: boolean;
-  };
-};
-
-export type DpiEntityConfig = DPIStandardEntity | DPICustomEntity;
-
-export type DPIStandardEntity = {
-  type: DpiEntities;
-  /**
-   * Replacement strategy to be used for the entity
-   */
-  replacement_strategy?: DPIMethodConstant | DPIMethodFabricatedData;
-};
-export type DpiEntities =
-  | "profile-person"
-  | "profile-org"
-  | "profile-university"
-  | "profile-location"
-  | "profile-email"
-  | "profile-phone"
-  | "profile-address"
-  | "profile-sapids-internal"
-  | "profile-sapids-public"
-  | "profile-url"
-  | "profile-username-password"
-  | "profile-nationalid"
-  | "profile-iban"
-  | "profile-ssn"
-  | "profile-credit-card-number"
-  | "profile-passport"
-  | "profile-driverlicense"
-  | "profile-nationality"
-  | "profile-religious-group"
-  | "profile-political-group"
-  | "profile-pronouns-gender"
-  | "profile-ethnicity"
-  | "profile-gender"
-  | "profile-sexual-orientation"
-  | "profile-trade-union"
-  | "profile-sensitive-data";
-
-export type DPIMethodConstant = {
-  method: "constant";
-  /**
-   * Value to be used for replacement
-   * @example "NAME_REDACTED"
-   */
-  value: string;
-};
-
-export type DPIMethodFabricatedData = {
-  method: "fabricated_data";
-};
-
-export type DPICustomEntity = {
-  /**
-   * Regular expression to match the entity
-   */
-  regex: string;
-  /**
-   * Replacement strategy to be used for the entity
-   */
-  replacement_strategy: DPIMethodConstant;
-};
+// Re-export DPI masking helpers
+export {
+  buildDpiMaskingProvider,
+  buildAzureContentSafetyFilter,
+  buildLlamaGuard38BFilter,
+  buildDocumentGroundingConfig,
+  buildTranslationConfig,
+} from "@sap-ai-sdk/orchestration";
