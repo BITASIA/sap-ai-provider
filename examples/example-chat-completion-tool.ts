@@ -1,53 +1,67 @@
 #!/usr/bin/env node
 
-import { generateText, stepCountIs, tool } from "ai";
+/**
+ * SAP AI Provider - Tool Calling Example
+ *
+ * This example demonstrates tool/function calling with the SAP AI Provider
+ * using the Vercel AI SDK's generateText function with tools.
+ *
+ * Authentication:
+ * - On SAP BTP: Automatically uses service binding (VCAP_SERVICES)
+ * - Locally: Set AICORE_SERVICE_KEY environment variable with your service key JSON
+ */
+
+import { generateText } from "ai";
 import { z } from "zod";
 import { createSAPAIProvider } from "../src/index";
 import "dotenv/config";
 
-const calculatorTool = tool({
-  description: "Perform basic arithmetic operations",
-  inputSchema: z.object({
-    operation: z.enum(["add", "subtract", "multiply", "divide"]),
-    a: z.number(),
-    b: z.number(),
-  }),
-  execute: async ({ operation, a, b }) => {
-    switch (operation) {
-      case "add":
-        return a + b;
-      case "subtract":
-        return a - b;
-      case "multiply":
-        return a * b;
-      case "divide":
-        return b !== 0 ? a / b : "Error: Division by zero";
-    }
-  },
+// Define tool schemas
+const calculatorSchema = z.object({
+  operation: z.enum(["add", "subtract", "multiply", "divide"]),
+  a: z.number(),
+  b: z.number(),
 });
 
-const weatherTool = tool({
-  description: "Get weather for a location",
-  inputSchema: z.object({
-    location: z.string(),
-  }),
-  execute: async ({ location }) => {
-    return `Weather in ${location}: sunny, 72°F`;
-  },
+const weatherSchema = z.object({
+  location: z.string(),
 });
+
+// Tool implementations
+async function executeCalculator(args: z.infer<typeof calculatorSchema>) {
+  const { operation, a, b } = args;
+  switch (operation) {
+    case "add":
+      return String(a + b);
+    case "subtract":
+      return String(a - b);
+    case "multiply":
+      return String(a * b);
+    case "divide":
+      return b !== 0 ? String(a / b) : "Error: Division by zero";
+    default:
+      return "Unknown operation";
+  }
+}
+
+async function executeWeather(args: z.infer<typeof weatherSchema>) {
+  return `Weather in ${args.location}: sunny, 72°F`;
+}
 
 async function simpleToolExample() {
-  console.log("🛠️  Simple SAP AI Tool Calling Example\n");
+  console.log("🛠️  SAP AI Tool Calling Example\n");
 
-  const serviceKey = process.env.SAP_AI_SERVICE_KEY;
-  if (!serviceKey) {
-    throw new Error(
-      "SAP_AI_SERVICE_KEY environment variable is required. Please set it in your .env file.",
+  // Verify AICORE_SERVICE_KEY is set for local development
+  if (!process.env.AICORE_SERVICE_KEY && !process.env.VCAP_SERVICES) {
+    console.warn(
+      "⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.",
+    );
+    console.warn(
+      "   Set it in your .env file or environment for local development.\n",
     );
   }
-  const provider = await createSAPAIProvider({
-    serviceKey: serviceKey,
-  });
+
+  const provider = createSAPAIProvider();
   const model = provider("gpt-4o");
 
   // Test 1: Calculator
@@ -55,8 +69,13 @@ async function simpleToolExample() {
   const result1 = await generateText({
     model,
     prompt: "What is 15 + 27?",
-    tools: { calculate: calculatorTool },
-    stopWhen: [stepCountIs(3)],
+    tools: {
+      calculate: {
+        description: "Perform basic arithmetic operations",
+        parameters: calculatorSchema,
+        execute: executeCalculator,
+      },
+    },
   });
   console.log("Answer:", result1.text);
   console.log("");
@@ -66,8 +85,13 @@ async function simpleToolExample() {
   const result2 = await generateText({
     model,
     prompt: "What's the weather in Tokyo?",
-    tools: { getWeather: weatherTool },
-    stopWhen: [stepCountIs(3)],
+    tools: {
+      getWeather: {
+        description: "Get weather for a location",
+        parameters: weatherSchema,
+        execute: executeWeather,
+      },
+    },
   });
   console.log("Answer:", result2.text);
   console.log("");
@@ -78,13 +102,19 @@ async function simpleToolExample() {
     model,
     prompt: "Calculate 8 * 7, then tell me about the weather in Paris",
     tools: {
-      calculate: calculatorTool,
-      getWeather: weatherTool,
+      calculate: {
+        description: "Perform basic arithmetic operations",
+        parameters: calculatorSchema,
+        execute: executeCalculator,
+      },
+      getWeather: {
+        description: "Get weather for a location",
+        parameters: weatherSchema,
+        execute: executeWeather,
+      },
     },
-    stopWhen: [stepCountIs(5)],
   });
   console.log("Answer:", result3.text);
-  console.log("Total steps:", result3.steps.length);
 
   console.log("\n✅ All tests completed!");
 }

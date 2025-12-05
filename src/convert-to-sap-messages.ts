@@ -2,59 +2,31 @@ import {
   LanguageModelV2Prompt,
   UnsupportedFunctionalityError,
 } from "@ai-sdk/provider";
+import type {
+  ChatMessage,
+  SystemChatMessage,
+  UserChatMessage,
+  AssistantChatMessage,
+  ToolChatMessage,
+} from "@sap-ai-sdk/orchestration";
 
 /**
- * Content types supported by SAP AI Core messages.
- * Can be either a simple text string or an array of structured content parts
- * for multi-modal interactions (text + images).
+ * User chat message content item for multi-modal messages.
  */
-type SAPMessageContent =
-  | string
-  | Array<{
-      /** Type of content part */
-      type: "text" | "image_url";
-      /** Text content (for text type) */
-      text?: string;
-      /** Image URL configuration (for image_url type) */
-      image_url?: {
-        /** URL of the image (data URL or HTTP URL) */
-        url: string;
-      };
-    }>;
-
-/**
- * Message format expected by SAP AI Core API.
- * This represents a single message in a conversation thread.
- */
-type SAPMessage = {
-  /** Message role indicating the sender */
-  role: "system" | "user" | "assistant" | "tool";
-  /** Message content (text or multi-modal) */
-  content: SAPMessageContent | string;
-  /** Tool calls made by the assistant (for function calling) */
-  tool_calls?: Array<{
-    /** Unique identifier for the tool call */
-    id: string;
-    /** Type of tool call (currently only "function" is supported) */
-    type: "function";
-    /** Function call details */
-    function: {
-      /** Name of the function to call */
-      name: string;
-      /** JSON string of function arguments */
-      arguments: string;
-    };
-  }>;
-  /** ID linking tool result to original tool call */
-  tool_call_id?: string;
+type UserContentItem = {
+  type: "text" | "image_url";
+  text?: string;
+  image_url?: {
+    url: string;
+  };
 };
 
 /**
- * Converts Vercel AI SDK prompt format to SAP AI Core message format.
+ * Converts Vercel AI SDK prompt format to SAP AI SDK ChatMessage format.
  *
  * This function transforms the standardized LanguageModelV2Prompt format
- * used by the Vercel AI SDK into the specific message format expected
- * by SAP AI Core's completion API.
+ * used by the Vercel AI SDK into the ChatMessage format expected
+ * by SAP AI SDK's OrchestrationClient.
  *
  * **Supported Features:**
  * - Text messages (system, user, assistant)
@@ -65,10 +37,10 @@ type SAPMessage = {
  * **Limitations:**
  * - Images must be in data URL format or accessible HTTP URLs
  * - Audio messages are not supported
- * - File attachments are not supported
+ * - File attachments (non-image) are not supported
  *
  * @param prompt - The Vercel AI SDK prompt to convert
- * @returns Array of SAP AI Core compatible messages
+ * @returns Array of SAP AI SDK compatible ChatMessage objects
  *
  * @throws {UnsupportedFunctionalityError} When unsupported message types are encountered
  *
@@ -76,7 +48,7 @@ type SAPMessage = {
  * ```typescript
  * const prompt = [
  *   { role: 'system', content: 'You are a helpful assistant.' },
- *   { role: 'user', content: 'Hello!' }
+ *   { role: 'user', content: [{ type: 'text', text: 'Hello!' }] }
  * ];
  *
  * const sapMessages = convertToSAPMessages(prompt);
@@ -94,7 +66,7 @@ type SAPMessage = {
  *     role: 'user',
  *     content: [
  *       { type: 'text', text: 'What do you see in this image?' },
- *       { type: 'image', image: new URL('data:image/jpeg;base64,...') }
+ *       { type: 'file', mediaType: 'image/jpeg', data: 'base64...' }
  *     ]
  *   }
  * ];
@@ -104,28 +76,23 @@ type SAPMessage = {
  */
 export function convertToSAPMessages(
   prompt: LanguageModelV2Prompt,
-): SAPMessage[] {
-  const messages: SAPMessage[] = [];
+): ChatMessage[] {
+  const messages: ChatMessage[] = [];
 
   for (const message of prompt) {
     switch (message.role) {
       case "system": {
-        messages.push({
+        const systemMessage: SystemChatMessage = {
           role: "system",
           content: message.content,
-        });
+        };
+        messages.push(systemMessage);
         break;
       }
 
       case "user": {
-        // Use SAP AI Core's structured content format for user messages
-        const contentParts: Array<{
-          type: "text" | "image_url";
-          text?: string;
-          image_url?: {
-            url: string;
-          };
-        }> = [];
+        // Build content parts for user messages
+        const contentParts: UserContentItem[] = [];
 
         for (const part of message.content) {
           switch (part.type) {
@@ -137,7 +104,7 @@ export function convertToSAPMessages(
               break;
             }
             case "file": {
-              // Convert image to base64 data URL or use URL directly, SAP AI Core only supports image files
+              // SAP AI Core only supports image files
               if (!part.mediaType.startsWith("image/")) {
                 throw new UnsupportedFunctionalityError({
                   functionality: "Only image files are supported",
@@ -149,7 +116,6 @@ export function convertToSAPMessages(
                   ? part.data.toString()
                   : `data:${part.mediaType};base64,${part.data}`;
 
-              // Use SAP AI Core's exact format
               contentParts.push({
                 type: "image_url",
                 image_url: {
@@ -160,24 +126,26 @@ export function convertToSAPMessages(
             }
             default: {
               throw new UnsupportedFunctionalityError({
-                functionality: `Content type ${(part as any).type}`,
+                functionality: `Content type ${(part as { type: string }).type}`,
               });
             }
           }
         }
 
-        // If only text content, use simple string format, otherwise use structured format
-        if (contentParts.length === 1 && contentParts[0].type === "text") {
-          messages.push({
-            role: "user",
-            content: contentParts[0].text!,
-          });
-        } else {
-          messages.push({
-            role: "user",
-            content: contentParts,
-          });
-        }
+        // If only text content, use simple string format
+        // Otherwise use array format for multi-modal
+        const userMessage: UserChatMessage =
+          contentParts.length === 1 && contentParts[0].type === "text"
+            ? {
+                role: "user",
+                content: contentParts[0].text!,
+              }
+            : {
+                role: "user",
+                content: contentParts as UserChatMessage["content"],
+              };
+
+        messages.push(userMessage);
         break;
       }
 
@@ -209,24 +177,25 @@ export function convertToSAPMessages(
           }
         }
 
-        messages.push({
+        const assistantMessage: AssistantChatMessage = {
           role: "assistant",
-          content: text,
+          content: text || undefined,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-        });
+        };
+        messages.push(assistantMessage);
         break;
       }
 
       case "tool": {
-        // SAP AI Core expects tool responses to follow tool calls
-        // Convert tool results to a format that SAP AI Core can understand
+        // Convert tool results to tool messages
         for (const part of message.content) {
           if (part.type === "tool-result") {
-            messages.push({
+            const toolMessage: ToolChatMessage = {
               role: "tool",
               tool_call_id: part.toolCallId,
               content: JSON.stringify(part.output),
-            });
+            };
+            messages.push(toolMessage);
           }
         }
         break;

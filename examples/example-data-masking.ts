@@ -1,50 +1,60 @@
 #!/usr/bin/env node
 
+/**
+ * SAP AI Provider - Data Masking Example (DPI)
+ *
+ * This example demonstrates data masking/anonymization using
+ * SAP Data Privacy Integration (DPI) through the orchestration service.
+ *
+ * Authentication:
+ * - On SAP BTP: Automatically uses service binding (VCAP_SERVICES)
+ * - Locally: Set AICORE_SERVICE_KEY environment variable with your service key JSON
+ */
+
 import { generateText } from "ai";
-import { createSAPAIProvider, type DpiConfig } from "../src/index";
+import { createSAPAIProvider, buildDpiMaskingProvider } from "../src/index";
 import "dotenv/config";
 
 (async () => {
-  console.log("🔒 SAP AI Core Data Masking Example (DPI)\n");
+  console.log("🔒 SAP AI Data Masking Example (DPI)\n");
 
-  const serviceKey = process.env.SAP_AI_SERVICE_KEY;
-  if (!serviceKey) {
-    throw new Error(
-      "SAP_AI_SERVICE_KEY environment variable is required. Please set it in your .env file.",
+  // Verify AICORE_SERVICE_KEY is set for local development
+  if (!process.env.AICORE_SERVICE_KEY && !process.env.VCAP_SERVICES) {
+    console.warn(
+      "⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.",
+    );
+    console.warn(
+      "   Set it in your .env file or environment for local development.\n",
     );
   }
 
-  const dpiMasking: DpiConfig = {
-    type: "sap_data_privacy_integration",
+  // Build DPI masking configuration using the SDK helper
+  const dpiMaskingConfig = buildDpiMaskingProvider({
     method: "anonymization",
     entities: [
+      // Standard entities
+      "profile-email",
+      "profile-person",
+      // Custom entity with replacement strategy
       {
-        type: "profile-email",
-        replacement_strategy: { method: "fabricated_data" },
-      },
-      {
-        type: "profile-person",
-        replacement_strategy: { method: "constant", value: "NAME_REDACTED" },
-      },
-      {
-        // Custom ID format, e.g., 1234-5678-901
-        regex: "\\b[0-9]{4}-[0-9]{4}-[0-9]{3,5}\\b",
-        replacement_strategy: { method: "constant", value: "REDACTED_ID" },
+        type: "profile-phone",
+        replacement_strategy: { method: "constant", value: "PHONE_REDACTED" },
       },
     ],
-    allowlist: ["SAP"],
-    mask_grounding_input: { enabled: false },
-  };
+  });
 
-  // Provider default so all models use masking unless overridden per-call
-  const provider = await createSAPAIProvider({
-    serviceKey,
+  // Provider with masking enabled by default
+  const provider = createSAPAIProvider({
     defaultSettings: {
-      masking: { masking_providers: [dpiMasking] },
+      masking: {
+        masking_providers: [dpiMaskingConfig],
+      },
     },
   });
 
   const model = provider("gpt-4o");
+
+  console.log("📝 Testing with data masking enabled...\n");
 
   const { text } = await generateText({
     model,
@@ -52,40 +62,46 @@ import "dotenv/config";
       {
         role: "user",
         content:
-          "Please email Jane Doe (jane.doe@example.com) about order 1234-5678-901 and mention SAP.",
+          "Please email Jane Doe (jane.doe@example.com) at +1-555-123-4567 about the meeting.",
       },
     ],
   });
 
   console.log("🤖 Response:", text);
   console.log(
-    "\nNote: Personal data like names/emails/IDs should be masked by DPI before reaching the model, while 'SAP' is preserved due to the allowlist.",
+    "\n📌 Note: Personal data like names, emails, and phone numbers should be",
   );
+  console.log("   masked by DPI before reaching the model.");
 
-  // Same prompt WITHOUT masking for comparison
-  console.log(
-    "\n---\n\n🧪 Running the same prompt WITHOUT data masking for comparison\n",
-  );
-  const providerNoMask = await createSAPAIProvider({ serviceKey });
+  // Test without masking for comparison
+  console.log("\n================================");
+  console.log("🧪 Same prompt WITHOUT data masking (for comparison)");
+  console.log("================================\n");
+
+  const providerNoMask = createSAPAIProvider();
   const modelNoMask = providerNoMask("gpt-4o");
+
   const { text: textNoMask } = await generateText({
     model: modelNoMask,
     messages: [
       {
         role: "user",
         content:
-          "Please email Jane Doe (jane.doe@example.com) about order 1234-5678-901 and mention SAP.",
+          "Please email Jane Doe (jane.doe@example.com) at +1-555-123-4567 about the meeting.",
       },
     ],
   });
+
   console.log("🤖 Response (no masking):", textNoMask);
 
-  // Verbatim echo test to demonstrate masked input as seen by the LLM
-  console.log(
-    "\n---\n\n📎 Verbatim echo test (shows what the model actually receives)\n",
-  );
+  // Verbatim echo test
+  console.log("\n================================");
+  console.log("📎 Verbatim echo test (shows what model receives)");
+  console.log("================================\n");
+
   const original =
-    "Please email Jane Doe (jane.doe@example.com) about order 1234-5678-901 and mention SAP.";
+    "My name is John Smith, email: john.smith@company.com, phone: 555-987-6543";
+
   const { text: echoMasked } = await generateText({
     model,
     messages: [
@@ -107,4 +123,6 @@ import "dotenv/config";
     ],
   });
   console.log("🔓 Echo without masking:", echoNoMask);
+
+  console.log("\n✅ Data masking example completed!");
 })();
