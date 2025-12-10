@@ -15,10 +15,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Validate lockfile
-        run: |
-          npm install --package-lock-only
-          git diff --exit-code package-lock.json || (echo "package-lock.json is out of sync. Run 'npm install' and commit the changes." && exit 1)
+      - name: Validate lockfile synchronization
+        run: npm ci --dry-run --ignore-scripts
       - run: npm ci
       - run: npm run build
       - run: npm test
