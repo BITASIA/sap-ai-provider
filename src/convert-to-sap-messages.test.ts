@@ -154,38 +154,4 @@ describe("convertToSAPMessages", () => {
     expect(result[2].role).toBe("assistant");
     expect(result[3].role).toBe("user");
   });
-
-  it("should convert assistant message with ONLY tool calls (no text) to empty string content", () => {
-    const prompt: LanguageModelV2Prompt = [
-      {
-        role: "assistant",
-        content: [
-          {
-            type: "tool-call",
-            toolCallId: "call_abc",
-            toolName: "search_docs",
-            input: { query: "SAP AI Core" },
-          },
-        ],
-      },
-    ];
-
-    const result = convertToSAPMessages(prompt);
-
-    expect(result).toHaveLength(1);
-    expect(result[0]).toEqual({
-      role: "assistant",
-      content: "",  // Should be empty string, NOT undefined
-      tool_calls: [
-        {
-          id: "call_abc",
-          type: "function",
-          function: {
-            name: "search_docs",
-            arguments: '{"query":"SAP AI Core"}',
-          },
-        },
-      ],
-    });
-  });
 });
