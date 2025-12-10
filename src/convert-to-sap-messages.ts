@@ -179,7 +179,7 @@ export function convertToSAPMessages(
 
         const assistantMessage: AssistantChatMessage = {
           role: "assistant",
-          content: text || undefined,
+          content: text || "",
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
         };
         messages.push(assistantMessage);
