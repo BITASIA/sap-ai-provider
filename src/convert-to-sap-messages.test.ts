@@ -99,7 +99,7 @@ describe("convertToSAPMessages", () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
       role: "assistant",
-      content: undefined,
+      content: "",
       tool_calls: [
         {
           id: "call_123",
