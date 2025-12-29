@@ -205,12 +205,15 @@ Model availability depends on your SAP AI Core subscription and region.
 import { generateText, tool } from "ai";
 import { z } from "zod";
 
+const weatherSchema = z.object({
+  location: z.string(),
+});
+
 const weatherTool = tool({
   description: "Get weather for a location",
-  inputSchema: z.object({
-    location: z.string(),
-  }),
-  execute: async ({ location }) => {
+  inputSchema: weatherSchema,
+  execute: (args: z.infer<typeof weatherSchema>) => {
+    const { location } = args;
     return `Weather in ${location}: sunny, 72°F`;
   },
 });
