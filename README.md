@@ -65,6 +65,8 @@ console.log(result.text);
 
 ## Installation
 
+**Requirements:** Node.js 18+ and Vercel AI SDK 6.0+
+
 ```bash
 npm install @mymediset/sap-ai-provider ai
 ```

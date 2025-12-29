@@ -24,7 +24,6 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
     stream = vi.fn().mockResolvedValue({
       stream: {
         async *[Symbol.asyncIterator]() {
-          // Simulate async streaming
           await Promise.resolve();
           yield {
             getDeltaContent: () => "Hello",
@@ -193,7 +192,6 @@ describe("SAPAIChatLanguageModel", () => {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        // Value is always defined when done is false
         parts.push(value);
       }
 

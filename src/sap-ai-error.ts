@@ -70,7 +70,6 @@ export class SAPAIError extends Error {
     if (Array.isArray(error)) {
       // ErrorList - get first error
       const firstError = error[0];
-      // Defensive: firstError might be undefined if array is empty
       return new SAPAIError(
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         firstError?.message ?? "Unknown orchestration error",
