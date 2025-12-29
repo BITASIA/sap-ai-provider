@@ -20,8 +20,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Install dependencies
         run: npm ci
-    #   - name: Run lint
-    #     run: npm run lint
+      - name: Run lint
+        run: npm run lint
       - name: Run prettier
         run: npm run prettier-check
 

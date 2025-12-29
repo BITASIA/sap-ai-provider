@@ -66,7 +66,7 @@ async function simpleTest() {
     console.log("📄 Generated text:", text);
     console.log(
       "📊 Usage:",
-      `${result.usage.inputTokens} prompt + ${result.usage.outputTokens} completion tokens`,
+      `${String(result.usage.inputTokens)} prompt + ${String(result.usage.outputTokens)} completion tokens`,
     );
     console.log("🏁 Finish reason:", result.finishReason);
     console.log("");

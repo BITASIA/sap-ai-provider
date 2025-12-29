@@ -233,6 +233,7 @@ export function createSAPAIProvider(
 
   // Create the provider function
   const provider = function (modelId: SAPAIModelId, settings?: SAPAISettings) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (new.target) {
       throw new Error(
         "The SAP AI provider function cannot be called with the new keyword.",

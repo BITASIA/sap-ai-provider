@@ -3,12 +3,14 @@ import { SAPAIChatLanguageModel } from "./sap-ai-chat-language-model";
 import type {
   LanguageModelV2Prompt,
   LanguageModelV2FunctionTool,
+  LanguageModelV2ProviderTool,
+  LanguageModelV2StreamPart,
 } from "@ai-sdk/provider";
 
 // Mock the OrchestrationClient
-vi.mock("@sap-ai-sdk/orchestration", () => ({
-  OrchestrationClient: vi.fn().mockImplementation(() => ({
-    chatCompletion: vi.fn().mockResolvedValue({
+vi.mock("@sap-ai-sdk/orchestration", () => {
+  class MockOrchestrationClient {
+    chatCompletion = vi.fn().mockResolvedValue({
       getContent: () => "Hello!",
       getToolCalls: () => undefined,
       getTokenUsage: () => ({
@@ -17,10 +19,13 @@ vi.mock("@sap-ai-sdk/orchestration", () => ({
         total_tokens: 15,
       }),
       getFinishReason: () => "stop",
-    }),
-    stream: vi.fn().mockResolvedValue({
+    });
+
+    stream = vi.fn().mockResolvedValue({
       stream: {
-        [Symbol.asyncIterator]: async function* () {
+        async *[Symbol.asyncIterator]() {
+          // Simulate async streaming
+          await Promise.resolve();
           yield {
             getDeltaContent: () => "Hello",
             getDeltaToolCalls: () => undefined,
@@ -45,9 +50,13 @@ vi.mock("@sap-ai-sdk/orchestration", () => ({
         total_tokens: 15,
       }),
       getFinishReason: () => "stop",
-    }),
-  })),
-}));
+    });
+  }
+
+  return {
+    OrchestrationClient: MockOrchestrationClient,
+  };
+});
 
 describe("SAPAIChatLanguageModel", () => {
   const createModel = (modelId = "gpt-4o", settings = {}) => {
@@ -160,7 +169,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({
         prompt,
-        tools: tools as any,
+        tools: tools as unknown as LanguageModelV2ProviderTool[],
       });
 
       expect(result.warnings).toHaveLength(1);
@@ -177,12 +186,14 @@ describe("SAPAIChatLanguageModel", () => {
 
       const { stream } = await model.doStream({ prompt });
 
-      const parts: any[] = [];
+      const parts: LanguageModelV2StreamPart[] = [];
       const reader = stream.getReader();
 
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        // Value is always defined when done is false
         parts.push(value);
       }
 
@@ -193,7 +204,10 @@ describe("SAPAIChatLanguageModel", () => {
 
       // Check finish part
       const finishPart = parts.find((p) => p.type === "finish");
-      expect(finishPart.finishReason).toBe("stop");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("stop");
+      }
     });
   });
 
@@ -222,7 +236,9 @@ describe("SAPAIChatLanguageModel", () => {
       const result = await model.doGenerate({ prompt, tools });
 
       // Verify the raw prompt contains the tool configuration
-      const rawPrompt = result.rawCall.rawPrompt as any;
+      const rawPrompt = result.rawCall.rawPrompt as {
+        config?: unknown;
+      };
       expect(rawPrompt.config).toBeDefined();
     });
 

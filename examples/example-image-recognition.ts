@@ -15,7 +15,7 @@ import { generateText } from "ai";
 import { createSAPAIProvider } from "../src/index";
 import "dotenv/config";
 
-(async () => {
+await (async () => {
   console.log("🖼️  SAP AI Image Recognition Example\n");
 
   // Verify AICORE_SERVICE_KEY is set for local development

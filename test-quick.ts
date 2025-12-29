@@ -41,7 +41,7 @@ async function quickTest() {
     console.log("📄 Response:", text);
     console.log(
       "📊 Tokens:",
-      `${usage.inputTokens} in / ${usage.outputTokens} out`,
+      `${String(usage.inputTokens ?? "unknown")} in / ${String(usage.outputTokens ?? "unknown")} out`,
     );
     console.log("🏁 Finish:", finishReason);
   } catch (error) {
@@ -50,4 +50,4 @@ async function quickTest() {
   }
 }
 
-quickTest();
+await quickTest();
