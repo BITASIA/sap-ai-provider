@@ -143,7 +143,7 @@ const result = await generateText({
 ```typescript
 import { streamText } from "ai";
 
-const result = await streamText({
+const result = streamText({
   model: provider("gpt-4o"),
   prompt: "Explain machine learning concepts.",
 });
