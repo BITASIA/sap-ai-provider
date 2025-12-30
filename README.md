@@ -48,22 +48,24 @@ npm install @mymediset/sap-ai-provider ai
 ```
 
 ```typescript
-import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
-import { generateText } from 'ai';
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+import { generateText } from "ai";
 
 // Create provider (authentication via AICORE_SERVICE_KEY env var)
 const provider = createSAPAIProvider();
 
 // Generate text with gpt-4o
 const result = await generateText({
-  model: provider('gpt-4o'),
-  prompt: 'Explain quantum computing in simple terms.'
+  model: provider("gpt-4o"),
+  prompt: "Explain quantum computing in simple terms.",
 });
 
 console.log(result.text);
 ```
 
 ## Installation
+
+**Requirements:** Node.js 18+ and Vercel AI SDK 6.0+
 
 ```bash
 npm install @mymediset/sap-ai-provider ai
@@ -97,6 +99,7 @@ AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"https://..."},"clientid":"..."
 ```
 
 Get your service key from SAP BTP:
+
 1. Go to your SAP BTP Cockpit
 2. Navigate to your AI Core instance
 3. Create a service key
@@ -107,14 +110,14 @@ Get your service key from SAP BTP:
 ### Text Generation
 
 ```typescript
-import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
-import { generateText } from 'ai';
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+import { generateText } from "ai";
 
 const provider = createSAPAIProvider();
 
 const result = await generateText({
-  model: provider('gpt-4o'),
-  prompt: 'Write a short story about a robot learning to paint.'
+  model: provider("gpt-4o"),
+  prompt: "Write a short story about a robot learning to paint.",
 });
 
 console.log(result.text);
@@ -123,25 +126,28 @@ console.log(result.text);
 ### Chat Conversations
 
 ```typescript
-import { generateText } from 'ai';
+import { generateText } from "ai";
 
 const result = await generateText({
-  model: provider('anthropic--claude-3.5-sonnet'),
+  model: provider("anthropic--claude-3.5-sonnet"),
   messages: [
-    { role: 'system', content: 'You are a helpful coding assistant.' },
-    { role: 'user', content: 'How do I implement binary search in TypeScript?' }
-  ]
+    { role: "system", content: "You are a helpful coding assistant." },
+    {
+      role: "user",
+      content: "How do I implement binary search in TypeScript?",
+    },
+  ],
 });
 ```
 
 ### Streaming Responses
 
 ```typescript
-import { streamText } from 'ai';
+import { streamText } from "ai";
 
-const result = await streamText({
-  model: provider('gpt-4o'),
-  prompt: 'Explain machine learning concepts.'
+const result = streamText({
+  model: provider("gpt-4o"),
+  prompt: "Explain machine learning concepts.",
 });
 
 for await (const delta of result.textStream) {
@@ -152,38 +158,42 @@ for await (const delta of result.textStream) {
 ### Model Configuration
 
 ```typescript
-const model = provider('gpt-4o', {
+const model = provider("gpt-4o", {
   modelParams: {
     temperature: 0.3,
     maxTokens: 2000,
     topP: 0.9,
-  }
+  },
 });
 
 const result = await generateText({
   model,
-  prompt: 'Write a technical blog post about TypeScript.'
+  prompt: "Write a technical blog post about TypeScript.",
 });
 ```
 
 ## Supported Models
 
 ### Azure OpenAI Models
+
 - `gpt-4o`, `gpt-4o-mini`
 - `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`
 - `o1`, `o3`, `o3-mini`, `o4-mini`
 
 ### Google Vertex AI Models
+
 - `gemini-2.0-flash`, `gemini-2.0-flash-lite`
 - `gemini-2.5-flash`, `gemini-2.5-pro`
 
 ### AWS Bedrock Models
+
 - `anthropic--claude-3-haiku`, `anthropic--claude-3-sonnet`, `anthropic--claude-3-opus`
 - `anthropic--claude-3.5-sonnet`, `anthropic--claude-3.7-sonnet`
 - `anthropic--claude-4-sonnet`, `anthropic--claude-4-opus`
 - `amazon--nova-pro`, `amazon--nova-lite`, `amazon--nova-micro`, `amazon--nova-premier`
 
 ### AI Core Open Source Models
+
 - `mistralai--mistral-large-instruct`, `mistralai--mistral-medium-instruct`, `mistralai--mistral-small-instruct`
 - `cohere--command-a-reasoning`
 
@@ -194,21 +204,24 @@ Model availability depends on your SAP AI Core subscription and region.
 ### Tool Calling
 
 ```typescript
-import { generateText, tool } from 'ai';
-import { z } from 'zod';
+import { generateText, tool } from "ai";
+import { z } from "zod";
+
+const weatherSchema = z.object({
+  location: z.string(),
+});
 
 const weatherTool = tool({
-  description: 'Get weather for a location',
-  parameters: z.object({
-    location: z.string(),
-  }),
-  execute: async ({ location }) => {
+  description: "Get weather for a location",
+  inputSchema: weatherSchema,
+  execute: (args: z.infer<typeof weatherSchema>) => {
+    const { location } = args;
     return `Weather in ${location}: sunny, 72°F`;
   },
 });
 
 const result = await generateText({
-  model: provider('gpt-4o'),
+  model: provider("gpt-4o"),
   prompt: "What's the weather in Tokyo?",
   tools: { getWeather: weatherTool },
   maxSteps: 3,
@@ -221,13 +234,13 @@ console.log(result.text);
 
 ```typescript
 const result = await generateText({
-  model: provider('gpt-4o'),
+  model: provider("gpt-4o"),
   messages: [
     {
-      role: 'user',
+      role: "user",
       content: [
-        { type: 'text', text: 'What do you see in this image?' },
-        { type: 'image', image: new URL('https://example.com/image.jpg') },
+        { type: "text", text: "What do you see in this image?" },
+        { type: "image", image: new URL("https://example.com/image.jpg") },
       ],
     },
   ],
@@ -239,14 +252,20 @@ const result = await generateText({
 Use SAP's Data Privacy Integration to mask sensitive data:
 
 ```typescript
-import { createSAPAIProvider, buildDpiMaskingProvider } from '@mymediset/sap-ai-provider';
+import {
+  createSAPAIProvider,
+  buildDpiMaskingProvider,
+} from "@mymediset/sap-ai-provider";
 
 const dpiConfig = buildDpiMaskingProvider({
-  method: 'anonymization',
+  method: "anonymization",
   entities: [
-    'profile-email',
-    'profile-person',
-    { type: 'profile-phone', replacement_strategy: { method: 'constant', value: 'REDACTED' } },
+    "profile-email",
+    "profile-person",
+    {
+      type: "profile-phone",
+      replacement_strategy: { method: "constant", value: "REDACTED" },
+    },
   ],
 });
 
@@ -259,24 +278,27 @@ const provider = createSAPAIProvider({
 });
 
 const result = await generateText({
-  model: provider('gpt-4o'),
-  prompt: 'Email john@example.com about the meeting.',
+  model: provider("gpt-4o"),
+  prompt: "Email john@example.com about the meeting.",
 });
 ```
 
 ### Content Filtering
 
 ```typescript
-import { createSAPAIProvider, buildAzureContentSafetyFilter } from '@mymediset/sap-ai-provider';
+import {
+  createSAPAIProvider,
+  buildAzureContentSafetyFilter,
+} from "@mymediset/sap-ai-provider";
 
 const provider = createSAPAIProvider({
   defaultSettings: {
     filtering: {
       input: {
         filters: [
-          buildAzureContentSafetyFilter('input', {
-            hate: 'ALLOW_SAFE',
-            violence: 'ALLOW_SAFE_LOW_MEDIUM',
+          buildAzureContentSafetyFilter("input", {
+            hate: "ALLOW_SAFE",
+            violence: "ALLOW_SAFE_LOW_MEDIUM",
           }),
         ],
       },
@@ -291,10 +313,10 @@ const provider = createSAPAIProvider({
 
 ```typescript
 interface SAPAIProviderSettings {
-  resourceGroup?: string;        // SAP AI Core resource group (default: 'default')
-  deploymentId?: string;         // Specific deployment ID (auto-resolved if not set)
-  destination?: HttpDestinationOrFetchOptions;  // Custom destination
-  defaultSettings?: SAPAISettings;  // Default settings for all models
+  resourceGroup?: string; // SAP AI Core resource group (default: 'default')
+  deploymentId?: string; // Specific deployment ID (auto-resolved if not set)
+  destination?: HttpDestinationOrFetchOptions; // Custom destination
+  defaultSettings?: SAPAISettings; // Default settings for all models
 }
 ```
 
@@ -302,36 +324,36 @@ interface SAPAIProviderSettings {
 
 ```typescript
 interface SAPAISettings {
-  modelVersion?: string;         // Model version (default: 'latest')
+  modelVersion?: string; // Model version (default: 'latest')
   modelParams?: {
-    maxTokens?: number;          // Maximum tokens to generate
-    temperature?: number;        // Sampling temperature (0-2)
-    topP?: number;              // Nucleus sampling (0-1)
-    frequencyPenalty?: number;  // Frequency penalty (-2 to 2)
-    presencePenalty?: number;   // Presence penalty (-2 to 2)
-    n?: number;                 // Number of completions
-    parallel_tool_calls?: boolean;  // Enable parallel tool calls
+    maxTokens?: number; // Maximum tokens to generate
+    temperature?: number; // Sampling temperature (0-2)
+    topP?: number; // Nucleus sampling (0-1)
+    frequencyPenalty?: number; // Frequency penalty (-2 to 2)
+    presencePenalty?: number; // Presence penalty (-2 to 2)
+    n?: number; // Number of completions
+    parallel_tool_calls?: boolean; // Enable parallel tool calls
   };
-  masking?: MaskingModule;      // Data masking configuration
-  filtering?: FilteringModule;  // Content filtering configuration
+  masking?: MaskingModule; // Data masking configuration
+  filtering?: FilteringModule; // Content filtering configuration
 }
 ```
 
 ## Error Handling
 
 ```typescript
-import { SAPAIError } from '@mymediset/sap-ai-provider';
+import { SAPAIError } from "@mymediset/sap-ai-provider";
 
 try {
   const result = await generateText({
-    model: provider('gpt-4o'),
-    prompt: 'Hello world',
+    model: provider("gpt-4o"),
+    prompt: "Hello world",
   });
 } catch (error) {
   if (error instanceof SAPAIError) {
-    console.error('Code:', error.code);
-    console.error('Location:', error.location);
-    console.error('Request ID:', error.requestId);
+    console.error("Code:", error.code);
+    console.error("Location:", error.location);
+    console.error("Request ID:", error.requestId);
   }
 }
 ```
@@ -352,6 +374,7 @@ Check out the [examples directory](./examples) for complete working examples:
 ### Authentication
 
 **Before (v1):**
+
 ```typescript
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY,
@@ -359,6 +382,7 @@ const provider = await createSAPAIProvider({
 ```
 
 **After (v2):**
+
 ```typescript
 // Set AICORE_SERVICE_KEY env var instead
 const provider = createSAPAIProvider();
@@ -367,6 +391,7 @@ const provider = createSAPAIProvider();
 ### Masking Configuration
 
 **Before (v1):**
+
 ```typescript
 const dpiMasking = {
   type: "sap_data_privacy_integration",
@@ -376,23 +401,26 @@ const dpiMasking = {
 ```
 
 **After (v2):**
+
 ```typescript
-import { buildDpiMaskingProvider } from '@mymediset/sap-ai-provider';
+import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
 
 const dpiMasking = buildDpiMaskingProvider({
-  method: 'anonymization',
-  entities: ['profile-email'],
+  method: "anonymization",
+  entities: ["profile-email"],
 });
 ```
 
 ### Provider is now synchronous
 
 **Before (v1):**
+
 ```typescript
 const provider = await createSAPAIProvider({ serviceKey });
 ```
 
 **After (v2):**
+
 ```typescript
 const provider = createSAPAIProvider();
 ```

@@ -37,7 +37,7 @@ async function streamingChatExample() {
 
     console.log("📡 Starting streaming response...\n");
 
-    const { textStream, usage } = await streamText({
+    const { textStream, usage } = streamText({
       model,
       prompt: "Write a short story about a cat who learns to code.",
     });
@@ -53,12 +53,10 @@ async function streamingChatExample() {
 
     // Get usage after stream completes
     const finalUsage = await usage;
-    if (finalUsage) {
-      console.log(
-        "📊 Usage:",
-        `${finalUsage.inputTokens} prompt + ${finalUsage.outputTokens} completion tokens`,
-      );
-    }
+    console.log(
+      "📊 Usage:",
+      `${String(finalUsage.inputTokens)} prompt + ${String(finalUsage.outputTokens)} completion tokens`,
+    );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("❌ Streaming example failed:", errorMessage);

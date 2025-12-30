@@ -5,14 +5,12 @@ import {
   LanguageModelV2Content,
   LanguageModelV2FinishReason,
   LanguageModelV2FunctionTool,
-  LanguageModelV2ProviderDefinedTool,
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
 } from "@ai-sdk/provider";
 import {
   OrchestrationClient,
   OrchestrationModuleConfig,
-  ChatModel,
   ChatMessage,
   ChatCompletionTool,
 } from "@sap-ai-sdk/orchestration";
@@ -24,7 +22,8 @@ import type {
 // Note: zodToJsonSchema and isZodSchema are kept for potential future use
 // when AI SDK Zod conversion issues are resolved
 import { zodToJsonSchema } from "zod-to-json-schema";
-import type { ZodType } from "zod";
+// Import ZodSchema from zod/v3 for zod-to-json-schema
+import type { ZodSchema } from "zod/v3";
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
 
@@ -32,7 +31,7 @@ import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
  * Type guard to check if an object is a Zod schema.
  * @internal
  */
-function isZodSchema(obj: unknown): obj is ZodType {
+function isZodSchema(obj: unknown): obj is ZodSchema {
   return (
     obj !== null &&
     typeof obj === "object" &&
@@ -46,14 +45,14 @@ function isZodSchema(obj: unknown): obj is ZodType {
  * Internal configuration for the SAP AI Chat Language Model.
  * @internal
  */
-type SAPAIConfig = {
+interface SAPAIConfig {
   /** Provider identifier */
   provider: string;
   /** Deployment configuration for SAP AI SDK */
   deploymentConfig: ResourceGroupConfig | DeploymentIdConfig;
   /** Optional custom destination */
   destination?: HttpDestinationOrFetchOptions;
-};
+}
 
 /**
  * SAP AI Chat Language Model implementation.
@@ -187,11 +186,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       tools = this.settings.tools;
     } else {
       // Extract tools from options and convert
-      const availableTools = options.tools as
-        | Array<
-            LanguageModelV2FunctionTool | LanguageModelV2ProviderDefinedTool
-          >
-        | undefined;
+      const availableTools = options.tools;
 
       tools = availableTools
         ?.map((tool): ChatCompletionTool | null => {
@@ -231,7 +226,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               const hasProperties =
                 inputSchema.properties &&
                 typeof inputSchema.properties === "object" &&
-                Object.keys(inputSchema.properties as object).length > 0;
+                Object.keys(inputSchema.properties).length > 0;
 
               if (hasProperties) {
                 parameters = {
@@ -283,7 +278,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     const orchestrationConfig: OrchestrationModuleConfig = {
       promptTemplating: {
         model: {
-          name: this.modelId as ChatModel,
+          name: this.modelId,
           version: this.settings.modelVersion ?? "latest",
           params: {
             max_tokens: this.settings.modelParams?.maxTokens,
@@ -477,10 +472,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     let activeText = false;
 
     // Track tool calls being built up
-    const toolCallsInProgress: Map<
+    const toolCallsInProgress = new Map<
       number,
       { id: string; name: string; arguments: string }
-    > = new Map();
+    >();
 
     const sdkStream = streamResponse.stream;
 
@@ -523,13 +518,14 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 // Initialize tool call if new
                 if (!toolCallsInProgress.has(index)) {
                   toolCallsInProgress.set(index, {
-                    id: toolCallChunk.id || `tool_${index}`,
-                    name: toolCallChunk.function?.name || "",
+                    id: toolCallChunk.id ?? `tool_${String(index)}`,
+                    name: toolCallChunk.function?.name ?? "",
                     arguments: "",
                   });
 
                   // Emit tool-input-start
-                  const tc = toolCallsInProgress.get(index)!;
+                  const tc = toolCallsInProgress.get(index);
+                  if (!tc) continue;
                   if (toolCallChunk.function?.name) {
                     controller.enqueue({
                       type: "tool-input-start",
@@ -539,7 +535,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                   }
                 }
 
-                const tc = toolCallsInProgress.get(index)!;
+                const tc = toolCallsInProgress.get(index);
+                if (!tc) continue;
 
                 // Update tool call ID if provided
                 if (toolCallChunk.id) {

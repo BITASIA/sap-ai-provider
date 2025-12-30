@@ -71,19 +71,24 @@ export class SAPAIError extends Error {
       // ErrorList - get first error
       const firstError = error[0];
       return new SAPAIError(
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         firstError?.message ?? "Unknown orchestration error",
         {
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           code: firstError?.code,
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           location: firstError?.location,
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           requestId: firstError?.request_id,
         },
       );
     } else {
       // Single Error object
-      return new SAPAIError(error?.message ?? "Unknown orchestration error", {
-        code: error?.code,
-        location: error?.location,
-        requestId: error?.request_id,
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      return new SAPAIError(error.message ?? "Unknown orchestration error", {
+        code: error.code,
+        location: error.location,
+        requestId: error.request_id,
       });
     }
   }
@@ -100,8 +105,27 @@ export class SAPAIError extends Error {
       return error;
     }
 
-    const message =
-      error instanceof Error ? error.message : String(error ?? "Unknown error");
+    let message: string;
+    if (error instanceof Error) {
+      message = error.message;
+    } else if (error == null) {
+      message = "Unknown error";
+    } else if (
+      typeof error === "string" ||
+      typeof error === "number" ||
+      typeof error === "boolean" ||
+      typeof error === "bigint"
+    ) {
+      // Primitives that can be safely stringified
+      message = String(error);
+    } else {
+      // Objects, symbols, and other types
+      try {
+        message = JSON.stringify(error);
+      } catch {
+        message = "[Unstringifiable Value]";
+      }
+    }
 
     return new SAPAIError(context ? `${context}: ${message}` : message, {
       cause: error,

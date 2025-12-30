@@ -13,13 +13,13 @@ import type {
 /**
  * User chat message content item for multi-modal messages.
  */
-type UserContentItem = {
+interface UserContentItem {
   type: "text" | "image_url";
   text?: string;
   image_url?: {
     url: string;
   };
-};
+}
 
 /**
  * Converts Vercel AI SDK prompt format to SAP AI SDK ChatMessage format.
@@ -114,7 +114,7 @@ export function convertToSAPMessages(
               const imageUrl =
                 part.data instanceof URL
                   ? part.data.toString()
-                  : `data:${part.mediaType};base64,${part.data}`;
+                  : `data:${part.mediaType};base64,${String(part.data)}`;
 
               contentParts.push({
                 type: "image_url",
@@ -138,7 +138,7 @@ export function convertToSAPMessages(
           contentParts.length === 1 && contentParts[0].type === "text"
             ? {
                 role: "user",
-                content: contentParts[0].text!,
+                content: contentParts[0].text ?? "",
               }
             : {
                 role: "user",
@@ -151,11 +151,11 @@ export function convertToSAPMessages(
 
       case "assistant": {
         let text = "";
-        const toolCalls: Array<{
+        const toolCalls: {
           id: string;
           type: "function";
           function: { name: string; arguments: string };
-        }> = [];
+        }[] = [];
 
         for (const part of message.content) {
           switch (part.type) {
@@ -189,21 +189,21 @@ export function convertToSAPMessages(
       case "tool": {
         // Convert tool results to tool messages
         for (const part of message.content) {
-          if (part.type === "tool-result") {
-            const toolMessage: ToolChatMessage = {
-              role: "tool",
-              tool_call_id: part.toolCallId,
-              content: JSON.stringify(part.output),
-            };
-            messages.push(toolMessage);
-          }
+          const toolMessage: ToolChatMessage = {
+            role: "tool",
+            tool_call_id: part.toolCallId,
+            content: JSON.stringify(part.output),
+          };
+          messages.push(toolMessage);
         }
         break;
       }
 
       default: {
         const _exhaustiveCheck: never = message;
-        throw new Error(`Unsupported role: ${_exhaustiveCheck}`);
+        throw new Error(
+          `Unsupported role: ${(_exhaustiveCheck as { role: string }).role}`,
+        );
       }
     }
   }

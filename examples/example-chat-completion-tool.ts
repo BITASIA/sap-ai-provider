@@ -82,8 +82,8 @@ const weatherSchema = z.object({
 // The schema here is for validation, actual schema is passed via settings
 const calculatorTool = tool({
   description: "Perform basic arithmetic operations",
-  parameters: calculatorSchema,
-  execute: async (args) => {
+  inputSchema: calculatorSchema,
+  execute: (args: z.infer<typeof calculatorSchema>) => {
     const { operation, a, b } = args;
     switch (operation) {
       case "add":
@@ -102,9 +102,10 @@ const calculatorTool = tool({
 
 const weatherTool = tool({
   description: "Get weather for a location",
-  parameters: weatherSchema,
-  execute: async (args) => {
-    return `Weather in ${args.location}: sunny, 72°F`;
+  inputSchema: weatherSchema,
+  execute: (args: z.infer<typeof weatherSchema>) => {
+    const { location } = args;
+    return `Weather in ${location}: sunny, 72°F`;
   },
 });
 

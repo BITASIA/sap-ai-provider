@@ -15,7 +15,7 @@ import { generateText } from "ai";
 import { createSAPAIProvider, buildDpiMaskingProvider } from "../src/index";
 import "dotenv/config";
 
-(async () => {
+await (async () => {
   console.log("🔒 SAP AI Data Masking Example (DPI)\n");
 
   // Verify AICORE_SERVICE_KEY is set for local development

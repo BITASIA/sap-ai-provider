@@ -10,6 +10,7 @@ describe("createSAPAIProvider", () => {
 
   it("should have a chat method", () => {
     const provider = createSAPAIProvider();
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(provider.chat).toBeDefined();
     expect(typeof provider.chat).toBe("function");
   });

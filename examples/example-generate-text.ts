@@ -15,7 +15,7 @@ import { generateText } from "ai";
 import { createSAPAIProvider } from "../src/index";
 import "dotenv/config";
 
-(async () => {
+await (async () => {
   console.log("📝 SAP AI Text Generation Example\n");
 
   // Verify AICORE_SERVICE_KEY is set for local development
@@ -45,7 +45,7 @@ import "dotenv/config";
   console.log("📄 Response:", text);
   console.log(
     "📊 Usage:",
-    `${usage.inputTokens} input + ${usage.outputTokens} output = ${usage.totalTokens} total tokens`,
+    `${String(usage.inputTokens)} input + ${String(usage.outputTokens)} output = ${String(usage.totalTokens)} total tokens`,
   );
   console.log("🏁 Finish reason:", finishReason);
 
@@ -75,7 +75,7 @@ import "dotenv/config";
       console.log("📄 Response:", modelText);
       console.log(
         "📊 Usage:",
-        `${modelUsage.inputTokens} input + ${modelUsage.outputTokens} output`,
+        `${String(modelUsage.inputTokens)} input + ${String(modelUsage.outputTokens)} output`,
       );
       console.log("🏁 Finish reason:", modelFinish);
     } catch (error) {
