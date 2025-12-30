@@ -26,14 +26,14 @@
   },
   "license": "Apache-2.0",
   "author": "mymediset",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     }
   },
   "directories": {
@@ -61,7 +61,7 @@
     "test:node:watch": "vitest --config vitest.node.config.js",
     "prepare": "npm run build",
     "prepublishOnly": "npm run type-check && npm run test && npm run build",
-    "check-build": "ls -la dist/ && test -f dist/index.js && test -f dist/index.mjs && test -f dist/index.d.ts"
+    "check-build": "ls -la dist/ && test -f dist/index.js && test -f dist/index.cjs && test -f dist/index.d.ts"
   },
   "dependencies": {
     "@ai-sdk/provider": "^3.0.0",
