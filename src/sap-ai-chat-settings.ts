@@ -183,7 +183,8 @@ export interface SAPAISettings {
  * Supported model IDs in SAP AI Core.
  *
  * These models are available through the SAP AI Core Orchestration service.
- * Model availability depends on your subscription and region.
+ * **Note:** The models listed here are representative examples. Actual model availability
+ * depends on your SAP AI Core tenant configuration, region, and subscription.
  *
  * **Azure OpenAI Models:**
  * - gpt-4o, gpt-4o-mini
