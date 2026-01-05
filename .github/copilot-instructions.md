@@ -37,7 +37,8 @@ Always reference these instructions first and fallback to search or bash command
 - **Type checking**: `npm run type-check` -- takes ~2 seconds. Set timeout to 15+ seconds.
 - **Prettier formatting check**: `npm run prettier-check` -- takes ~1 second. Set timeout to 10+ seconds.
 - **Auto-fix formatting**: `npm run prettier-fix`
-- **Linting**: `npm run lint` -- **CURRENTLY FAILS** due to missing eslint.config.js file. Do not use until fixed.
+- **Linting**: `npm run lint` -- takes ~1 second. Set timeout to 10+ seconds.
+- **Auto-fix linting issues**: `npm run lint-fix`
 
 ### Development Workflow
 
@@ -59,9 +60,9 @@ Always reference these instructions first and fallback to search or bash command
   - `npm run test:node`
   - `npm run test:edge`
   - `npm run prettier-check`
+  - `npm run lint`
   - `npm run build`
   - `npm run check-build`
-- **Do NOT run `npm run lint`** until the ESLint configuration is fixed
 
 ### Manual Testing with Examples
 
@@ -86,7 +87,7 @@ Since full example testing requires SAP credentials, validate changes using this
 **Complete CI-like validation command:**
 
 ```bash
-npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run build && npm run check-build
+npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
 ```
 
 This should complete in under 15 seconds total and all commands should pass.
@@ -156,7 +157,7 @@ npm run check-build      # <1s - Verify build outputs
 npm run prettier-check   # ~1s - Check formatting
 
 # Complete validation (CI-like)
-npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run build && npm run check-build
+npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
 # Total time: ~15s
 
 # Examples (requires SAP service key)
@@ -168,7 +169,6 @@ npx tsx examples/example-image-recognition.ts
 
 ### Known Issues
 
-- **ESLint**: The `npm run lint` command fails due to missing `eslint.config.js` configuration
 - **Examples**: Cannot be fully tested without valid SAP AI service key credentials
 - **Deprecation warning**: Vitest shows CJS Node API deprecation warning (non-blocking)
 
@@ -291,6 +291,7 @@ npm run test &&
 npm run test:node &&
 npm run test:edge &&
 npm run prettier-check &&
+npm run lint &&
 npm run build &&
 npm run check-build
 ```
