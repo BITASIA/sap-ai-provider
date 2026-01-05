@@ -2,6 +2,9 @@
 
 This document provides a detailed overview of the SAP AI Core Provider's architecture, internal components, and integration patterns.
 
+**For general usage**, see [README.md](./README.md). **For API documentation**, see [API_REFERENCE.md](./API_REFERENCE.md).
+
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -12,6 +15,7 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
 - [Type System](#type-system)
 - [Integration Patterns](#integration-patterns)
 - [Performance Considerations](#performance-considerations)
+
 
 ## Overview
 
@@ -25,19 +29,19 @@ graph TB
         App[Your Application]
         SDK[Vercel AI SDK]
     end
-    
+
     subgraph "Provider Layer"
         Provider[SAP AI Provider]
         Auth[OAuth2 Manager]
         Transform[Message Transformer]
         Error[Error Handler]
     end
-    
+
     subgraph "SAP BTP"
         OAuth[OAuth2 Server]
         SAPAI[SAP AI Core Orchestration API]
     end
-    
+
     subgraph "AI Models"
         GPT[OpenAI GPT-4/4o]
         Claude[Anthropic Claude]
@@ -45,7 +49,7 @@ graph TB
         Nova[Amazon Nova]
         OSS[Open Source Models]
     end
-    
+
     App -->|generateText/streamText| SDK
     SDK -->|doGenerate/doStream| Provider
     Provider -->|Get Token| Auth
@@ -69,7 +73,7 @@ graph TB
     Error -->|Transform| Provider
     Provider -->|AI SDK Format| SDK
     SDK -->|Result| App
-    
+
     style Provider fill:#e1f5ff
     style SDK fill:#fff4e1
     style SAPAI fill:#ffe1f5
@@ -90,7 +94,7 @@ sequenceDiagram
 
     App->>SDK: generateText(config)
     SDK->>Prov: doGenerate(options)
-    
+
     rect rgb(240, 248, 255)
         Note over Prov,Auth: Authentication Phase
         Prov->>Auth: getToken()
@@ -98,13 +102,13 @@ sequenceDiagram
         SAP-->>Auth: access_token
         Auth-->>Prov: Bearer token
     end
-    
+
     rect rgb(255, 248, 240)
         Note over Prov,Trans: Message Transformation
         Prov->>Trans: convertToSAPMessages(prompt)
         Trans-->>Prov: SAP format messages
     end
-    
+
     rect rgb(248, 255, 240)
         Note over Prov,Model: API Request & Response
         Prov->>SAP: POST /v2/completion
@@ -114,14 +118,14 @@ sequenceDiagram
         SAP-->>Prov: Orchestration response
         Note left of SAP: Response:<br/>- intermediate_results<br/>- final_result<br/>- usage stats
     end
-    
+
     rect rgb(255, 240, 248)
         Note over Prov,SDK: Response Processing
         Prov->>Prov: Parse & validate
         Prov->>Prov: Extract content & tool calls
         Prov-->>SDK: LanguageModelV2Result
     end
-    
+
     SDK-->>App: GenerateTextResult
 ```
 
@@ -133,6 +137,7 @@ sequenceDiagram
 4. **Performance**: Efficient request handling and response streaming
 5. **Security**: Secure authentication and credential management
 
+
 ## Component Architecture
 
 ### Core Components Structure
@@ -142,39 +147,39 @@ graph LR
     subgraph "Public API"
         Index[index.ts<br/>Exports]
     end
-    
+
     subgraph "Provider Layer"
         Provider[sap-ai-provider.ts<br/>Factory & Auth]
         Model[sap-ai-chat-language-model.ts<br/>LanguageModelV2 Implementation]
     end
-    
+
     subgraph "Utilities"
         Settings[sap-ai-chat-settings.ts<br/>Type Definitions]
         Error[sap-ai-error.ts<br/>Error Handling]
         Convert[convert-to-sap-messages.ts<br/>Message Transformation]
     end
-    
+
     subgraph "Type System"
         ReqTypes[types/completion-request.ts<br/>Request Schemas]
         ResTypes[types/completion-response.ts<br/>Response Schemas]
     end
-    
+
     Index --> Provider
     Index --> Model
     Index --> Settings
     Index --> Error
-    
+
     Provider --> Model
     Provider --> Settings
-    
+
     Model --> Convert
     Model --> Error
     Model --> ReqTypes
     Model --> ResTypes
     Model --> Settings
-    
+
     Convert --> Settings
-    
+
     style Index fill:#e1f5ff
     style Provider fill:#fff4e1
     style Model fill:#ffe1f5
@@ -188,25 +193,25 @@ graph LR
 graph TB
     subgraph "Component Responsibilities"
         Provider[SAPAIProvider<br/>━━━━━━━━━━━━━<br/>• OAuth2 Management<br/>• Provider Factory<br/>• Configuration<br/>• Deployment Setup]
-        
+
         Model[SAPAIChatLanguageModel<br/>━━━━━━━━━━━━━━━━━<br/>• doGenerate/doStream<br/>• Request Building<br/>• Response Parsing<br/>• Tool Call Handling<br/>• Multi-modal Support]
-        
+
         Auth[Authentication System<br/>━━━━━━━━━━━━━━<br/>• Token Acquisition<br/>• Service Key Parsing<br/>• Credential Validation<br/>• Token Caching]
-        
+
         Transform[Message Transformer<br/>━━━━━━━━━━━━━━━<br/>• Prompt Conversion<br/>• Tool Call Mapping<br/>• Multi-modal Handling<br/>• Format Validation]
-        
+
         ErrorSys[Error System<br/>━━━━━━━━━━━━<br/>• Error Classification<br/>• Retry Logic<br/>• Error Transformation<br/>• Status Code Mapping]
-        
+
         Types[Type System<br/>━━━━━━━━━━━<br/>• Zod Schemas<br/>• Request/Response Types<br/>• Validation<br/>• Type Safety]
     end
-    
+
     Provider -->|Creates| Model
     Provider -->|Uses| Auth
     Model -->|Uses| Transform
     Model -->|Uses| ErrorSys
     Model -->|Uses| Types
     Transform -->|Uses| Types
-    
+
     style Provider fill:#e1f5ff
     style Model fill:#ffe1f5
     style Auth fill:#fff4e1
@@ -233,6 +238,7 @@ src/
 ### Component Responsibilities
 
 #### `SAPAIProvider`
+
 - **Purpose**: Factory for creating language model instances
 - **Responsibilities**:
   - Authentication management
@@ -241,6 +247,7 @@ src/
   - Base URL and deployment management
 
 #### `SAPAIChatLanguageModel`
+
 - **Purpose**: Implementation of Vercel AI SDK's `LanguageModelV2`
 - **Responsibilities**:
   - Request/response transformation
@@ -249,6 +256,7 @@ src/
   - Multi-modal input handling
 
 #### `Authentication System`
+
 - **Purpose**: OAuth2 token management for SAP AI Core
 - **Responsibilities**:
   - Service key parsing
@@ -256,11 +264,13 @@ src/
   - Credential validation
 
 #### `Message Conversion`
+
 - **Purpose**: Format translation between AI SDK and SAP AI Core
 - **Responsibilities**:
   - Prompt format conversion
   - Multi-modal content handling
   - Tool call format transformation
+
 
 ## Request/Response Flow
 
@@ -290,7 +300,7 @@ sequenceDiagram
     rect rgb(240, 255, 240)
         Note over Provider,Auth: 3. Authentication
         Provider->>Auth: getAuthToken()
-        
+
         alt Token Cached
             Auth-->>Provider: Cached token
         else Token Expired/Missing
@@ -327,13 +337,13 @@ sequenceDiagram
     rect rgb(240, 255, 255)
         Note over Provider,SDK: 7. Response Processing
         Provider->>Provider: Parse response<br/>• Extract content<br/>• Extract tool calls<br/>• Calculate usage
-        
+
         alt v2 Response
             Provider->>Provider: Use final_result
         else v1 Fallback
             Provider->>Provider: Use module_results.llm
         end
-        
+
         Provider-->>SDK: {<br/>  content: [...],<br/>  usage: {...},<br/>  finishReason: "stop",<br/>  warnings: []<br/>}
     end
 
@@ -374,13 +384,13 @@ sequenceDiagram
             SAP-->>Provider: data: {<br/>  intermediate_results: {<br/>    llm: {<br/>      choices: [{<br/>        delta: {content: "token"}<br/>      }]<br/>    }<br/>  }<br/>}
             Provider->>Provider: Parse SSE chunk
             Provider->>Provider: Transform to StreamPart
-            
+
             alt First Chunk
                 Provider-->>SDK: {type: "stream-start"}
                 Provider-->>SDK: {type: "response-metadata"}
                 Provider-->>SDK: {type: "text-start"}
             end
-            
+
             Provider-->>SDK: {<br/>  type: "text-delta",<br/>  id: "0",<br/>  delta: "token"<br/>}
             SDK-->>App: Stream chunk
             App->>App: Display token
@@ -402,35 +412,31 @@ sequenceDiagram
 SAP AI Core Orchestration v2 introduces a more structured API with improved capabilities:
 
 **Default Path:**
+
 ```
 ${baseURL}/inference/deployments/{deploymentId}/v2/completion
 ```
 
 **Top-level v2 endpoint:**
+
 ```
 POST /v2/completion
 ```
+
 ([documentation](https://api.sap.com/api/ORCHESTRATION_API_v2/resource/Orchestrated_Completion))
 
 **Configuration:**
+
 ```typescript
-// Default (recommended): uses deployment-specific v2 endpoint
-const provider = await createSAPAIProvider({
-  serviceKey: process.env.SAP_AI_SERVICE_KEY
+// Default configuration
+const provider = createSAPAIProvider({
+  resourceGroup: "default",
 });
 
-// Top-level v2 endpoint
-const provider = await createSAPAIProvider({
-  serviceKey: process.env.SAP_AI_SERVICE_KEY,
-  baseURL: 'https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com',
-  completionPath: '/v2/completion'
-});
-
-// v1 (legacy - deprecated, decommission on 31 Oct 2026)
-const providerV1 = await createSAPAIProvider({
-  serviceKey: process.env.SAP_AI_SERVICE_KEY,
-  baseURL: 'https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com',
-  completionPath: '/completion'
+// With specific deployment
+const provider = createSAPAIProvider({
+  deploymentId: "d65d81e7c077e583",
+  resourceGroup: "production",
 });
 ```
 
@@ -504,11 +510,13 @@ The v2 API uses a modular configuration structure:
 ### Templating and Tools (v2)
 
 **Prompt Templating:**
+
 - Messages are passed under `config.modules.prompt_templating.prompt.template`
 - Supports system, user, assistant, tool, and developer roles
 - Multi-modal content (text + images) supported
 
 **Response Format:**
+
 ```typescript
 // Text (default when no tools)
 response_format: { type: "text" }
@@ -533,23 +541,26 @@ response_format: {
 ```
 
 **Tool Definitions:**
+
 ```typescript
-tools: [{
-  type: "function",
-  function: {
-    name: "calculator",
-    description: "Perform arithmetic operations",
-    parameters: {
-      type: "object",
-      properties: {
-        operation: { type: "string", enum: ["add", "subtract"] },
-        a: { type: "number" },
-        b: { type: "number" }
+tools: [
+  {
+    type: "function",
+    function: {
+      name: "calculator",
+      description: "Perform arithmetic operations",
+      parameters: {
+        type: "object",
+        properties: {
+          operation: { type: "string", enum: ["add", "subtract"] },
+          a: { type: "number" },
+          b: { type: "number" },
+        },
+        required: ["operation", "a", "b"],
       },
-      required: ["operation", "a", "b"]
-    }
-  }
-}]
+    },
+  },
+];
 ```
 
 ### Data Masking Module (v2)
@@ -585,18 +596,20 @@ modules: {
 ```
 
 **Masking Flow:**
+
 1. Input passes through masking module
 2. Sensitive data is anonymized/pseudonymized
 3. Masked data sent to LLM
 4. Response passes through output_unmasking (if configured)
 5. Original values restored in final output
-    SAP-->>Provider: Server-Sent Events
-    loop For each SSE chunk
-        Provider->>Provider: parseStreamChunk()
-        Provider-->>SDK: LanguageModelV2StreamPart
-        SDK-->>App: TextStreamPart
-    end
-```
+   SAP-->>Provider: Server-Sent Events
+   loop For each SSE chunk
+   Provider->>Provider: parseStreamChunk()
+   Provider-->>SDK: LanguageModelV2StreamPart
+   SDK-->>App: TextStreamPart
+   end
+
+````
 
 ### Tool Calling Flow (Function Calling)
 
@@ -638,7 +651,7 @@ sequenceDiagram
     rect rgb(240, 240, 255)
         Note over SDK,Tool: 5. Tool Execution
         SDK->>App: Execute tools
-        
+
         par Parallel Execution (if enabled)
             App->>Tool: calculate({a: 5, b: 3})
             Tool-->>App: 8
@@ -646,7 +659,7 @@ sequenceDiagram
             App->>Tool: getWeather({city: "Tokyo"})
             Tool-->>App: "sunny, 72°F"
         end
-        
+
         App->>SDK: Tool results
     end
 
@@ -665,7 +678,7 @@ sequenceDiagram
         Provider-->>SDK: {<br/>  content: [{type: "text", text: "..."}],<br/>  finishReason: "stop"<br/>}
         SDK-->>App: {<br/>  text: "5+3=8. Tokyo weather: sunny, 72°F",<br/>  toolCalls: [...],<br/>  toolResults: [...]<br/>}
     end
-```
+````
 
 ### Data Masking Flow (SAP DPI Integration)
 
@@ -725,9 +738,9 @@ sequenceDiagram
     participant SAPAI as SAP AI Core API
 
     rect rgb(240, 248, 255)
-        Note over App,Provider: 1. Provider Initialization
-        App->>Provider: createSAPAIProvider({<br/>  serviceKey: {<br/>    clientid: "...",<br/>    clientsecret: "...",<br/>    url: "https://...auth.../oauth/token"<br/>  }<br/>})
-        Provider->>Provider: Parse service key<br/>Extract credentials
+        Note over App,Provider: 1. Provider Initialization (v2.0+)
+        App->>Provider: createSAPAIProvider()<br/>(synchronous, no await needed)
+        Provider->>Provider: Initialize with SAP AI SDK<br/>Authentication handled automatically
     end
 
     rect rgb(255, 248, 240)
@@ -740,9 +753,9 @@ sequenceDiagram
         Note over Provider,OAuth: 3. Token Acquisition
         Provider->>Provider: Encode credentials to Base64<br/>clientid:clientsecret
         Provider->>OAuth: POST /oauth/token<br/>Headers: {<br/>  Authorization: Basic {base64_credentials},<br/>  Content-Type: application/x-www-form-urlencoded<br/>}<br/>Body: grant_type=client_credentials
-        
+
         OAuth->>OAuth: Validate credentials<br/>Check permissions<br/>Generate token
-        
+
         OAuth-->>Provider: {<br/>  access_token: "eyJhbGc...",<br/>  token_type: "bearer",<br/>  expires_in: 43199,<br/>  scope: "...",<br/>  jti: "..."<br/>}
     end
 
@@ -780,86 +793,26 @@ sequenceDiagram
 
 ### OAuth2 Flow
 
-The provider implements the OAuth2 client credentials flow for SAP AI Core authentication:
+Authentication is handled automatically by `@sap-ai-sdk/orchestration`:
 
-```typescript
-// Service key structure from SAP BTP
-interface SAPAIServiceKey {
-  serviceurls: { AI_API_URL: string };
-  clientid: string;
-  clientsecret: string;
-  url: string; // OAuth2 server URL
-  // ... other fields
-}
+- **Local**: `AICORE_SERVICE_KEY` environment variable
+- **SAP BTP**: `VCAP_SERVICES` service binding
 
-// Token acquisition process
-async function getOAuthToken(serviceKey: SAPAIServiceKey): Promise<string> {
-  // 1. Create Basic Auth header from client credentials
-  const credentials = Buffer.from(
-    `${serviceKey.clientid}:${serviceKey.clientsecret}`
-  ).toString('base64');
+The SDK manages credentials, token acquisition, caching, and refresh internally.
 
-  // 2. Request token from OAuth2 server
-  const response = await fetch(`${serviceKey.url}/oauth/token`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${credentials}`
-    },
-    body: 'grant_type=client_credentials'
-  });
-
-  // 3. Extract access token from response
-  const { access_token } = await response.json();
-  return access_token;
-}
-```
-
-### Token Management
-
-- **Automatic Refresh**: Tokens are refreshed automatically when expired
-- **Error Handling**: Authentication errors are caught and retried
-- **Security**: Credentials are never logged or exposed in error messages
 
 ## Error Handling
 
-### Error Hierarchy
+The provider implements robust internal error handling with automatic retry logic for transient failures.
 
-```typescript
-Error
-└── SAPAIError
-    ├── AuthenticationError (401, 403)
-    ├── RateLimitError (429)
-    ├── ValidationError (400)
-    ├── NotFoundError (404)
-    └── ServerError (5xx)
-```
+**Error Response Processing:**
 
-### Error Response Handling
+- Automatic categorization of HTTP error codes (401/403, 429, 400, 404, 5xx)
+- JSON error response parsing and transformation to SDK-compatible format
+- Retry logic with exponential backoff for rate limits (429) and server errors (5xx)
 
-```typescript
-export const sapAIFailedResponseHandler = createJsonErrorResponseHandler({
-  errorSchema: sapAIErrorSchema,
-  errorToMessage: (data) => {
-    return data?.error?.message || 
-           data?.message || 
-           'An error occurred during the SAP AI Core request.';
-  },
-  isRetryable: (response) => {
-    const status = response.status;
-    return [429, 500, 502, 503, 504].includes(status);
-  }
-});
-```
+**For user-facing error handling guidance**, see [API_REFERENCE.md - Error Codes](./API_REFERENCE.md#error-codes) and [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
-### Retry Logic
-
-The provider implements exponential backoff for retryable errors:
-
-1. **Immediate retry**: For network timeouts
-2. **Exponential backoff**: For rate limits (429) and server errors (5xx)
-3. **Circuit breaker**: After consecutive failures
-4. **Jitter**: Random delay to prevent thundering herd
 
 ## Type System
 
@@ -867,10 +820,10 @@ The provider implements exponential backoff for retryable errors:
 
 ```typescript
 // Model identifiers with string union for type safety
-type SAPAIModelId = 
-  | 'gpt-4o'
-  | 'claude-3.5-sonnet'
-  | 'gemini-1.5-pro'
+type SAPAIModelId =
+  | "gpt-4o"
+  | "claude-3.5-sonnet"
+  | "gemini-1.5-pro"
   // ... other models
   | (string & {}); // Allow custom models
 
@@ -914,10 +867,12 @@ export const sapAIResponseSchema = z.object({
     llm: sapAILLMResultSchema,
     templating: sapAITemplatingResultSchema,
   }),
-  orchestration_results: z.object({
-    choices: z.array(sapAIChoiceSchema),
-    usage: sapAIUsageSchema,
-  }).optional(),
+  orchestration_results: z
+    .object({
+      choices: z.array(sapAIChoiceSchema),
+      usage: sapAIUsageSchema,
+    })
+    .optional(),
 });
 ```
 
@@ -931,7 +886,7 @@ The provider implements the factory pattern for model creation:
 interface SAPAIProvider extends ProviderV2 {
   // Function call syntax
   (modelId: SAPAIModelId, settings?: SAPAISettings): SAPAIChatLanguageModel;
-  
+
   // Method call syntax
   chat(modelId: SAPAIModelId, settings?: SAPAISettings): SAPAIChatLanguageModel;
 }
@@ -944,23 +899,25 @@ The message conversion system adapts between different formats:
 ```typescript
 // Vercel AI SDK format
 type LanguageModelV2Prompt = Array<{
-  role: 'system' | 'user' | 'assistant' | 'tool';
+  role: "system" | "user" | "assistant" | "tool";
   content: string | Array<ContentPart>;
 }>;
 
 // SAP AI Core format
 type SAPMessage = {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | Array<{
-    type: 'text' | 'image_url';
-    text?: string;
-    image_url?: { url: string };
-  }>;
+  role: "system" | "user" | "assistant" | "tool";
+  content:
+    | string
+    | Array<{
+        type: "text" | "image_url";
+        text?: string;
+        image_url?: { url: string };
+      }>;
 };
 
 // Conversion function
 export function convertToSAPMessages(
-  prompt: LanguageModelV2Prompt
+  prompt: LanguageModelV2Prompt,
 ): SAPMessage[] {
   // Implementation handles format transformation
 }
@@ -973,9 +930,9 @@ Different models may require different handling strategies:
 ```typescript
 class SAPAIChatLanguageModel {
   private getModelStrategy(modelId: string) {
-    if (modelId.startsWith('anthropic--')) {
+    if (modelId.startsWith("anthropic--")) {
       return new AnthropicStrategy();
-    } else if (modelId.startsWith('gemini-')) {
+    } else if (modelId.startsWith("gemini-")) {
       return new GeminiStrategy();
     } else {
       return new OpenAIStrategy();
@@ -1008,22 +965,22 @@ const requestMetrics = {
   successfulRequests: 0,
   failedRequests: 0,
   averageResponseTime: 0,
-  tokensUsed: 0
+  tokensUsed: 0,
 };
 
 // Performance monitoring
 function trackRequest(startTime: number, success: boolean, tokens?: number) {
   const duration = Date.now() - startTime;
   requestMetrics.totalRequests++;
-  
+
   if (success) {
     requestMetrics.successfulRequests++;
     if (tokens) requestMetrics.tokensUsed += tokens;
   } else {
     requestMetrics.failedRequests++;
   }
-  
-  requestMetrics.averageResponseTime = 
+
+  requestMetrics.averageResponseTime =
     (requestMetrics.averageResponseTime + duration) / 2;
 }
 ```
@@ -1038,20 +995,30 @@ function trackRequest(startTime: number, success: boolean, tokens?: number) {
 ```typescript
 class RateLimiter {
   private requests: number[] = [];
-  
+
   async acquire(): Promise<void> {
     const now = Date.now();
-    this.requests = this.requests.filter(time => now - time < 60000); // 1 minute window
-    
+    this.requests = this.requests.filter((time) => now - time < 60000); // 1 minute window
+
     if (this.requests.length >= this.maxRequestsPerMinute) {
       const oldestRequest = Math.min(...this.requests);
       const waitTime = 60000 - (now - oldestRequest);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
-    
+
     this.requests.push(now);
   }
 }
 ```
 
 This architecture ensures the SAP AI Core Provider is robust, scalable, and maintainable while providing a seamless integration experience with the Vercel AI SDK.
+
+---
+
+## See Also
+
+- [API Reference](./API_REFERENCE.md) - Complete API documentation including types, interfaces, and configuration options
+- [README](./README.md) - Getting started guide and basic usage examples
+- [Migration Guide](./MIGRATION_GUIDE.md) - Upgrading from v1.x to v2.0
+- [Environment Setup](./ENVIRONMENT_SETUP.md) - Authentication and configuration setup
+- [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) - Low-level API testing and debugging

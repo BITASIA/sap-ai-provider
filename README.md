@@ -5,6 +5,7 @@
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. Built on top of the official **@sap-ai-sdk/orchestration** package, this provider enables you to use SAP's enterprise-grade AI models through the familiar Vercel AI SDK interface.
 
+
 ## ⚠️ Breaking Changes in v2.0
 
 Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
@@ -13,6 +14,9 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 - **Provider creation**: Now synchronous - `createSAPAIProvider()` instead of `await createSAPAIProvider()`
 - **No more `serviceKey` option**: Authentication is handled automatically by the SAP AI SDK
 - **New helper functions**: Use `buildDpiMaskingProvider()`, `buildAzureContentSafetyFilter()` etc. from the SDK
+
+**Upgrading from v1.x?** See the [Migration Guide](./MIGRATION_GUIDE.md) for detailed instructions.
+
 
 ## Table of Contents
 
@@ -30,6 +34,7 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 - [Contributing](#contributing)
 - [License](#license)
 
+
 ## Features
 
 - 🔐 **Automatic Authentication** - Uses SAP AI SDK's built-in credential handling
@@ -40,6 +45,7 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 - 🛡️ **Content Filtering** - Azure Content Safety and Llama Guard support
 - 🔧 **TypeScript Support** - Full type safety and IntelliSense
 - 🎨 **Multiple Models** - Support for GPT-4, Claude, Gemini, Nova, and more
+
 
 ## Quick Start
 
@@ -83,27 +89,19 @@ pnpm add @mymediset/sap-ai-provider ai
 
 ## Authentication
 
-The SAP AI SDK handles authentication automatically. You need to provide credentials in one of these ways:
+The SAP AI SDK handles authentication automatically using environment variables or SAP BTP service bindings.
 
-### On SAP BTP (Recommended)
+**Quick Setup:**
 
-When running on SAP BTP, bind an AI Core service instance to your application. The SDK will automatically detect the service binding from `VCAP_SERVICES`.
+- **Local development**: Set `AICORE_SERVICE_KEY` environment variable with your service key JSON
+- **SAP BTP**: Service binding via `VCAP_SERVICES` (automatic)
 
-### Local Development
+For detailed setup instructions, troubleshooting, and security best practices, see:
 
-Set the `AICORE_SERVICE_KEY` environment variable with your service key JSON:
+- [Setting up AICORE_SERVICE_KEY](./ENVIRONMENT_SETUP.md#setting-up-aicore_service_key-v20)
+- [Authentication Methods](./ENVIRONMENT_SETUP.md#authentication-methods)
+- [Troubleshooting Authentication](./ENVIRONMENT_SETUP.md#troubleshooting)
 
-```bash
-# .env
-AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"https://..."},"clientid":"...","clientsecret":"...","url":"..."}'
-```
-
-Get your service key from SAP BTP:
-
-1. Go to your SAP BTP Cockpit
-2. Navigate to your AI Core instance
-3. Create a service key
-4. Copy the JSON and set it as the environment variable
 
 ## Basic Usage
 
@@ -174,32 +172,17 @@ const result = await generateText({
 
 ## Supported Models
 
-### Azure OpenAI Models
+This provider works with models available via SAP AI Core Orchestration (OpenAI, Anthropic, Google Vertex AI, Amazon Bedrock, and selected open-source models).
 
-- `gpt-4o`, `gpt-4o-mini`
-- `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`
-- `o1`, `o3`, `o3-mini`, `o4-mini`
+- Overview: GPT-4 family, Claude 3/4, Gemini 2.x, Amazon Nova, Mistral, Cohere
+- Availability varies by tenant and region
 
-### Google Vertex AI Models
+For exact identifiers and the authoritative list, see [API Reference: SAPAIModelId](./API_REFERENCE.md#sapaimodelid-type).
 
-- `gemini-2.0-flash`, `gemini-2.0-flash-lite`
-- `gemini-2.5-flash`, `gemini-2.5-pro`
-
-### AWS Bedrock Models
-
-- `anthropic--claude-3-haiku`, `anthropic--claude-3-sonnet`, `anthropic--claude-3-opus`
-- `anthropic--claude-3.5-sonnet`, `anthropic--claude-3.7-sonnet`
-- `anthropic--claude-4-sonnet`, `anthropic--claude-4-opus`
-- `amazon--nova-pro`, `amazon--nova-lite`, `amazon--nova-micro`, `amazon--nova-premier`
-
-### AI Core Open Source Models
-
-- `mistralai--mistral-large-instruct`, `mistralai--mistral-medium-instruct`, `mistralai--mistral-small-instruct`
-- `cohere--command-a-reasoning`
-
-Model availability depends on your SAP AI Core subscription and region.
 
 ## Advanced Features
+
+The following helper functions are exported by this package for convenient configuration of SAP AI Core features. These builders provide type-safe configuration for data masking, content filtering, grounding, and translation modules.
 
 ### Tool Calling
 
@@ -229,6 +212,8 @@ const result = await generateText({
 
 console.log(result.text);
 ```
+
+> Known limitations: Gemini models currently support only one function tool per request. For multiple tools, use OpenAI models (e.g., `gpt-4o`) or consolidate tools.
 
 ### Multi-modal Input (Images)
 
@@ -334,12 +319,17 @@ interface SAPAISettings {
     n?: number; // Number of completions
     parallel_tool_calls?: boolean; // Enable parallel tool calls
   };
-  masking?: MaskingModule; // Data masking configuration
+  masking?: MaskingModule; // Data masking (DPI) configuration
   filtering?: FilteringModule; // Content filtering configuration
 }
 ```
 
+For complete configuration details, see [API Reference - Configuration](./API_REFERENCE.md#sapaiprovidersettings).
+
+
 ## Error Handling
+
+The provider includes structured error handling with detailed context:
 
 ```typescript
 import { SAPAIError } from "@mymediset/sap-ai-provider";
@@ -358,89 +348,110 @@ try {
 }
 ```
 
+For complete error reference and troubleshooting, see:
+
+- [API Reference - Error Codes](./API_REFERENCE.md#error-codes)
+- [Troubleshooting Guide](./TROUBLESHOOTING.md)
+
+
+## Troubleshooting
+
+Common issues and error codes are documented in [API Reference: Error Codes](./API_REFERENCE.md#error-codes). Quick tips:
+
+- Authentication (401): Check `AICORE_SERVICE_KEY` or `VCAP_SERVICES`
+- Model not found (404): Confirm tenant/region supports the model ID
+- Rate limit (429): Use retries/backoff; prefer streaming for long outputs
+- Streaming: Iterate `textStream` as shown; don’t mix `generateText` and `streamText` in one call
+
+
+## Performance
+
+- Prefer streaming (`streamText`) for long outputs to reduce latency and memory.
+- Tune `modelParams` carefully: lower `temperature` for deterministic results; set `maxTokens` to expected response size.
+- Use `defaultSettings` at provider creation for shared knobs across models to avoid per-call overhead.
+- Avoid unnecessary history: keep `messages` concise to reduce prompt size and cost.
+
+
+## Security
+
+- Do not commit `.env` or credentials; use environment variables and secrets managers.
+- Treat `AICORE_SERVICE_KEY` as sensitive; avoid logging it or including in crash reports.
+- Mask PII with DPI: configure `masking.masking_providers` using `buildDpiMaskingProvider()`.
+- Validate and sanitize tool outputs before executing any side effects.
+
+
+## Debug Mode
+
+- Use the curl guide `CURL_API_TESTING_GUIDE.md` to diagnose raw API behavior independent of the SDK.
+- Log request IDs from `SAPAIError` to correlate with backend traces.
+- Temporarily enable verbose logging in your app around provider calls; redact secrets.
+
+
 ## Examples
 
-Check out the [examples directory](./examples) for complete working examples:
+The `examples/` directory contains complete, runnable examples:
 
-- [Simple Chat Completion](./examples/example-simple-chat-completion.ts)
-- [Tool Calling](./examples/example-chat-completion-tool.ts)
-- [Image Recognition](./examples/example-image-recognition.ts)
-- [Text Generation](./examples/example-generate-text.ts)
-- [Data Masking](./examples/example-data-masking.ts)
-- [Streaming](./examples/example-streaming-chat.ts)
+- `example-generate-text.ts` - Basic text generation
+- `example-chat-completion-tool.ts` - Function calling with tools
+- `example-streaming-chat.ts` - Streaming responses
+- `example-image-recognition.ts` - Multi-modal with images
+- `example-data-masking.ts` - Data privacy integration
+
+Run any example with:
+
+```bash
+npx tsx examples/example-generate-text.ts
+```
 
 ## Migration from v1
 
-### Authentication
+Version 2.0 introduces breaking changes for better integration with the official SAP AI SDK. For a complete migration guide with step-by-step instructions, common issues, and troubleshooting, see the [Migration Guide](./MIGRATION_GUIDE.md).
 
-**Before (v1):**
+**Key Changes:**
 
-```typescript
-const provider = await createSAPAIProvider({
-  serviceKey: process.env.SAP_AI_SERVICE_KEY,
-});
-```
+- Provider creation is now synchronous (no `await` needed)
+- Authentication via `AICORE_SERVICE_KEY` environment variable (replaces `serviceKey` parameter)
+- Helper functions like `buildDpiMaskingProvider()` for easier configuration
 
-**After (v2):**
-
-```typescript
-// Set AICORE_SERVICE_KEY env var instead
-const provider = createSAPAIProvider();
-```
-
-### Masking Configuration
-
-**Before (v1):**
-
-```typescript
-const dpiMasking = {
-  type: "sap_data_privacy_integration",
-  method: "anonymization",
-  entities: [{ type: "profile-email" }],
-};
-```
-
-**After (v2):**
-
-```typescript
-import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
-
-const dpiMasking = buildDpiMaskingProvider({
-  method: "anonymization",
-  entities: ["profile-email"],
-});
-```
-
-### Provider is now synchronous
-
-**Before (v1):**
-
-```typescript
-const provider = await createSAPAIProvider({ serviceKey });
-```
-
-**After (v2):**
-
-```typescript
-const provider = createSAPAIProvider();
-```
 
 ## Important Note
 
 > **Third-Party Provider**: This SAP AI Core provider (`@mymediset/sap-ai-provider`) is developed and maintained by mymediset, not by SAP SE. While it uses the official SAP AI SDK and integrates with SAP AI Core services, it is not an official SAP product.
 
+
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
 
 ## License
 
 Apache License 2.0 - see [LICENSE](LICENSE.md) for details.
 
+
 ## Support
 
 - 📖 [Documentation](https://github.com/BITASIA/sap-ai-provider)
 - 🐛 [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues)
+
+
+## Documentation
+
+### Guides
+
+- [Environment Setup](./ENVIRONMENT_SETUP.md) - Authentication and configuration setup
+- [Migration Guide](./MIGRATION_GUIDE.md) - Upgrading from v1.x to v2.x with step-by-step instructions
+- [curl API Testing](./CURL_API_TESTING_GUIDE.md) - Direct API testing for debugging
+
+### Reference
+
+- [API Reference](./API_REFERENCE.md) - Complete API documentation with all types and functions
+- [Architecture](./ARCHITECTURE.md) - Internal architecture, design decisions, and request flows
+
+### Contributing
+
+- [Contributing Guide](./CONTRIBUTING.md) - How to contribute to this project
+
 
 ## Related
 
