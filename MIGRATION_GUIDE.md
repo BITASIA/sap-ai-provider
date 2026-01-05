@@ -2,7 +2,6 @@
 
 Guide for migrating between versions of the SAP AI Core Provider.
 
-
 ## Table of Contents
 
 - [Overview](#overview)

@@ -2,7 +2,6 @@
 
 Complete API documentation for the SAP AI Core Provider.
 
-
 ## Table of Contents
 
 - [Provider Factory Functions](#provider-factory-functions)

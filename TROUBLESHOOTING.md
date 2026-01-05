@@ -2,7 +2,6 @@
 
 This guide helps diagnose and resolve common issues when using the SAP AI Core Provider.
 
-
 ## Table of Contents
 
 - [Authentication Issues](#authentication-issues)
@@ -12,7 +11,6 @@ This guide helps diagnose and resolve common issues when using the SAP AI Core P
 - [Tool Calling Issues](#tool-calling-issues)
 - [Performance Issues](#performance-issues)
 - [Debugging Tools](#debugging-tools)
-
 
 ## Authentication Issues
 
@@ -98,7 +96,6 @@ At the top of your entry file (before any other imports).
 3. Confirm your SAP BTP account has access to SAP AI Core
 4. Check if the model requires special entitlements in your tenant
 
-
 ## API Errors
 
 For detailed error codes and their meanings, see [API Reference - Error Codes](./API_REFERENCE.md#error-codes).
@@ -175,7 +172,6 @@ For detailed error codes and their meanings, see [API Reference - Error Codes](.
    - Remove optional features (masking, filtering, etc.)
    - Test with minimal configuration
 
-
 ## Model and Deployment Issues
 
 ### Problem: 404 Model/Deployment Not Found
@@ -227,7 +223,6 @@ For detailed error codes and their meanings, see [API Reference - Error Codes](.
 3. **Adjust configuration:**
    - Remove unsupported features from your request
    - Use alternative approaches (e.g., JSON mode instead of structured outputs)
-
 
 ## Streaming Issues
 
@@ -281,7 +276,6 @@ For detailed error codes and their meanings, see [API Reference - Error Codes](.
      console.error("Stream error:", error);
    }
    ```
-
 
 ## Tool Calling Issues
 
@@ -356,7 +350,6 @@ For detailed error codes and their meanings, see [API Reference - Error Codes](.
    - Tools should return JSON-serializable data
    - Avoid returning complex objects or functions
 
-
 ## Performance Issues
 
 ### Problem: Slow response times
@@ -418,7 +411,6 @@ For detailed error codes and their meanings, see [API Reference - Error Codes](.
 
    console.log("Tokens used:", result.usage);
    ```
-
 
 ## Debugging Tools
 
@@ -527,7 +519,6 @@ If you're still experiencing issues after trying these solutions:
 4. **SAP Support:**
    - For SAP AI Core service issues, contact SAP Support
    - [SAP AI Core Documentation](https://help.sap.com/docs/ai-core)
-
 
 ## Related Documentation
 

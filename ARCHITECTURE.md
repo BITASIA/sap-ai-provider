@@ -4,7 +4,6 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
 
 **For general usage**, see [README.md](./README.md). **For API documentation**, see [API_REFERENCE.md](./API_REFERENCE.md).
 
-
 ## Table of Contents
 
 - [Overview](#overview)
@@ -15,7 +14,6 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
 - [Type System](#type-system)
 - [Integration Patterns](#integration-patterns)
 - [Performance Considerations](#performance-considerations)
-
 
 ## Overview
 
@@ -136,7 +134,6 @@ sequenceDiagram
 3. **Error Resilience**: Robust error handling with automatic retries
 4. **Performance**: Efficient request handling and response streaming
 5. **Security**: Secure authentication and credential management
-
 
 ## Component Architecture
 
@@ -270,7 +267,6 @@ src/
   - Prompt format conversion
   - Multi-modal content handling
   - Tool call format transformation
-
 
 ## Request/Response Flow
 
@@ -800,7 +796,6 @@ Authentication is handled automatically by `@sap-ai-sdk/orchestration`:
 
 The SDK manages credentials, token acquisition, caching, and refresh internally.
 
-
 ## Error Handling
 
 The provider implements robust internal error handling with automatic retry logic for transient failures.
@@ -812,7 +807,6 @@ The provider implements robust internal error handling with automatic retry logi
 - Retry logic with exponential backoff for rate limits (429) and server errors (5xx)
 
 **For user-facing error handling guidance**, see [API_REFERENCE.md - Error Codes](./API_REFERENCE.md#error-codes) and [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
-
 
 ## Type System
 

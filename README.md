@@ -5,7 +5,6 @@
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. Built on top of the official **@sap-ai-sdk/orchestration** package, this provider enables you to use SAP's enterprise-grade AI models through the familiar Vercel AI SDK interface.
 
-
 ## ⚠️ Breaking Changes in v2.0
 
 Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
@@ -16,7 +15,6 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 - **New helper functions**: Use `buildDpiMaskingProvider()`, `buildAzureContentSafetyFilter()` etc. from the SDK
 
 **Upgrading from v1.x?** See the [Migration Guide](./MIGRATION_GUIDE.md) for detailed instructions.
-
 
 ## Table of Contents
 
@@ -34,7 +32,6 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 - [Contributing](#contributing)
 - [License](#license)
 
-
 ## Features
 
 - 🔐 **Automatic Authentication** - Uses SAP AI SDK's built-in credential handling
@@ -45,7 +42,6 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 - 🛡️ **Content Filtering** - Azure Content Safety and Llama Guard support
 - 🔧 **TypeScript Support** - Full type safety and IntelliSense
 - 🎨 **Multiple Models** - Support for GPT-4, Claude, Gemini, Nova, and more
-
 
 ## Quick Start
 
@@ -101,7 +97,6 @@ For detailed setup instructions, troubleshooting, and security best practices, s
 - [Setting up AICORE_SERVICE_KEY](./ENVIRONMENT_SETUP.md#setting-up-aicore_service_key-v20)
 - [Authentication Methods](./ENVIRONMENT_SETUP.md#authentication-methods)
 - [Troubleshooting Authentication](./ENVIRONMENT_SETUP.md#troubleshooting)
-
 
 ## Basic Usage
 
@@ -178,7 +173,6 @@ This provider works with models available via SAP AI Core Orchestration (OpenAI,
 - Availability varies by tenant and region
 
 For exact identifiers and the authoritative list, see [API Reference: SAPAIModelId](./API_REFERENCE.md#sapaimodelid-type).
-
 
 ## Advanced Features
 
@@ -326,7 +320,6 @@ interface SAPAISettings {
 
 For complete configuration details, see [API Reference - Configuration](./API_REFERENCE.md#sapaiprovidersettings).
 
-
 ## Error Handling
 
 The provider includes structured error handling with detailed context:
@@ -353,7 +346,6 @@ For complete error reference and troubleshooting, see:
 - [API Reference - Error Codes](./API_REFERENCE.md#error-codes)
 - [Troubleshooting Guide](./TROUBLESHOOTING.md)
 
-
 ## Troubleshooting
 
 Common issues and error codes are documented in [API Reference: Error Codes](./API_REFERENCE.md#error-codes). Quick tips:
@@ -363,14 +355,12 @@ Common issues and error codes are documented in [API Reference: Error Codes](./A
 - Rate limit (429): Use retries/backoff; prefer streaming for long outputs
 - Streaming: Iterate `textStream` as shown; don’t mix `generateText` and `streamText` in one call
 
-
 ## Performance
 
 - Prefer streaming (`streamText`) for long outputs to reduce latency and memory.
 - Tune `modelParams` carefully: lower `temperature` for deterministic results; set `maxTokens` to expected response size.
 - Use `defaultSettings` at provider creation for shared knobs across models to avoid per-call overhead.
 - Avoid unnecessary history: keep `messages` concise to reduce prompt size and cost.
-
 
 ## Security
 
@@ -379,13 +369,11 @@ Common issues and error codes are documented in [API Reference: Error Codes](./A
 - Mask PII with DPI: configure `masking.masking_providers` using `buildDpiMaskingProvider()`.
 - Validate and sanitize tool outputs before executing any side effects.
 
-
 ## Debug Mode
 
 - Use the curl guide `CURL_API_TESTING_GUIDE.md` to diagnose raw API behavior independent of the SDK.
 - Log request IDs from `SAPAIError` to correlate with backend traces.
 - Temporarily enable verbose logging in your app around provider calls; redact secrets.
-
 
 ## Examples
 
@@ -413,27 +401,22 @@ Version 2.0 introduces breaking changes for better integration with the official
 - Authentication via `AICORE_SERVICE_KEY` environment variable (replaces `serviceKey` parameter)
 - Helper functions like `buildDpiMaskingProvider()` for easier configuration
 
-
 ## Important Note
 
 > **Third-Party Provider**: This SAP AI Core provider (`@mymediset/sap-ai-provider`) is developed and maintained by mymediset, not by SAP SE. While it uses the official SAP AI SDK and integrates with SAP AI Core services, it is not an official SAP product.
-
 
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-
 ## License
 
 Apache License 2.0 - see [LICENSE](LICENSE.md) for details.
-
 
 ## Support
 
 - 📖 [Documentation](https://github.com/BITASIA/sap-ai-provider)
 - 🐛 [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues)
-
 
 ## Documentation
 
@@ -451,7 +434,6 @@ Apache License 2.0 - see [LICENSE](LICENSE.md) for details.
 ### Contributing
 
 - [Contributing Guide](./CONTRIBUTING.md) - How to contribute to this project
-
 
 ## Related
 

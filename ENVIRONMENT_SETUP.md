@@ -5,7 +5,6 @@ Complete guide for setting up authentication and environment configuration for t
 > **Quick Start:** For a shorter introduction, see the [README Quick Start](./README.md#quick-start).
 > **API Details:** For configuration options, see [API Reference - SAPAIProviderSettings](./API_REFERENCE.md#sapaiprovidersettings).
 
-
 ## Setting up AICORE_SERVICE_KEY (v2.0+)
 
 Starting with version 2.0, the SAP AI provider uses the **SAP AI SDK** for authentication, which automatically handles credentials from environment variables or SAP BTP service bindings.
@@ -75,7 +74,6 @@ The SAP AI SDK checks for credentials in this order:
 1. **`AICORE_SERVICE_KEY`** environment variable (recommended for local development)
 2. **`VCAP_SERVICES`** environment variable (automatic on SAP BTP with service bindings)
 3. **Destination configuration** (if provided to the provider)
-
 
 ## On SAP BTP (Cloud Foundry)
 
@@ -151,7 +149,6 @@ console.log("Service key loaded:", !!process.env.AICORE_SERVICE_KEY);
 - Use proper secrets management in production environments
 - Rotate service keys regularly
 - Use separate service keys for development and production
-
 
 ## Related Documentation
 
