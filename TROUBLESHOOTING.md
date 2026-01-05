@@ -80,7 +80,7 @@ Ensure your code includes:
 import "dotenv/config";
 ```
 
-At the top of your entry file (before any other imports).
+Place this at the top of your entry file (before any other imports).
 
 ### Problem: 403 Forbidden
 
@@ -187,7 +187,7 @@ For detailed error codes and their meanings, see [API Reference - Error Codes](.
 1. **Verify model availability:**
    - Check that the model ID is supported in your SAP AI Core tenant
    - Confirm the model is available in your region
-   - See [API Reference - SAPAIModelId](./API_REFERENCE.md#sapaimodelid-type) for supported models
+   - See [API Reference - SAPAIModelId](./API_REFERENCE.md#sapaimodelid) for supported models
 
 2. **Check resource group:**
 
@@ -261,9 +261,9 @@ For detailed error codes and their meanings, see [API Reference - Error Codes](.
    - Ensure your runtime doesn't buffer the output
    - In HTTP responses, set appropriate headers for streaming:
      ```typescript
-     'Content-Type': 'text/event-stream',
-     'Cache-Control': 'no-cache',
-     'Connection': 'keep-alive'
+     "Content-Type": "text/event-stream",
+     "Cache-Control": "no-cache",
+     "Connection": "keep-alive"
      ```
 
 4. **Handle errors in stream:**

@@ -172,7 +172,7 @@ This provider works with models available via SAP AI Core Orchestration (OpenAI,
 - Overview: GPT-4 family, Claude 3/4, Gemini 2.x, Amazon Nova, Mistral, Cohere
 - Availability varies by tenant and region
 
-For exact identifiers and the authoritative list, see [API Reference: SAPAIModelId](./API_REFERENCE.md#sapaimodelid-type).
+For exact identifiers and the authoritative list, see [API Reference: SAPAIModelId](./API_REFERENCE.md#sapaimodelid).
 
 ## Advanced Features
 

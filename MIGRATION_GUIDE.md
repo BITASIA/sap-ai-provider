@@ -102,11 +102,11 @@ const model = provider("gpt-4o");
 const result = await generateText({ model, prompt: "Hello!" });
 ```
 
-#### 3. Verify Functionality
+#### 4. Verify Functionality
 
 After updating authentication and removing `await` from provider creation, run your tests and basic examples (`examples/`) to verify generation and streaming work as expected.
 
-#### 4. Optional: Adopt New Features
+#### 5. Optional: Adopt New Features
 
 ##### Data Masking (DPI)
 
