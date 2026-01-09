@@ -19,10 +19,7 @@ import type {
   ResourceGroupConfig,
   DeploymentIdConfig,
 } from "@sap-ai-sdk/ai-api/internal.js";
-// Note: zodToJsonSchema and isZodSchema are kept for potential future use
-// when AI SDK Zod conversion issues are resolved
 import { zodToJsonSchema } from "zod-to-json-schema";
-// Import ZodSchema from zod/v3 for zod-to-json-schema
 import type { ZodSchema } from "zod/v3";
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
