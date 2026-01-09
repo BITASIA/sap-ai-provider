@@ -1,137 +1,195 @@
-import type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
+import { APICallError, LoadAPIKeyError } from '@ai-sdk/provider';
+import type { OrchestrationErrorResponse } from '@sap-ai-sdk/orchestration';
 
 /**
- * Custom error class for SAP AI Core errors.
- * Provides structured access to error details returned by the API.
+ * Maps SAP AI Core error codes to HTTP status codes for retry logic.
+ */
+function getStatusCodeFromSAPError(code?: number): number {
+  if (!code) return 500;
+  return code;
+}
+
+/**
+ * Determines if an error should be retryable based on status code.
+ */
+function isRetryable(statusCode: number): boolean {
+  // Retry on server errors, rate limits, and service unavailable
+  return statusCode === 429 || statusCode === 500 || statusCode === 503;
+}
+
+/**
+ * Converts SAP AI SDK OrchestrationErrorResponse to Vercel AI SDK APICallError.
+ * 
+ * This ensures compatibility with OpenCode's error handling system which expects
+ * APICallError from the Vercel AI SDK.
  *
- * The SAP AI SDK handles most error responses internally, but this class
- * can be used to wrap and provide additional context for errors.
- *
+ * @param errorResponse - The error response from SAP AI SDK
+ * @param context - Optional context about where the error occurred
+ * @returns APICallError compatible with Vercel AI SDK
+ * 
  * @example
  * ```typescript
  * try {
- *   await model.doGenerate({ prompt });
+ *   await client.chatCompletion({ messages });
  * } catch (error) {
- *   if (error instanceof SAPAIError) {
- *     console.error('Error Code:', error.code);
- *     console.error('Request ID:', error.requestId);
- *     console.error('Location:', error.location);
- *   }
+ *   throw convertSAPErrorToAPICallError(error);
  * }
  * ```
  */
-export class SAPAIError extends Error {
-  /** HTTP status code or custom error code */
-  public readonly code?: number;
+export function convertSAPErrorToAPICallError(
+  errorResponse: OrchestrationErrorResponse,
+  context?: { url?: string; requestBody?: unknown }
+): APICallError {
+  const error = errorResponse.error;
 
-  /** Where the error occurred (e.g., module name) */
-  public readonly location?: string;
+  // Handle both single error and error list
+  let message: string;
+  let code: number | undefined;
+  let location: string | undefined;
+  let requestId: string | undefined;
 
-  /** Unique identifier for tracking the request */
-  public readonly requestId?: string;
-
-  /** Additional error context or debugging information */
-  public readonly details?: string;
-
-  /** Original cause of the error */
-  public readonly cause?: unknown;
-
-  constructor(
-    message: string,
-    options?: {
-      code?: number;
-      location?: string;
-      requestId?: string;
-      details?: string;
-      cause?: unknown;
-    },
-  ) {
-    super(message);
-    this.name = "SAPAIError";
-    this.code = options?.code;
-    this.location = options?.location;
-    this.requestId = options?.requestId;
-    this.details = options?.details;
-    this.cause = options?.cause;
+  if (Array.isArray(error)) {
+    // ErrorList - get first error
+    const firstError = error[0];
+    message = firstError?.message ?? 'Unknown orchestration error';
+    code = firstError?.code;
+    location = firstError?.location;
+    requestId = firstError?.request_id;
+  } else {
+    // Single Error object
+    message = error.message ?? 'Unknown orchestration error';
+    code = error.code;
+    location = error.location;
+    requestId = error.request_id;
   }
 
-  /**
-   * Creates a SAPAIError from an OrchestrationErrorResponse.
-   *
-   * @param errorResponse - The error response from SAP AI SDK
-   * @returns A new SAPAIError instance
-   */
-  static fromOrchestrationError(
-    errorResponse: OrchestrationErrorResponse,
-  ): SAPAIError {
-    const error = errorResponse.error;
+  const statusCode = getStatusCodeFromSAPError(code);
 
-    // Handle both single error and error list
-    if (Array.isArray(error)) {
-      // ErrorList - get first error
-      const firstError = error[0];
-      return new SAPAIError(
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        firstError?.message ?? "Unknown orchestration error",
-        {
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          code: firstError?.code,
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          location: firstError?.location,
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          requestId: firstError?.request_id,
-        },
-      );
-    } else {
-      // Single Error object
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      return new SAPAIError(error.message ?? "Unknown orchestration error", {
-        code: error.code,
-        location: error.location,
-        requestId: error.request_id,
+  // Build detailed error response body with SAP-specific metadata
+  const responseBody = JSON.stringify({
+    error: {
+      message,
+      code,
+      location,
+      request_id: requestId,
+    },
+  });
+
+  // Add helpful context to error message based on error type
+  let enhancedMessage = message;
+  
+  if (statusCode === 401 || statusCode === 403) {
+    enhancedMessage += '\n\nAuthentication failed. Verify your AICORE_SERVICE_KEY environment variable is set correctly.';
+  } else if (statusCode === 404) {
+    enhancedMessage += '\n\nResource not found. The model or deployment may not exist in your SAP AI Core instance.';
+  } else if (statusCode === 429) {
+    enhancedMessage += '\n\nRate limit exceeded. Please try again later or contact your SAP administrator.';
+  } else if (location) {
+    enhancedMessage += `\n\nError location: ${location}`;
+  }
+
+  if (requestId) {
+    enhancedMessage += `\nRequest ID: ${requestId}`;
+  }
+
+  return new APICallError({
+    message: enhancedMessage,
+    url: context?.url,
+    requestBodyValues: context?.requestBody,
+    statusCode,
+    responseHeaders: undefined,
+    responseBody,
+    isRetryable: isRetryable(statusCode),
+  });
+}
+
+/**
+ * Converts a generic error to an appropriate Vercel AI SDK error.
+ * 
+ * @param error - The error to convert
+ * @param context - Optional context about where the error occurred
+ * @returns APICallError or LoadAPIKeyError
+ * 
+ * @example
+ * ```typescript
+ * catch (error) {
+ *   throw convertToAISDKError(error, { operation: 'doGenerate' });
+ * }
+ * ```
+ */
+export function convertToAISDKError(
+  error: unknown,
+  context?: { operation?: string; url?: string; requestBody?: unknown }
+): APICallError | LoadAPIKeyError {
+  // If it's already a Vercel AI SDK error, return as-is
+  if (error instanceof APICallError || error instanceof LoadAPIKeyError) {
+    return error;
+  }
+
+  // Handle SAP AI SDK OrchestrationErrorResponse
+  if (
+    error &&
+    typeof error === 'object' &&
+    'error' in error &&
+    (error as any).error
+  ) {
+    return convertSAPErrorToAPICallError(
+      error as OrchestrationErrorResponse,
+      context
+    );
+  }
+
+  // Handle authentication errors
+  if (error instanceof Error) {
+    const errorMsg = error.message.toLowerCase();
+    if (
+      errorMsg.includes('authentication') ||
+      errorMsg.includes('unauthorized') ||
+      errorMsg.includes('aicore_service_key') ||
+      errorMsg.includes('invalid credentials')
+    ) {
+      return new LoadAPIKeyError({
+        message: `SAP AI Core authentication failed: ${error.message}`,
+      });
+    }
+
+    // Handle network/connection errors
+    if (
+      errorMsg.includes('econnrefused') ||
+      errorMsg.includes('enotfound') ||
+      errorMsg.includes('network') ||
+      errorMsg.includes('timeout')
+    ) {
+      return new APICallError({
+        message: `Network error connecting to SAP AI Core: ${error.message}`,
+        statusCode: 503,
+        isRetryable: true,
+        cause: error,
       });
     }
   }
 
-  /**
-   * Creates a SAPAIError from a generic error.
-   *
-   * @param error - The original error
-   * @param context - Optional context about where the error occurred
-   * @returns A new SAPAIError instance
-   */
-  static fromError(error: unknown, context?: string): SAPAIError {
-    if (error instanceof SAPAIError) {
-      return error;
-    }
+  // Generic error - wrap in APICallError
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : 'Unknown error occurred';
 
-    let message: string;
-    if (error instanceof Error) {
-      message = error.message;
-    } else if (error == null) {
-      message = "Unknown error";
-    } else if (
-      typeof error === "string" ||
-      typeof error === "number" ||
-      typeof error === "boolean" ||
-      typeof error === "bigint"
-    ) {
-      // Primitives that can be safely stringified
-      message = String(error);
-    } else {
-      // Objects, symbols, and other types
-      try {
-        message = JSON.stringify(error);
-      } catch {
-        message = "[Unstringifiable Value]";
-      }
-    }
+  const fullMessage = context?.operation
+    ? `SAP AI Core ${context.operation} failed: ${message}`
+    : `SAP AI Core error: ${message}`;
 
-    return new SAPAIError(context ? `${context}: ${message}` : message, {
-      cause: error,
-    });
-  }
+  return new APICallError({
+    message: fullMessage,
+    url: context?.url,
+    requestBodyValues: context?.requestBody,
+    statusCode: 500,
+    isRetryable: false,
+    cause: error,
+  });
 }
 
-// Re-export the error response type from SAP AI SDK
-export type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
+// Re-export types for backwards compatibility
+export type { OrchestrationErrorResponse } from '@sap-ai-sdk/orchestration';

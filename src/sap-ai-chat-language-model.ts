@@ -26,6 +26,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import type { ZodSchema } from "zod/v3";
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
+import { convertToAISDKError } from "./sap-ai-error";
 
 /**
  * Type guard to check if an object is a Zod schema.
@@ -355,61 +356,68 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
     warnings: LanguageModelV2CallWarning[];
   }> {
-    const { orchestrationConfig, messages, warnings } =
-      this.buildOrchestrationConfig(options);
+    try {
+      const { orchestrationConfig, messages, warnings } =
+        this.buildOrchestrationConfig(options);
 
-    const client = this.createClient(orchestrationConfig);
+      const client = this.createClient(orchestrationConfig);
 
-    const response = await client.chatCompletion({
-      messages,
-    });
-
-    const content: LanguageModelV2Content[] = [];
-
-    // Extract text content
-    const textContent = response.getContent();
-    if (textContent) {
-      content.push({
-        type: "text",
-        text: textContent,
+      const response = await client.chatCompletion({
+        messages,
       });
-    }
 
-    // Extract tool calls
-    const toolCalls = response.getToolCalls();
-    if (toolCalls) {
-      for (const toolCall of toolCalls) {
+      const content: LanguageModelV2Content[] = [];
+
+      // Extract text content
+      const textContent = response.getContent();
+      if (textContent) {
         content.push({
-          type: "tool-call",
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          // AI SDK expects input as a JSON string, which it parses internally
-          input: toolCall.function.arguments,
+          type: "text",
+          text: textContent,
         });
       }
+
+      // Extract tool calls
+      const toolCalls = response.getToolCalls();
+      if (toolCalls) {
+        for (const toolCall of toolCalls) {
+          content.push({
+            type: "tool-call",
+            toolCallId: toolCall.id,
+            toolName: toolCall.function.name,
+            // AI SDK expects input as a JSON string, which it parses internally
+            input: toolCall.function.arguments,
+          });
+        }
+      }
+
+      // Get usage
+      const tokenUsage = response.getTokenUsage();
+
+      // Map finish reason
+      const finishReasonRaw = response.getFinishReason();
+      const finishReason = mapFinishReason(finishReasonRaw);
+
+      return {
+        content,
+        finishReason,
+        usage: {
+          inputTokens: tokenUsage.prompt_tokens,
+          outputTokens: tokenUsage.completion_tokens,
+          totalTokens: tokenUsage.total_tokens,
+        },
+        rawCall: {
+          rawPrompt: { config: orchestrationConfig, messages },
+          rawSettings: {},
+        },
+        warnings,
+      };
+    } catch (error) {
+      throw convertToAISDKError(error, {
+        operation: 'doGenerate',
+        requestBody: options,
+      });
     }
-
-    // Get usage
-    const tokenUsage = response.getTokenUsage();
-
-    // Map finish reason
-    const finishReasonRaw = response.getFinishReason();
-    const finishReason = mapFinishReason(finishReasonRaw);
-
-    return {
-      content,
-      finishReason,
-      usage: {
-        inputTokens: tokenUsage.prompt_tokens,
-        outputTokens: tokenUsage.completion_tokens,
-        totalTokens: tokenUsage.total_tokens,
-      },
-      rawCall: {
-        rawPrompt: { config: orchestrationConfig, messages },
-        rawSettings: {},
-      },
-      warnings,
-    };
   }
 
   /**
@@ -450,40 +458,41 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     stream: ReadableStream<LanguageModelV2StreamPart>;
     rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
   }> {
-    const { orchestrationConfig, messages, warnings } =
-      this.buildOrchestrationConfig(options);
+    try {
+      const { orchestrationConfig, messages, warnings } =
+        this.buildOrchestrationConfig(options);
 
-    const client = this.createClient(orchestrationConfig);
+      const client = this.createClient(orchestrationConfig);
 
-    const streamResponse = await client.stream(
-      { messages },
-      options.abortSignal,
-      { promptTemplating: { include_usage: true } },
-    );
+      const streamResponse = await client.stream(
+        { messages },
+        options.abortSignal,
+        { promptTemplating: { include_usage: true } },
+      );
 
-    let finishReason: LanguageModelV2FinishReason = "unknown";
-    const usage: LanguageModelV2Usage = {
-      inputTokens: undefined,
-      outputTokens: undefined,
-      totalTokens: undefined,
-    };
+      let finishReason: LanguageModelV2FinishReason = "unknown";
+      const usage: LanguageModelV2Usage = {
+        inputTokens: undefined,
+        outputTokens: undefined,
+        totalTokens: undefined,
+      };
 
-    let isFirstChunk = true;
-    let activeText = false;
+      let isFirstChunk = true;
+      let activeText = false;
 
-    // Track tool calls being built up
-    const toolCallsInProgress = new Map<
-      number,
-      { id: string; name: string; arguments: string }
-    >();
+      // Track tool calls being built up
+      const toolCallsInProgress = new Map<
+        number,
+        { id: string; name: string; arguments: string }
+      >();
 
-    const sdkStream = streamResponse.stream;
+      const sdkStream = streamResponse.stream;
 
-    const transformedStream = new ReadableStream<LanguageModelV2StreamPart>({
-      async start(controller) {
-        controller.enqueue({ type: "stream-start", warnings });
+      const transformedStream = new ReadableStream<LanguageModelV2StreamPart>({
+        async start(controller) {
+          controller.enqueue({ type: "stream-start", warnings });
 
-        try {
+          try {
           for await (const chunk of sdkStream) {
             if (isFirstChunk) {
               isFirstChunk = false;
@@ -616,9 +625,13 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
           controller.close();
         } catch (error) {
+          const aiError = convertToAISDKError(error, {
+            operation: 'doStream',
+            requestBody: options,
+          });
           controller.enqueue({
             type: "error",
-            error: error instanceof Error ? error : new Error(String(error)),
+            error: aiError instanceof Error ? aiError : new Error(String(aiError)),
           });
           controller.close();
         }
@@ -632,6 +645,12 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         rawSettings: {},
       },
     };
+    } catch (error) {
+      throw convertToAISDKError(error, {
+        operation: 'doStream',
+        requestBody: options,
+      });
+    }
   }
 }
 
