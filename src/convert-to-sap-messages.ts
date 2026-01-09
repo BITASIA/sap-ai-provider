@@ -32,12 +32,14 @@ interface UserContentItem {
  * - Text messages (system, user, assistant)
  * - Multi-modal messages (text + images)
  * - Tool calls and tool results
+ * - Reasoning parts (converted to text content)
  * - Conversation history
  *
  * **Limitations:**
  * - Images must be in data URL format or accessible HTTP URLs
  * - Audio messages are not supported
  * - File attachments (non-image) are not supported
+ * - Reasoning parts are included as plain text (no special handling)
  *
  * @param prompt - The Vercel AI SDK prompt to convert
  * @returns Array of SAP AI SDK compatible ChatMessage objects

@@ -472,7 +472,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * - `error` - Error occurred
    *
    * @param options - Streaming options including prompt, tools, and settings
-   * @returns Promise resolving to stream and raw call metadata
+   * @returns Promise resolving to stream and request metadata
    *
    * @example
    * ```typescript
