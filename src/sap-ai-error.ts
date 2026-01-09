@@ -11,10 +11,10 @@ function getStatusCodeFromSAPError(code?: number): number {
 
 /**
  * Determines if an error should be retryable based on status code.
+ * Following the Vercel AI SDK pattern: 429 (rate limit) and 5xx (server errors) are retryable.
  */
 function isRetryable(statusCode: number): boolean {
-  // Retry on server errors, rate limits, and service unavailable
-  return statusCode === 429 || statusCode === 500 || statusCode === 503;
+  return statusCode === 429 || (statusCode >= 500 && statusCode < 600);
 }
 
 /**

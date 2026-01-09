@@ -414,7 +414,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       };
     } catch (error) {
       throw convertToAISDKError(error, {
-        operation: 'doGenerate',
+        operation: "doGenerate",
         requestBody: options,
       });
     }
@@ -493,161 +493,162 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           controller.enqueue({ type: "stream-start", warnings });
 
           try {
-          for await (const chunk of sdkStream) {
-            if (isFirstChunk) {
-              isFirstChunk = false;
-              controller.enqueue({
-                type: "response-metadata",
-                id: undefined,
-                modelId: undefined,
-                timestamp: new Date(),
-              });
-            }
-
-            // Get delta content
-            const deltaContent = chunk.getDeltaContent();
-            if (deltaContent) {
-              if (!activeText) {
-                controller.enqueue({ type: "text-start", id: "0" });
-                activeText = true;
+            for await (const chunk of sdkStream) {
+              if (isFirstChunk) {
+                isFirstChunk = false;
+                controller.enqueue({
+                  type: "response-metadata",
+                  id: undefined,
+                  modelId: undefined,
+                  timestamp: new Date(),
+                });
               }
-              controller.enqueue({
-                type: "text-delta",
-                id: "0",
-                delta: deltaContent,
-              });
-            }
 
-            // Handle tool calls
-            const deltaToolCalls = chunk.getDeltaToolCalls();
-            if (deltaToolCalls) {
-              for (const toolCallChunk of deltaToolCalls) {
-                const index = toolCallChunk.index;
+              // Get delta content
+              const deltaContent = chunk.getDeltaContent();
+              if (deltaContent) {
+                if (!activeText) {
+                  controller.enqueue({ type: "text-start", id: "0" });
+                  activeText = true;
+                }
+                controller.enqueue({
+                  type: "text-delta",
+                  id: "0",
+                  delta: deltaContent,
+                });
+              }
 
-                // Initialize tool call if new
-                if (!toolCallsInProgress.has(index)) {
-                  toolCallsInProgress.set(index, {
-                    id: toolCallChunk.id ?? `tool_${String(index)}`,
-                    name: toolCallChunk.function?.name ?? "",
-                    arguments: "",
-                  });
+              // Handle tool calls
+              const deltaToolCalls = chunk.getDeltaToolCalls();
+              if (deltaToolCalls) {
+                for (const toolCallChunk of deltaToolCalls) {
+                  const index = toolCallChunk.index;
 
-                  // Emit tool-input-start
+                  // Initialize tool call if new
+                  if (!toolCallsInProgress.has(index)) {
+                    toolCallsInProgress.set(index, {
+                      id: toolCallChunk.id ?? `tool_${String(index)}`,
+                      name: toolCallChunk.function?.name ?? "",
+                      arguments: "",
+                    });
+
+                    // Emit tool-input-start
+                    const tc = toolCallsInProgress.get(index);
+                    if (!tc) continue;
+                    if (toolCallChunk.function?.name) {
+                      controller.enqueue({
+                        type: "tool-input-start",
+                        id: tc.id,
+                        toolName: tc.name,
+                      });
+                    }
+                  }
+
                   const tc = toolCallsInProgress.get(index);
                   if (!tc) continue;
+
+                  // Update tool call ID if provided
+                  if (toolCallChunk.id) {
+                    tc.id = toolCallChunk.id;
+                  }
+
+                  // Update function name if provided
                   if (toolCallChunk.function?.name) {
+                    tc.name = toolCallChunk.function.name;
+                  }
+
+                  // Accumulate arguments
+                  if (toolCallChunk.function?.arguments) {
+                    tc.arguments += toolCallChunk.function.arguments;
                     controller.enqueue({
-                      type: "tool-input-start",
+                      type: "tool-input-delta",
                       id: tc.id,
-                      toolName: tc.name,
+                      delta: toolCallChunk.function.arguments,
                     });
                   }
                 }
+              }
 
-                const tc = toolCallsInProgress.get(index);
-                if (!tc) continue;
+              // Check for finish reason
+              const chunkFinishReason = chunk.getFinishReason();
+              if (chunkFinishReason) {
+                finishReason = mapFinishReason(chunkFinishReason);
+              }
 
-                // Update tool call ID if provided
-                if (toolCallChunk.id) {
-                  tc.id = toolCallChunk.id;
-                }
-
-                // Update function name if provided
-                if (toolCallChunk.function?.name) {
-                  tc.name = toolCallChunk.function.name;
-                }
-
-                // Accumulate arguments
-                if (toolCallChunk.function?.arguments) {
-                  tc.arguments += toolCallChunk.function.arguments;
-                  controller.enqueue({
-                    type: "tool-input-delta",
-                    id: tc.id,
-                    delta: toolCallChunk.function.arguments,
-                  });
-                }
+              // Get usage from chunk
+              const chunkUsage = chunk.getTokenUsage();
+              if (chunkUsage) {
+                usage.inputTokens = chunkUsage.prompt_tokens;
+                usage.outputTokens = chunkUsage.completion_tokens;
+                usage.totalTokens = chunkUsage.total_tokens;
               }
             }
 
-            // Check for finish reason
-            const chunkFinishReason = chunk.getFinishReason();
-            if (chunkFinishReason) {
-              finishReason = mapFinishReason(chunkFinishReason);
+            // Emit completed tool calls
+            const toolCalls = Array.from(toolCallsInProgress.values());
+            for (const tc of toolCalls) {
+              controller.enqueue({
+                type: "tool-input-end",
+                id: tc.id,
+              });
+              controller.enqueue({
+                type: "tool-call",
+                toolCallId: tc.id,
+                toolName: tc.name,
+                input: tc.arguments,
+              });
             }
 
-            // Get usage from chunk
-            const chunkUsage = chunk.getTokenUsage();
-            if (chunkUsage) {
-              usage.inputTokens = chunkUsage.prompt_tokens;
-              usage.outputTokens = chunkUsage.completion_tokens;
-              usage.totalTokens = chunkUsage.total_tokens;
+            if (activeText) {
+              controller.enqueue({ type: "text-end", id: "0" });
             }
-          }
 
-          // Emit completed tool calls
-          const toolCalls = Array.from(toolCallsInProgress.values());
-          for (const tc of toolCalls) {
+            // Try to get final usage from stream response
+            const finalUsage = streamResponse.getTokenUsage();
+            if (finalUsage) {
+              usage.inputTokens = finalUsage.prompt_tokens;
+              usage.outputTokens = finalUsage.completion_tokens;
+              usage.totalTokens = finalUsage.total_tokens;
+            }
+
+            // Get final finish reason
+            const finalFinishReason = streamResponse.getFinishReason();
+            if (finalFinishReason) {
+              finishReason = mapFinishReason(finalFinishReason);
+            }
+
             controller.enqueue({
-              type: "tool-input-end",
-              id: tc.id,
+              type: "finish",
+              finishReason,
+              usage,
+            });
+
+            controller.close();
+          } catch (error) {
+            const aiError = convertToAISDKError(error, {
+              operation: "doStream",
+              requestBody: options,
             });
             controller.enqueue({
-              type: "tool-call",
-              toolCallId: tc.id,
-              toolName: tc.name,
-              input: tc.arguments,
+              type: "error",
+              error:
+                aiError instanceof Error ? aiError : new Error(String(aiError)),
             });
+            controller.close();
           }
+        },
+      });
 
-          if (activeText) {
-            controller.enqueue({ type: "text-end", id: "0" });
-          }
-
-          // Try to get final usage from stream response
-          const finalUsage = streamResponse.getTokenUsage();
-          if (finalUsage) {
-            usage.inputTokens = finalUsage.prompt_tokens;
-            usage.outputTokens = finalUsage.completion_tokens;
-            usage.totalTokens = finalUsage.total_tokens;
-          }
-
-          // Get final finish reason
-          const finalFinishReason = streamResponse.getFinishReason();
-          if (finalFinishReason) {
-            finishReason = mapFinishReason(finalFinishReason);
-          }
-
-          controller.enqueue({
-            type: "finish",
-            finishReason,
-            usage,
-          });
-
-          controller.close();
-        } catch (error) {
-          const aiError = convertToAISDKError(error, {
-            operation: 'doStream',
-            requestBody: options,
-          });
-          controller.enqueue({
-            type: "error",
-            error: aiError instanceof Error ? aiError : new Error(String(aiError)),
-          });
-          controller.close();
-        }
-      },
-    });
-
-    return {
-      stream: transformedStream,
-      rawCall: {
-        rawPrompt: { config: orchestrationConfig, messages },
-        rawSettings: {},
-      },
-    };
+      return {
+        stream: transformedStream,
+        rawCall: {
+          rawPrompt: { config: orchestrationConfig, messages },
+          rawSettings: {},
+        },
+      };
     } catch (error) {
       throw convertToAISDKError(error, {
-        operation: 'doStream',
+        operation: "doStream",
         requestBody: options,
       });
     }
