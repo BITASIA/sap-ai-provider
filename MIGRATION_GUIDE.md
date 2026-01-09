@@ -25,9 +25,11 @@ This guide helps you migrate your application when upgrading to newer versions o
 ### Summary of Changes
 
 **Breaking Changes:**
+
 - None
 
 **New Features:**
+
 - Orchestration v2 API support
 - Data masking with SAP Data Privacy Integration (DPI)
 - `responseFormat` configuration
@@ -36,6 +38,7 @@ This guide helps you migrate your application when upgrading to newer versions o
 - `completionPath` option for custom endpoints
 
 **Improvements:**
+
 - Better error messages
 - Improved type definitions
 - Enhanced JSDoc documentation
@@ -56,11 +59,11 @@ The 1.1.x release is fully backward compatible with 1.0.x. Your existing code wi
 ```typescript
 // ✅ This code works in both 1.0.x and 1.1.x
 const provider = await createSAPAIProvider({
-  serviceKey: process.env.SAP_AI_SERVICE_KEY
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
 });
 
-const model = provider('gpt-4o');
-const result = await generateText({ model, prompt: 'Hello!' });
+const model = provider("gpt-4o");
+const result = await generateText({ model, prompt: "Hello!" });
 ```
 
 #### 3. Optional: Adopt New Features
@@ -70,21 +73,30 @@ const result = await generateText({ model, prompt: 'Hello!' });
 **Before (1.0.x):** No masking support
 
 **After (1.1.x):** Add DPI masking
+
 ```typescript
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY,
   defaultSettings: {
     masking: {
-      masking_providers: [{
-        type: 'sap_data_privacy_integration',
-        method: 'anonymization',
-        entities: [
-          { type: 'profile-email', replacement_strategy: { method: 'fabricated_data' } },
-          { type: 'profile-person', replacement_strategy: { method: 'constant', value: 'REDACTED' } }
-        ]
-      }]
-    }
-  }
+      masking_providers: [
+        {
+          type: "sap_data_privacy_integration",
+          method: "anonymization",
+          entities: [
+            {
+              type: "profile-email",
+              replacement_strategy: { method: "fabricated_data" },
+            },
+            {
+              type: "profile-person",
+              replacement_strategy: { method: "constant", value: "REDACTED" },
+            },
+          ],
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -93,21 +105,22 @@ const provider = await createSAPAIProvider({
 **Before (1.0.x):** No explicit response format control
 
 **After (1.1.x):** Specify response format
+
 ```typescript
-const model = provider('gpt-4o', {
+const model = provider("gpt-4o", {
   responseFormat: {
-    type: 'json_schema',
+    type: "json_schema",
     json_schema: {
-      name: 'user_data',
+      name: "user_data",
       schema: {
-        type: 'object',
+        type: "object",
         properties: {
-          name: { type: 'string' },
-          age: { type: 'number' }
-        }
-      }
-    }
-  }
+          name: { type: "string" },
+          age: { type: "number" },
+        },
+      },
+    },
+  },
 });
 ```
 
@@ -116,11 +129,12 @@ const model = provider('gpt-4o', {
 **Before (1.0.x):** Only async initialization
 
 **After (1.1.x):** Synchronous option available
+
 ```typescript
 // When you already have a token
 const provider = createSAPAIProviderSync({
-  token: 'your-oauth-token',
-  deploymentId: 'your-deployment'
+  token: "your-oauth-token",
+  deploymentId: "your-deployment",
 });
 ```
 
@@ -152,13 +166,13 @@ The provider automatically uses v2 by default. To explicitly target v1 (not reco
 // Legacy v1 (deprecated)
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY,
-  baseURL: 'https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com',
-  completionPath: '/completion'  // v1 endpoint
+  baseURL: "https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com",
+  completionPath: "/completion", // v1 endpoint
 });
 
 // ✅ Recommended: v2 (default)
 const provider = await createSAPAIProvider({
-  serviceKey: process.env.SAP_AI_SERVICE_KEY
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
   // Uses v2 by default
 });
 ```
@@ -174,19 +188,30 @@ const provider = await createSAPAIProvider({
 Automatically anonymize or pseudonymize sensitive information:
 
 ```typescript
-const model = provider('gpt-4o', {
+const model = provider("gpt-4o", {
   masking: {
-    masking_providers: [{
-      type: 'sap_data_privacy_integration',
-      method: 'anonymization',
-      entities: [
-        { type: 'profile-email', replacement_strategy: { method: 'fabricated_data' } },
-        { type: 'profile-person', replacement_strategy: { method: 'constant', value: 'REDACTED' } },
-        { regex: '\\b[0-9]{4}-[0-9]{4}\\b', replacement_strategy: { method: 'constant', value: 'ID_REDACTED' } }
-      ],
-      allowlist: ['SAP', 'BTP']
-    }]
-  }
+    masking_providers: [
+      {
+        type: "sap_data_privacy_integration",
+        method: "anonymization",
+        entities: [
+          {
+            type: "profile-email",
+            replacement_strategy: { method: "fabricated_data" },
+          },
+          {
+            type: "profile-person",
+            replacement_strategy: { method: "constant", value: "REDACTED" },
+          },
+          {
+            regex: "\\b[0-9]{4}-[0-9]{4}\\b",
+            replacement_strategy: { method: "constant", value: "ID_REDACTED" },
+          },
+        ],
+        allowlist: ["SAP", "BTP"],
+      },
+    ],
+  },
 });
 ```
 
@@ -196,34 +221,34 @@ Specify desired response format:
 
 ```typescript
 // Text response (default when no tools)
-const model1 = provider('gpt-4o', {
-  responseFormat: { type: 'text' }
+const model1 = provider("gpt-4o", {
+  responseFormat: { type: "text" },
 });
 
 // JSON object response
-const model2 = provider('gpt-4o', {
-  responseFormat: { type: 'json_object' }
+const model2 = provider("gpt-4o", {
+  responseFormat: { type: "json_object" },
 });
 
 // JSON schema response (structured output)
-const model3 = provider('gpt-4o', {
+const model3 = provider("gpt-4o", {
   responseFormat: {
-    type: 'json_schema',
+    type: "json_schema",
     json_schema: {
-      name: 'user_profile',
-      description: 'User profile data',
+      name: "user_profile",
+      description: "User profile data",
       schema: {
-        type: 'object',
+        type: "object",
         properties: {
-          name: { type: 'string' },
-          age: { type: 'number' },
-          email: { type: 'string', format: 'email' }
+          name: { type: "string" },
+          age: { type: "number" },
+          email: { type: "string", format: "email" },
         },
-        required: ['name']
+        required: ["name"],
       },
-      strict: true
-    }
-  }
+      strict: true,
+    },
+  },
 });
 ```
 
@@ -237,22 +262,24 @@ const provider = await createSAPAIProvider({
   defaultSettings: {
     modelParams: {
       temperature: 0.7,
-      maxTokens: 2000
+      maxTokens: 2000,
     },
     safePrompt: true,
-    masking: { /* DPI config */ }
-  }
+    masking: {
+      /* DPI config */
+    },
+  },
 });
 
 // All models inherit default settings
-const model1 = provider('gpt-4o');  // Has temperature=0.7, maxTokens=2000
-const model2 = provider('claude-3.5-sonnet');  // Same defaults
+const model1 = provider("gpt-4o"); // Has temperature=0.7, maxTokens=2000
+const model2 = provider("claude-3.5-sonnet"); // Same defaults
 
 // Override per model
-const model3 = provider('gpt-4o', {
+const model3 = provider("gpt-4o", {
   modelParams: {
-    temperature: 0.3  // Overrides default
-  }
+    temperature: 0.3, // Overrides default
+  },
 });
 ```
 
@@ -263,20 +290,20 @@ Target different endpoints:
 ```typescript
 // Default: /inference/deployments/{id}/v2/completion
 const provider1 = await createSAPAIProvider({
-  serviceKey: process.env.SAP_AI_SERVICE_KEY
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
 });
 
 // Top-level v2 endpoint
 const provider2 = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY,
-  baseURL: 'https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com',
-  completionPath: '/v2/completion'
+  baseURL: "https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com",
+  completionPath: "/v2/completion",
 });
 
 // Custom path
 const provider3 = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY,
-  completionPath: '/custom/completion'
+  completionPath: "/custom/completion",
 });
 ```
 
@@ -285,11 +312,11 @@ const provider3 = await createSAPAIProvider({
 Improved streaming support with better error handling:
 
 ```typescript
-import { streamText } from 'ai';
+import { streamText } from "ai";
 
 const { textStream } = await streamText({
-  model: provider('gpt-4o'),
-  prompt: 'Write a story'
+  model: provider("gpt-4o"),
+  prompt: "Write a story",
 });
 
 for await (const textPart of textStream) {
@@ -302,18 +329,19 @@ for await (const textPart of textStream) {
 More detailed error information:
 
 ```typescript
-import { SAPAIError } from '@mymediset/sap-ai-provider';
+import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
 
 try {
   await generateText({ model, prompt });
 } catch (error) {
-  if (error instanceof SAPAIError) {
+  if (error instanceof LoadAPIKeyError) {
+    console.error("Missing/invalid SAP AI Core credentials:", error.message);
+  } else if (error instanceof APICallError) {
     console.error({
-      code: error.code,
+      statusCode: error.statusCode,
+      isRetryable: error.isRetryable,
       message: error.message,
-      requestId: error.requestId,
-      location: error.location,
-      intermediateResults: error.intermediateResults  // New in 1.1.x
+      responseBody: error.responseBody,
     });
   }
 }
@@ -331,8 +359,8 @@ New synchronous provider creation function:
 
 ```typescript
 function createSAPAIProviderSync(
-  options: Omit<SAPAIProviderSettings, 'serviceKey'> & { token: string }
-): SAPAIProvider
+  options: Omit<SAPAIProviderSettings, "serviceKey"> & { token: string },
+): SAPAIProvider;
 ```
 
 #### `SAPAISettings.responseFormat`
@@ -342,7 +370,7 @@ New property for controlling response format:
 ```typescript
 interface SAPAISettings {
   // ... existing properties ...
-  responseFormat?: 
+  responseFormat?:
     | { type: 'text' }
     | { type: 'json_object' }
     | { type: 'json_schema'; json_schema: { ... } };
@@ -382,14 +410,24 @@ interface SAPAIProviderSettings {
 }
 ```
 
-#### `SAPAIError.intermediateResults`
+#### Error Details
 
-New property for v2 API intermediate results:
+The provider no longer exposes a custom `SAPAIError` type.
+
+- Use `APICallError.responseBody` to inspect SAP-specific error metadata.
+- Use `APICallError.statusCode` and `APICallError.isRetryable` for retry behavior.
 
 ```typescript
-class SAPAIError extends Error {
-  // ... existing properties ...
-  readonly intermediateResults?: unknown;
+import { APICallError } from "@ai-sdk/provider";
+
+try {
+  await generateText({ model, prompt });
+} catch (error) {
+  if (error instanceof APICallError) {
+    console.error(error.statusCode);
+    console.error(error.isRetryable);
+    console.error(error.responseBody);
+  }
 }
 ```
 
@@ -409,7 +447,7 @@ async function createSAPAIProvider(options?: {
   baseURL?: string;
   headers?: Record<string, string>;
   fetch?: typeof fetch;
-}): Promise<SAPAIProvider>
+}): Promise<SAPAIProvider>;
 
 // After (1.1.x) - Backward compatible, with additions
 async function createSAPAIProvider(options?: {
@@ -418,11 +456,11 @@ async function createSAPAIProvider(options?: {
   deploymentId?: string;
   resourceGroup?: string;
   baseURL?: string;
-  completionPath?: string;  // NEW
+  completionPath?: string; // NEW
   headers?: Record<string, string>;
   fetch?: typeof fetch;
-  defaultSettings?: SAPAISettings;  // NEW
-}): Promise<SAPAIProvider>
+  defaultSettings?: SAPAISettings; // NEW
+}): Promise<SAPAIProvider>;
 ```
 
 ---
@@ -480,8 +518,8 @@ npm run type-check
 ```typescript
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY,
-  deploymentId: 'd65d81e7c077e583',  // Explicit default
-  resourceGroup: 'default'  // Explicit default
+  deploymentId: "d65d81e7c077e583", // Explicit default
+  resourceGroup: "default", // Explicit default
 });
 ```
 
@@ -494,11 +532,13 @@ const provider = await createSAPAIProvider({
 ```typescript
 // Check if masking is available in your instance
 try {
-  const model = provider('gpt-4o', {
-    masking: { /* config */ }
+  const model = provider("gpt-4o", {
+    masking: {
+      /* config */
+    },
   });
 } catch (error) {
-  console.error('Masking not available:', error);
+  console.error("Masking not available:", error);
   // Fall back to non-masked model
 }
 ```
@@ -559,4 +599,3 @@ If you encounter issues during migration:
 - [CHANGELOG.md](./CHANGELOG.md) - Full change history
 - [README.md](./README.md) - Getting started guide
 - [CONTRIBUTING.md](./CONTRIBUTING.md) - Contribution guidelines
-

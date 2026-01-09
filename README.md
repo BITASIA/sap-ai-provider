@@ -341,8 +341,10 @@ interface SAPAISettings {
 
 ## Error Handling
 
+This provider throws standard Vercel AI SDK errors (e.g. `APICallError`, `LoadAPIKeyError`).
+
 ```typescript
-import { SAPAIError } from "@mymediset/sap-ai-provider";
+import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
 
 try {
   const result = await generateText({
@@ -350,10 +352,16 @@ try {
     prompt: "Hello world",
   });
 } catch (error) {
-  if (error instanceof SAPAIError) {
-    console.error("Code:", error.code);
-    console.error("Location:", error.location);
-    console.error("Request ID:", error.requestId);
+  if (error instanceof LoadAPIKeyError) {
+    console.error("Missing/invalid SAP AI Core credentials:", error.message);
+  } else if (error instanceof APICallError) {
+    console.error("Status:", error.statusCode);
+    console.error("Retryable:", error.isRetryable);
+
+    // SAP-specific metadata is preserved in responseBody
+    if (error.responseBody) {
+      console.error("SAP responseBody:", error.responseBody);
+    }
   }
 }
 ```

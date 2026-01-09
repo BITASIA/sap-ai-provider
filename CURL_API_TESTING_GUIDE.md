@@ -7,6 +7,7 @@ This guide demonstrates how to make direct API calls to SAP AI Core using curl f
 ## Overview
 
 This example shows the complete flow of:
+
 1. **OAuth2 authentication** using service key credentials
 2. **API call** to SAP AI Core's Orchestration v2 endpoint
 3. **Function calling** with multiple tools (model-dependent)
@@ -27,8 +28,9 @@ This example shows the complete flow of:
 ### Step 1: Prepare Your Credentials
 
 From your SAP BTP cockpit, obtain your service key which contains:
+
 - `clientid` - OAuth2 client ID
-- `clientsecret` - OAuth2 client secret  
+- `clientsecret` - OAuth2 client secret
 - `url` - Authentication server URL
 - `serviceurls.AI_API_URL` - SAP AI Core API base URL
 
@@ -71,6 +73,7 @@ echo "✅ OAuth token obtained"
 ```
 
 **Key Points:**
+
 - Use `printf` instead of `echo -n` for proper special character handling (e.g., `|`, `$`, `!` in client IDs)
 - The token is a JWT containing tenant information (`subaccountid`, `zid`)
 - Tokens typically expire after 12 hours
@@ -142,8 +145,12 @@ curl --request POST \
   "config": {
     "modules": {
       "prompt_templating": {
-        "prompt": { /* Prompt configuration */ },
-        "model": { /* Model configuration */ }
+        "prompt": {
+          /* Prompt configuration */
+        },
+        "model": {
+          /* Model configuration */
+        }
       }
     }
   }
@@ -215,13 +222,13 @@ curl --request POST \
 
 ### ⚠️ Model-Specific Limitations
 
-| Model | Multiple Tools Support | Notes |
-|-------|----------------------|-------|
-| **gpt-4o** | ✅ Yes | Full support for multiple function tools |
-| **gpt-4.1-mini** | ✅ Yes | Full support for multiple function tools |
-| **gemini-2.0-flash** | ⚠️ Limited | Only 1 function tool per request |
-| **gemini-1.5-pro** | ⚠️ Limited | Only 1 function tool per request |
-| **claude-3-sonnet** | ✅ Yes | Multiple tools, sequential execution |
+| Model                | Multiple Tools Support | Notes                                    |
+| -------------------- | ---------------------- | ---------------------------------------- |
+| **gpt-4o**           | ✅ Yes                 | Full support for multiple function tools |
+| **gpt-4.1-mini**     | ✅ Yes                 | Full support for multiple function tools |
+| **gemini-2.0-flash** | ⚠️ Limited             | Only 1 function tool per request         |
+| **gemini-1.5-pro**   | ⚠️ Limited             | Only 1 function tool per request         |
+| **claude-3-sonnet**  | ✅ Yes                 | Multiple tools, sequential execution     |
 
 **Gemini Limitation**: Multiple tools will be supported in the future. For now, only one tool per request is supported.
 
@@ -397,11 +404,13 @@ echo "✅ Request completed"
 **Problem**: HTTP 400 with "Missing Tenant Id"
 
 **Causes**:
+
 - Token expired or invalid
 - Wrong endpoint URL (missing `/v2` in path)
 - Token not generated from service key (lacks tenant context)
 
 **Solution**:
+
 - Generate fresh OAuth token using service key
 - Verify endpoint URL includes both `/v2` paths
 - Use `printf` for credential encoding (not `echo`)
@@ -411,11 +420,13 @@ echo "✅ Request completed"
 **Problem**: OAuth token request fails with 401
 
 **Causes**:
+
 - Incorrect client ID or secret
 - Special characters not properly encoded
 - Wrong authentication URL
 
 **Solution**:
+
 - Double-check credentials from service key
 - Use `printf '%s:%s' "$ID" "$SECRET"` for encoding
 - Verify authentication URL matches your region
@@ -425,10 +436,12 @@ echo "✅ Request completed"
 **Problem**: HTTP 400 - "Multiple tools are supported only when they are all search tools"
 
 **Causes**:
+
 - Using Gemini model with multiple function tools
 - Vertex AI limitation
 
 **Solution**:
+
 - Use only 1 tool per request for Gemini models
 - Or switch to OpenAI models (gpt-4o, gpt-4.1-mini)
 - Or combine multiple tools into one
@@ -447,6 +460,7 @@ curl --verbose \
 ```
 
 This shows:
+
 - Full request headers
 - Response headers
 - Connection details
@@ -461,6 +475,7 @@ echo "$ACCESS_TOKEN" | cut -d. -f2 | base64 -d | jq .
 ```
 
 Look for:
+
 - `exp` - Expiration timestamp
 - `subaccountid` - Tenant information
 - `scope` - Permissions
@@ -475,9 +490,7 @@ Start with simplest possible request:
     "modules": {
       "prompt_templating": {
         "prompt": {
-          "template": [
-            {"role": "user", "content": "Hello"}
-          ]
+          "template": [{ "role": "user", "content": "Hello" }]
         },
         "model": {
           "name": "gpt-4o",
@@ -528,6 +541,7 @@ Start with simplest possible request:
 ## Example Script Location
 
 A complete working script is available at:
+
 ```
 examples/working-curl-example.sh
 ```
@@ -539,6 +553,7 @@ examples/working-curl-example.sh
 ## Summary
 
 This guide covers:
+
 - ✅ OAuth2 authentication flow
 - ✅ Proper credential encoding
 - ✅ Orchestration v2 API structure
@@ -548,4 +563,3 @@ This guide covers:
 - ✅ Security best practices
 
 For production use, consider using the TypeScript provider package instead of manual curl calls for better error handling and type safety.
-

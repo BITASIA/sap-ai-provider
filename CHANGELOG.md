@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 **Documentation:**
+
 - Comprehensive JSDoc comments throughout codebase for better IDE support
 - API_REFERENCE.md with complete API documentation
 - MIGRATION_GUIDE.md for version upgrade guidance
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Debug mode instructions
 
 **Features:**
+
 - Orchestration v2 API support
   - Request body built under `config.modules.prompt_templating`
   - Response schemas aligned to v2 (`intermediate_results`, `final_result`)
@@ -44,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved streaming support with better error handling
 
 **Examples:**
+
 - New streaming example: `examples/example-streaming-chat.ts`
 - Updated examples to reflect v2 API and new features
 - Data masking example: `examples/example-data-masking.ts`
@@ -51,12 +54,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 **API:**
+
 - Default endpoint: `${baseURL}/inference/deployments/{deploymentId}/v2/completion`
 - Legacy v1 endpoint support maintained for backward compatibility
-- Enhanced `SAPAIError` with `intermediateResults` property
+- Switched to Vercel AI SDK standard errors (`APICallError`, `LoadAPIKeyError`)
 - Improved type definitions with better JSDoc
 
 **Documentation:**
+
 - Enhanced documentation for all public interfaces
 - More detailed error handling examples
 - Expanded configuration options documentation
@@ -79,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.3] - 2024-01-XX
 
 ### Added
+
 - Support for multiple SAP AI Core model types
 - OAuth2 authentication with automatic token management
 - Streaming support for real-time text generation
@@ -89,6 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TypeScript support with full type safety
 
 ### Features
+
 - Integration with Vercel AI SDK v5
 - Support for 40+ AI models including GPT-4, Claude, Gemini
 - Automatic service key parsing and authentication
@@ -97,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Built-in error recovery and retry logic
 
 ### Initial Release
+
 - Core SAP AI Core provider implementation
 - Basic documentation and examples
 - Test suite with comprehensive coverage

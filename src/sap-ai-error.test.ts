@@ -245,6 +245,17 @@ describe("convertToAISDKError", () => {
     expect(result.message).toContain("Orchestration error");
   });
 
+  it("should not treat arbitrary objects with 'error' property as orchestration errors", () => {
+    const notAnOrchestrationError = {
+      error: { message: 123 },
+    };
+
+    const result = convertToAISDKError(notAnOrchestrationError);
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect((result as APICallError).statusCode).toBe(500);
+  });
+
   it("should convert authentication errors to LoadAPIKeyError", () => {
     const authError = new Error("Authentication failed for AICORE_SERVICE_KEY");
 

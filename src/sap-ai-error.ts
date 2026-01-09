@@ -112,11 +112,31 @@ export function convertSAPErrorToAPICallError(
 function isOrchestrationErrorResponse(
   error: unknown,
 ): error is OrchestrationErrorResponse {
+  if (error === null || typeof error !== "object" || !("error" in error)) {
+    return false;
+  }
+
+  const errorEnvelope = error as { error?: unknown };
+  const innerError = errorEnvelope.error;
+
+  // Must be present (array/object)
+  if (innerError === undefined) return false;
+
+  if (Array.isArray(innerError)) {
+    return innerError.every(
+      (entry) =>
+        entry !== null &&
+        typeof entry === "object" &&
+        "message" in entry &&
+        typeof (entry as { message?: unknown }).message === "string",
+    );
+  }
+
   return (
-    error !== null &&
-    typeof error === "object" &&
-    "error" in error &&
-    error.error !== undefined
+    typeof innerError === "object" &&
+    innerError !== null &&
+    "message" in innerError &&
+    typeof (innerError as { message?: unknown }).message === "string"
   );
 }
 

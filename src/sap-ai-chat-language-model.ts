@@ -28,6 +28,40 @@ import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
 import { convertToAISDKError } from "./sap-ai-error";
 
+function createAISDKRequestBodySummary(options: LanguageModelV2CallOptions): {
+  promptMessages: number;
+  hasImageParts: boolean;
+  tools: number;
+  temperature?: number;
+  topP?: number;
+  topK?: number;
+  maxOutputTokens?: number;
+  stopSequences?: number;
+  seed?: number;
+  toolChoiceType?: string;
+  responseFormatType?: string;
+} {
+  return {
+    promptMessages: options.prompt.length,
+    hasImageParts: options.prompt.some(
+      (message) =>
+        message.role === "user" &&
+        message.content.some(
+          (part) => part.type === "file" && part.mediaType.startsWith("image/"),
+        ),
+    ),
+    tools: options.tools?.length ?? 0,
+    temperature: options.temperature,
+    topP: options.topP,
+    topK: options.topK,
+    maxOutputTokens: options.maxOutputTokens,
+    stopSequences: options.stopSequences?.length,
+    seed: options.seed,
+    toolChoiceType: options.toolChoice?.type,
+    responseFormatType: options.responseFormat?.type,
+  };
+}
+
 /**
  * Type guard to check if an object is a Zod schema.
  * @internal
@@ -206,16 +240,30 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               toolWithParams.parameters &&
               isZodSchema(toolWithParams.parameters)
             ) {
-              // Convert Zod schema to JSON Schema
-              const jsonSchema = zodToJsonSchema(toolWithParams.parameters, {
-                $refStrategy: "none",
-              }) as Record<string, unknown>;
-              // Remove $schema property as SAP doesn't need it
-              delete jsonSchema.$schema;
-              parameters = {
-                type: "object",
-                ...jsonSchema,
-              };
+              try {
+                // Convert Zod schema to JSON Schema
+                const jsonSchema = zodToJsonSchema(toolWithParams.parameters, {
+                  $refStrategy: "none",
+                }) as Record<string, unknown>;
+                // Remove $schema property as SAP doesn't need it
+                delete jsonSchema.$schema;
+                parameters = {
+                  type: "object",
+                  ...jsonSchema,
+                };
+              } catch {
+                warnings.push({
+                  type: "unsupported-tool",
+                  tool,
+                  details:
+                    "Failed to convert tool Zod schema to JSON Schema. Falling back to empty object schema.",
+                });
+                parameters = {
+                  type: "object",
+                  properties: {},
+                  required: [],
+                };
+              }
             } else if (inputSchema && Object.keys(inputSchema).length > 0) {
               // Check if schema has properties (it's a proper object schema)
               const hasProperties =
@@ -450,7 +498,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     } catch (error) {
       throw convertToAISDKError(error, {
         operation: "doGenerate",
-        requestBody: options,
+        requestBody: createAISDKRequestBodySummary(options),
       });
     }
   }
@@ -515,10 +563,16 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       // Track tool calls being built up
       const toolCallsInProgress = new Map<
         number,
-        { id: string; name: string; arguments: string }
+        {
+          id: string;
+          toolName?: string;
+          arguments: string;
+          didEmitInputStart: boolean;
+        }
       >();
 
       const sdkStream = streamResponse.stream;
+      const modelId = this.modelId;
 
       const transformedStream = new ReadableStream<LanguageModelV2StreamPart>({
         async start(controller) {
@@ -531,14 +585,14 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 controller.enqueue({
                   type: "response-metadata",
                   id: undefined,
-                  modelId: undefined,
+                  modelId,
                   timestamp: new Date(),
                 });
               }
 
               // Get delta content
               const deltaContent = chunk.getDeltaContent();
-              if (deltaContent) {
+              if (typeof deltaContent === "string" && deltaContent.length > 0) {
                 if (!activeText) {
                   controller.enqueue({ type: "text-start", id: "0" });
                   activeText = true;
@@ -552,28 +606,21 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
               // Handle tool calls
               const deltaToolCalls = chunk.getDeltaToolCalls();
-              if (deltaToolCalls) {
+              if (Array.isArray(deltaToolCalls) && deltaToolCalls.length > 0) {
                 for (const toolCallChunk of deltaToolCalls) {
                   const index = toolCallChunk.index;
+                  if (typeof index !== "number" || !Number.isFinite(index)) {
+                    continue;
+                  }
 
                   // Initialize tool call if new
                   if (!toolCallsInProgress.has(index)) {
                     toolCallsInProgress.set(index, {
                       id: toolCallChunk.id ?? `tool_${String(index)}`,
-                      name: toolCallChunk.function?.name ?? "",
+                      toolName: toolCallChunk.function?.name,
                       arguments: "",
+                      didEmitInputStart: false,
                     });
-
-                    // Emit tool-input-start
-                    const tc = toolCallsInProgress.get(index);
-                    if (!tc) continue;
-                    if (toolCallChunk.function?.name) {
-                      controller.enqueue({
-                        type: "tool-input-start",
-                        id: tc.id,
-                        toolName: tc.name,
-                      });
-                    }
                   }
 
                   const tc = toolCallsInProgress.get(index);
@@ -584,19 +631,40 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                     tc.id = toolCallChunk.id;
                   }
 
-                  // Update function name if provided
-                  if (toolCallChunk.function?.name) {
-                    tc.name = toolCallChunk.function.name;
+                  // Update tool name if provided
+                  const nextToolName = toolCallChunk.function?.name;
+                  if (
+                    typeof nextToolName === "string" &&
+                    nextToolName.length > 0
+                  ) {
+                    tc.toolName = nextToolName;
                   }
 
-                  // Accumulate arguments
-                  if (toolCallChunk.function?.arguments) {
-                    tc.arguments += toolCallChunk.function.arguments;
+                  // Emit tool-input-start only once, and only when name is known
+                  if (!tc.didEmitInputStart && tc.toolName) {
+                    tc.didEmitInputStart = true;
                     controller.enqueue({
-                      type: "tool-input-delta",
+                      type: "tool-input-start",
                       id: tc.id,
-                      delta: toolCallChunk.function.arguments,
+                      toolName: tc.toolName,
                     });
+                  }
+
+                  // Accumulate arguments; only emit deltas once started
+                  const argumentsDelta = toolCallChunk.function?.arguments;
+                  if (
+                    typeof argumentsDelta === "string" &&
+                    argumentsDelta.length > 0
+                  ) {
+                    tc.arguments += argumentsDelta;
+
+                    if (tc.didEmitInputStart) {
+                      controller.enqueue({
+                        type: "tool-input-delta",
+                        id: tc.id,
+                        delta: argumentsDelta,
+                      });
+                    }
                   }
                 }
               }
@@ -619,14 +687,30 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             // Emit completed tool calls
             const toolCalls = Array.from(toolCallsInProgress.values());
             for (const tc of toolCalls) {
-              controller.enqueue({
-                type: "tool-input-end",
-                id: tc.id,
-              });
+              if (!tc.didEmitInputStart || !tc.toolName) {
+                warnings.push({
+                  type: "unsupported-tool",
+                  tool: {
+                    type: "function",
+                    name: tc.toolName ?? "unknown",
+                    description: "",
+                    inputSchema: {
+                      type: "object",
+                      properties: {},
+                      required: [],
+                    },
+                  },
+                  details:
+                    "Received tool call delta without a tool name. Dropping tool-call output.",
+                });
+                continue;
+              }
+
+              controller.enqueue({ type: "tool-input-end", id: tc.id });
               controller.enqueue({
                 type: "tool-call",
                 toolCallId: tc.id,
-                toolName: tc.name,
+                toolName: tc.toolName,
                 input: tc.arguments,
               });
             }
@@ -659,7 +743,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           } catch (error) {
             const aiError = convertToAISDKError(error, {
               operation: "doStream",
-              requestBody: options,
+              requestBody: createAISDKRequestBodySummary(options),
             });
             controller.enqueue({
               type: "error",
@@ -680,7 +764,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     } catch (error) {
       throw convertToAISDKError(error, {
         operation: "doStream",
-        requestBody: options,
+        requestBody: createAISDKRequestBodySummary(options),
       });
     }
   }
