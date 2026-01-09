@@ -61,19 +61,19 @@ describe("convertSAPErrorToAPICallError", () => {
     expect(result.message).toContain("Rate limit exceeded");
   });
 
-  it("should mark 500 errors as retryable", () => {
+  it("should mark 502 errors as retryable", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: {
-        message: "Internal server error",
-        code: 500,
-        location: "LLM Module",
-        request_id: "server-error-123",
+        message: "Bad gateway",
+        code: 502,
+        location: "Gateway",
+        request_id: "gateway-error-123",
       },
     };
 
     const result = convertSAPErrorToAPICallError(errorResponse);
 
-    expect(result.statusCode).toBe(500);
+    expect(result.statusCode).toBe(502);
     expect(result.isRetryable).toBe(true);
   });
 
