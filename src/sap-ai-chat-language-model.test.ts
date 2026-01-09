@@ -208,7 +208,117 @@ describe("SAPAIChatLanguageModel", () => {
       const result = await model.doGenerate({ prompt, tools });
 
       expect(result.warnings).toHaveLength(0);
-      expect(result.request.body).toBeDefined();
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            prompt?: { tools?: unknown[] };
+          };
+        };
+      };
+
+      expect(requestBody.config?.promptTemplating?.prompt?.tools).toHaveLength(
+        1,
+      );
+    });
+
+    it("should pass parallel_tool_calls when configured", async () => {
+      const model = createModel("gpt-4o", {
+        modelParams: {
+          parallel_tool_calls: true,
+        },
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hi" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            model?: { params?: Record<string, unknown> };
+          };
+        };
+      };
+
+      expect(
+        requestBody.config?.promptTemplating?.model?.params
+          ?.parallel_tool_calls,
+      ).toBe(true);
+    });
+
+    it("should map responseFormat json without schema to json_object", async () => {
+      const model = createModel();
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Return JSON" }] },
+      ];
+
+      const result = await model.doGenerate({
+        prompt,
+        responseFormat: { type: "json" },
+      });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            prompt?: { response_format?: { type: string } };
+          };
+        };
+      };
+
+      expect(
+        requestBody.config?.promptTemplating?.prompt?.response_format,
+      ).toEqual({ type: "json_object" });
+    });
+
+    it("should map responseFormat json with schema to json_schema", async () => {
+      const model = createModel();
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Return JSON" }] },
+      ];
+
+      const schema = {
+        type: "object" as const,
+        properties: {
+          answer: { type: "string" as const },
+        },
+        required: ["answer"],
+        additionalProperties: false,
+      };
+
+      const result = await model.doGenerate({
+        prompt,
+        responseFormat: {
+          type: "json",
+          schema,
+          name: "response",
+          description: "A structured response",
+        },
+      });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            prompt?: { response_format?: unknown };
+          };
+        };
+      };
+
+      expect(
+        requestBody.config?.promptTemplating?.prompt?.response_format,
+      ).toEqual({
+        type: "json_schema",
+        json_schema: {
+          name: "response",
+          description: "A structured response",
+          schema,
+          strict: null,
+        },
+      });
     });
 
     it("should sanitize requestBodyValues in errors", async () => {

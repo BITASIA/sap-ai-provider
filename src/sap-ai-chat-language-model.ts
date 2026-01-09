@@ -14,6 +14,8 @@ import {
   ChatMessage,
   ChatCompletionTool,
 } from "@sap-ai-sdk/orchestration";
+import type { LlmModelParams } from "@sap-ai-sdk/orchestration";
+import type { Template } from "@sap-ai-sdk/orchestration/dist/client/api/schema/template.js";
 import type { HttpDestinationOrFetchOptions } from "@sap-cloud-sdk/connectivity";
 import type {
   ResourceGroupConfig,
@@ -63,6 +65,19 @@ function createAISDKRequestBodySummary(options: LanguageModelV2CallOptions): {
  * Type guard to check if an object is a Zod schema.
  * @internal
  */
+type SapModelParams = LlmModelParams & {
+  top_k?: number;
+  stop?: string[];
+  seed?: number;
+  parallel_tool_calls?: boolean;
+};
+
+type SapResponseFormat = Template["response_format"];
+
+type SapToolParameters = Record<string, unknown> & {
+  type: "object";
+};
+
 function isZodSchema(obj: unknown): obj is ZodSchema {
   return (
     obj !== null &&
@@ -230,7 +245,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
             // Build parameters ensuring type: "object" is always present
             // SAP AI Core requires explicit type: "object" in the schema
-            let parameters: Record<string, unknown>;
+            let parameters: SapToolParameters;
 
             // First, check if there's a Zod schema we need to convert
             if (
@@ -247,7 +262,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 parameters = {
                   type: "object",
                   ...jsonSchema,
-                };
+                } as SapToolParameters;
               } catch {
                 warnings.push({
                   type: "unsupported-tool",
@@ -272,14 +287,14 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 parameters = {
                   type: "object",
                   ...inputSchema,
-                };
+                } as SapToolParameters;
               } else {
                 // Schema exists but has no properties - use default empty schema
                 parameters = {
                   type: "object",
                   properties: {},
                   required: [],
-                };
+                } as SapToolParameters;
               }
             } else {
               // No schema provided - use default empty schema
@@ -287,7 +302,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 type: "object",
                 properties: {},
                 required: [],
-              };
+              } as SapToolParameters;
             }
 
             return {
@@ -316,7 +331,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
     // Build model params from options with fallback to settings
     // Options take precedence over settings as per LanguageModelV2 interface
-    const modelParams: Record<string, unknown> = {
+    const modelParams: SapModelParams = {
       max_tokens:
         options.maxOutputTokens ?? this.settings.modelParams?.maxTokens,
       temperature:
@@ -328,6 +343,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       presence_penalty:
         options.presencePenalty ?? this.settings.modelParams?.presencePenalty,
       n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
+      parallel_tool_calls: this.settings.modelParams?.parallel_tool_calls,
     };
 
     // Add stop sequences if provided
@@ -350,15 +366,34 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       });
     }
 
-    // SAP AI SDK has limited responseFormat support
+    // Response format (Structured Outputs)
+    // SAP AI SDK supports OpenAI-compatible response formats, but schema adherence depends on the underlying model.
     if (options.responseFormat?.type === "json") {
       warnings.push({
         type: "unsupported-setting",
         setting: "responseFormat",
         details:
-          "SAP AI SDK has limited JSON mode support. JSON schema constraints may not be enforced.",
+          "SAP AI SDK forwards JSON mode/Structured Outputs to the underlying model. Schema adherence depends on model support.",
       });
     }
+
+    const responseFormat: SapResponseFormat | undefined =
+      options.responseFormat?.type === "json"
+        ? options.responseFormat.schema
+          ? {
+              type: "json_schema" as const,
+              json_schema: {
+                name: options.responseFormat.name ?? "response",
+                description: options.responseFormat.description,
+                schema: options.responseFormat.schema as Record<
+                  string,
+                  unknown
+                >,
+                strict: null,
+              },
+            }
+          : { type: "json_object" as const }
+        : undefined;
 
     // Build orchestration config
     const orchestrationConfig: OrchestrationModuleConfig = {
@@ -371,6 +406,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         prompt: {
           template: [],
           tools: tools && tools.length > 0 ? tools : undefined,
+          ...(responseFormat ? { response_format: responseFormat } : {}),
         },
       },
       // Include masking module if provided

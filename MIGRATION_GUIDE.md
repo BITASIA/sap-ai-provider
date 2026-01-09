@@ -264,7 +264,8 @@ const provider = await createSAPAIProvider({
       temperature: 0.7,
       maxTokens: 2000,
     },
-    safePrompt: true,
+    // safePrompt is currently reserved (no effect)
+    // Use `responseFormat` for structured outputs.
     masking: {
       /* DPI config */
     },

@@ -196,14 +196,14 @@ Model-specific configuration options.
 
 **Properties:**
 
-| Property            | Type                   | Default    | Description                      |
-| ------------------- | ---------------------- | ---------- | -------------------------------- |
-| `modelVersion`      | `string`               | `'latest'` | Specific model version           |
-| `modelParams`       | `ModelParams`          | -          | Model generation parameters      |
-| `safePrompt`        | `boolean`              | `true`     | Enable safe prompt filtering     |
-| `structuredOutputs` | `boolean`              | `false`    | Enable structured output format  |
-| `masking`           | `MaskingModuleConfig`  | -          | Data masking configuration (DPI) |
-| `responseFormat`    | `ResponseFormatConfig` | -          | Response format specification    |
+| Property            | Type                   | Default    | Description                                            |
+| ------------------- | ---------------------- | ---------- | ------------------------------------------------------ |
+| `modelVersion`      | `string`               | `'latest'` | Specific model version                                 |
+| `modelParams`       | `ModelParams`          | -          | Model generation parameters                            |
+| `safePrompt`        | `boolean`              | -          | Not implemented in v2 (reserved; no effect)            |
+| `structuredOutputs` | `boolean`              | -          | Not implemented in v2 (reserved; use `responseFormat`) |
+| `masking`           | `MaskingModuleConfig`  | -          | Data masking configuration (DPI)                       |
+| `responseFormat`    | `ResponseFormatConfig` | -          | Response format specification                          |
 
 **Example:**
 
@@ -219,8 +219,8 @@ const settings: SAPAISettings = {
     n: 1,
     parallel_tool_calls: true,
   },
-  safePrompt: true,
-  structuredOutputs: true,
+  // safePrompt/structuredOutputs are currently reserved (no effect)
+  responseFormat: { type: "json_object" },
 };
 ```
 
@@ -583,6 +583,8 @@ Default response format for text-only outputs.
 
 Instructs the model to return valid JSON.
 
+Note: This provider forwards the setting to SAP orchestration (`response_format`). Whether the backend strictly obeys this depends on the underlying model.
+
 ---
 
 ### JSON Schema Response
@@ -602,6 +604,8 @@ Instructs the model to return valid JSON.
 ```
 
 Instructs the model to follow a specific JSON schema.
+
+Note: This provider forwards the schema to SAP orchestration (`response_format.json_schema.schema`). Strict adherence depends on the underlying model; even with `strict: true`, some models/backends may be best-effort.
 
 **Example:**
 
