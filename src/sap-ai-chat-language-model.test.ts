@@ -81,16 +81,6 @@ describe("SAPAIChatLanguageModel", () => {
       expect(model.provider).toBe("sap-ai");
     });
 
-    it("should support image URLs", () => {
-      const model = createModel();
-      expect(model.supportsImageUrls).toBe(true);
-    });
-
-    it("should support structured outputs", () => {
-      const model = createModel();
-      expect(model.supportsStructuredOutputs).toBe(true);
-    });
-
     it("should support HTTPS URLs", () => {
       const model = createModel();
       expect(model.supportsUrl(new URL("https://example.com/image.png"))).toBe(
@@ -149,7 +139,7 @@ describe("SAPAIChatLanguageModel", () => {
       const result = await model.doGenerate({ prompt, tools });
 
       expect(result.warnings).toHaveLength(0);
-      expect(result.rawCall.rawPrompt).toBeDefined();
+      expect(result.request.body).toBeDefined();
     });
 
     it("should warn about unsupported tool types", async () => {
@@ -233,11 +223,11 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt, tools });
 
-      // Verify the raw prompt contains the tool configuration
-      const rawPrompt = result.rawCall.rawPrompt as {
+      // Verify the request body contains the tool configuration
+      const requestBody = result.request.body as {
         config?: unknown;
       };
-      expect(rawPrompt.config).toBeDefined();
+      expect(requestBody.config).toBeDefined();
     });
 
     it("should handle multiple tools", async () => {

@@ -93,14 +93,8 @@ interface SAPAIConfig {
 export class SAPAIChatLanguageModel implements LanguageModelV2 {
   /** AI SDK specification version */
   readonly specificationVersion = "v2";
-  /** Default object generation mode */
-  readonly defaultObjectGenerationMode = "json";
-  /** Whether the model supports image URLs */
-  readonly supportsImageUrls = true;
   /** The model identifier (e.g., 'gpt-4o', 'anthropic--claude-3.5-sonnet') */
   readonly modelId: SAPAIModelId;
-  /** Whether the model supports structured outputs */
-  readonly supportsStructuredOutputs = true;
 
   /** Internal configuration */
   private readonly config: SAPAIConfig;
@@ -275,20 +269,59 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       !this.modelId.startsWith("amazon--") &&
       !this.modelId.startsWith("anthropic--");
 
+    // Build model params from options with fallback to settings
+    // Options take precedence over settings as per LanguageModelV2 interface
+    const modelParams: Record<string, unknown> = {
+      max_tokens:
+        options.maxOutputTokens ?? this.settings.modelParams?.maxTokens,
+      temperature:
+        options.temperature ?? this.settings.modelParams?.temperature,
+      top_p: options.topP ?? this.settings.modelParams?.topP,
+      top_k: options.topK,
+      frequency_penalty:
+        options.frequencyPenalty ?? this.settings.modelParams?.frequencyPenalty,
+      presence_penalty:
+        options.presencePenalty ?? this.settings.modelParams?.presencePenalty,
+      n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
+    };
+
+    // Add stop sequences if provided
+    if (options.stopSequences && options.stopSequences.length > 0) {
+      modelParams.stop = options.stopSequences;
+    }
+
+    // Add seed if provided
+    if (options.seed !== undefined) {
+      modelParams.seed = options.seed;
+    }
+
+    // Warn about unsupported settings
+    // SAP AI SDK doesn't support toolChoice other than 'auto'
+    if (options.toolChoice && options.toolChoice.type !== "auto") {
+      warnings.push({
+        type: "unsupported-setting",
+        setting: "toolChoice",
+        details: `SAP AI SDK does not support toolChoice '${options.toolChoice.type}'. Using default 'auto' behavior.`,
+      });
+    }
+
+    // SAP AI SDK has limited responseFormat support
+    if (options.responseFormat?.type === "json") {
+      warnings.push({
+        type: "unsupported-setting",
+        setting: "responseFormat",
+        details:
+          "SAP AI SDK has limited JSON mode support. JSON schema constraints may not be enforced.",
+      });
+    }
+
     // Build orchestration config
     const orchestrationConfig: OrchestrationModuleConfig = {
       promptTemplating: {
         model: {
           name: this.modelId,
           version: this.settings.modelVersion ?? "latest",
-          params: {
-            max_tokens: this.settings.modelParams?.maxTokens,
-            temperature: this.settings.modelParams?.temperature,
-            top_p: this.settings.modelParams?.topP,
-            frequency_penalty: this.settings.modelParams?.frequencyPenalty,
-            presence_penalty: this.settings.modelParams?.presencePenalty,
-            n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
-          },
+          params: modelParams,
         },
         prompt: {
           template: [],
@@ -349,13 +382,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * console.log(result.usage);   // Token usage
    * ```
    */
-  async doGenerate(options: LanguageModelV2CallOptions): Promise<{
-    content: LanguageModelV2Content[];
-    finishReason: LanguageModelV2FinishReason;
-    usage: LanguageModelV2Usage;
-    rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
-    warnings: LanguageModelV2CallWarning[];
-  }> {
+  async doGenerate(options: LanguageModelV2CallOptions) {
     try {
       const { orchestrationConfig, messages, warnings } =
         this.buildOrchestrationConfig(options);
@@ -406,9 +433,17 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           outputTokens: tokenUsage.completion_tokens,
           totalTokens: tokenUsage.total_tokens,
         },
-        rawCall: {
-          rawPrompt: { config: orchestrationConfig, messages },
-          rawSettings: {},
+        providerMetadata: {
+          sap: {
+            finishReason: finishReasonRaw ?? "unknown",
+          },
+        },
+        request: {
+          body: { config: orchestrationConfig, messages },
+        },
+        response: {
+          timestamp: new Date(),
+          modelId: this.modelId,
         },
         warnings,
       };
@@ -454,10 +489,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * }
    * ```
    */
-  async doStream(options: LanguageModelV2CallOptions): Promise<{
-    stream: ReadableStream<LanguageModelV2StreamPart>;
-    rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
-  }> {
+  async doStream(options: LanguageModelV2CallOptions) {
     try {
       const { orchestrationConfig, messages, warnings } =
         this.buildOrchestrationConfig(options);
@@ -641,9 +673,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
       return {
         stream: transformedStream,
-        rawCall: {
-          rawPrompt: { config: orchestrationConfig, messages },
-          rawSettings: {},
+        request: {
+          body: { config: orchestrationConfig, messages },
         },
       };
     } catch (error) {
@@ -665,15 +696,21 @@ function mapFinishReason(
 
   switch (reason.toLowerCase()) {
     case "stop":
+    case "end_turn":
       return "stop";
     case "length":
+    case "max_tokens":
       return "length";
     case "tool_calls":
     case "function_call":
       return "tool-calls";
     case "content_filter":
       return "content-filter";
+    case "error":
+      return "error";
     default:
-      return "unknown";
+      // Return 'other' for any unrecognized but valid reason
+      // Only return 'unknown' when reason is undefined/empty (handled above)
+      return "other";
   }
 }

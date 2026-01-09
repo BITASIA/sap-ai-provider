@@ -163,6 +163,15 @@ export function convertToSAPMessages(
               text += part.text;
               break;
             }
+            case "reasoning": {
+              // SAP AI SDK doesn't support reasoning parts natively
+              // Include reasoning text as part of the regular text content
+              // to preserve context in the conversation history
+              if (part.text) {
+                text += part.text;
+              }
+              break;
+            }
             case "tool-call": {
               toolCalls.push({
                 id: part.toolCallId,
