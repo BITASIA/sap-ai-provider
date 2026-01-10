@@ -229,6 +229,70 @@ export function createSAPAIProvider(
     : { resourceGroup };
 
   const createModel = (modelId: SAPAIModelId, settings: SAPAISettings = {}) => {
+    /**
+     * Settings merge strategy:
+     * - modelParams (primitives): Deep merge - both default and per-call values combine
+     * - Complex objects (masking, filtering, tools): Override - last value wins
+     *
+     * This design avoids unexpected behavior from merging complex configuration objects.
+     *
+     * @example
+     * **Model params are merged:**
+     * ```typescript
+     * const provider = createSAPAIProvider({
+     *   defaultSettings: {
+     *     modelParams: { temperature: 0.7, maxTokens: 1000 }
+     *   }
+     * });
+     *
+     * const model = provider('gpt-4o', {
+     *   modelParams: { maxTokens: 2000 }
+     * });
+     *
+     * // Result: { temperature: 0.7, maxTokens: 2000 }
+     * // temperature from default, maxTokens overridden
+     * ```
+     *
+     * @example
+     * **Complex objects are replaced (not merged):**
+     * ```typescript
+     * const provider = createSAPAIProvider({
+     *   defaultSettings: {
+     *     masking: {
+     *       enabled: true,
+     *       entities: ['PERSON', 'EMAIL']
+     *     }
+     *   }
+     * });
+     *
+     * const model = provider('gpt-4o', {
+     *   masking: {
+     *     enabled: true,
+     *     entities: ['PHONE']
+     *   }
+     * });
+     *
+     * // Result: masking = { enabled: true, entities: ['PHONE'] }
+     * // Completely replaced, not merged - PERSON and EMAIL are gone
+     * ```
+     *
+     * @example
+     * **Tools override completely:**
+     * ```typescript
+     * const provider = createSAPAIProvider({
+     *   defaultSettings: {
+     *     tools: [weatherTool, searchTool]
+     *   }
+     * });
+     *
+     * const model = provider('gpt-4o', {
+     *   tools: [calculatorTool]
+     * });
+     *
+     * // Result: tools = [calculatorTool]
+     * // Default tools are completely replaced
+     * ```
+     */
     // Settings merge strategy: deep merge modelParams, override complex objects
     // Complex objects (masking, filtering, tools) use override to avoid unexpected behavior
     const mergedSettings: SAPAISettings = {

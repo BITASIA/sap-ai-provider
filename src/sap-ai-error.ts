@@ -100,13 +100,20 @@ export function convertSAPErrorToAPICallError(
 
   if (statusCode === 401 || statusCode === 403) {
     enhancedMessage +=
-      "\n\nAuthentication failed. Verify your AICORE_SERVICE_KEY environment variable is set correctly.";
+      "\n\nAuthentication failed. Verify your AICORE_SERVICE_KEY environment variable is set correctly." +
+      "\nSee: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-service-key";
   } else if (statusCode === 404) {
     enhancedMessage +=
-      "\n\nResource not found. The model or deployment may not exist in your SAP AI Core instance.";
+      "\n\nResource not found. The model or deployment may not exist in your SAP AI Core instance." +
+      "\nSee: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-deployment-for-orchestration";
   } else if (statusCode === 429) {
     enhancedMessage +=
-      "\n\nRate limit exceeded. Please try again later or contact your SAP administrator.";
+      "\n\nRate limit exceeded. Please try again later or contact your SAP administrator." +
+      "\nSee: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/rate-limits";
+  } else if (statusCode >= 500) {
+    enhancedMessage +=
+      "\n\nSAP AI Core service error. This is typically a temporary issue. The request will be retried automatically." +
+      "\nSee: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/troubleshooting";
   } else if (location) {
     enhancedMessage += `\n\nError location: ${location}`;
   }
@@ -268,7 +275,10 @@ export function convertToAISDKError(
       errorMsg.includes("invalid credentials")
     ) {
       return new LoadAPIKeyError({
-        message: `SAP AI Core authentication failed: ${error.message}`,
+        message:
+          `SAP AI Core authentication failed: ${error.message}\n\n` +
+          `Make sure your AICORE_SERVICE_KEY environment variable is set correctly.\n` +
+          `See: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-service-key`,
       });
     }
 

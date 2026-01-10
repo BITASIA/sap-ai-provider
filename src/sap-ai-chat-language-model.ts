@@ -32,6 +32,83 @@ import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
 import { convertToAISDKError } from "./sap-ai-error";
 
 /**
+ * Validates model parameters against expected ranges.
+ * Logs warnings for out-of-range values but doesn't throw to allow API-side validation.
+ * @internal
+ */
+function validateModelParameters(
+  params: {
+    temperature?: number;
+    topP?: number;
+    frequencyPenalty?: number;
+    presencePenalty?: number;
+    maxTokens?: number;
+    n?: number;
+  },
+  warnings: LanguageModelV2CallWarning[],
+): void {
+  // Temperature: typically [0, 2] for most models (OpenAI standard)
+  if (params.temperature !== undefined) {
+    if (params.temperature < 0 || params.temperature > 2) {
+      warnings.push({
+        type: "other",
+        message: `temperature=${String(params.temperature)} is outside typical range [0, 2]. The API may reject this value.`,
+      });
+    }
+  }
+
+  // topP: probability mass [0, 1]
+  if (params.topP !== undefined) {
+    if (params.topP < 0 || params.topP > 1) {
+      warnings.push({
+        type: "other",
+        message: `topP=${String(params.topP)} is outside valid range [0, 1]. The API may reject this value.`,
+      });
+    }
+  }
+
+  // Frequency penalty: typically [-2, 2] (OpenAI standard)
+  if (params.frequencyPenalty !== undefined) {
+    if (params.frequencyPenalty < -2 || params.frequencyPenalty > 2) {
+      warnings.push({
+        type: "other",
+        message: `frequencyPenalty=${String(params.frequencyPenalty)} is outside typical range [-2, 2]. The API may reject this value.`,
+      });
+    }
+  }
+
+  // Presence penalty: typically [-2, 2] (OpenAI standard)
+  if (params.presencePenalty !== undefined) {
+    if (params.presencePenalty < -2 || params.presencePenalty > 2) {
+      warnings.push({
+        type: "other",
+        message: `presencePenalty=${String(params.presencePenalty)} is outside typical range [-2, 2]. The API may reject this value.`,
+      });
+    }
+  }
+
+  // Max tokens: should be positive
+  if (params.maxTokens !== undefined) {
+    if (params.maxTokens <= 0) {
+      warnings.push({
+        type: "other",
+        message: `maxTokens=${String(params.maxTokens)} must be positive. The API will likely reject this value.`,
+      });
+    }
+  }
+
+  // n: number of completions, should be positive
+  if (params.n !== undefined) {
+    if (params.n <= 0) {
+      warnings.push({
+        type: "other",
+        message: `n=${String(params.n)} must be positive. The API will likely reject this value.`,
+      });
+    }
+  }
+}
+
+/**
  * Creates a summary of the AI SDK request body for error reporting.
  * @internal
  */
@@ -524,6 +601,19 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     if (options.seed !== undefined) {
       modelParams.seed = options.seed;
     }
+
+    // Validate model parameters and add warnings for out-of-range values
+    validateModelParameters(
+      {
+        temperature,
+        topP,
+        frequencyPenalty,
+        presencePenalty,
+        maxTokens,
+        n: modelParams.n,
+      },
+      warnings,
+    );
 
     // SAP AI SDK only supports toolChoice: 'auto'
     if (options.toolChoice && options.toolChoice.type !== "auto") {
