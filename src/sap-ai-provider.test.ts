@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { createSAPAIProvider, sapai } from "./sap-ai-provider";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("createSAPAIProvider", () => {
   it("should create a provider synchronously", () => {
@@ -84,12 +88,34 @@ describe("createSAPAIProvider", () => {
   });
 
   it("should accept both deploymentId and resourceGroup", () => {
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
     const provider = createSAPAIProvider({
       deploymentId: "d65d81e7c077e583",
       resourceGroup: "production",
     });
 
     expect(provider("gpt-4o")).toBeDefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "createSAPAIProvider: both 'deploymentId' and 'resourceGroup' were provided; using 'deploymentId' and ignoring 'resourceGroup'.",
+    );
+  });
+
+  it("should allow disabling ambiguous config warnings", () => {
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    const provider = createSAPAIProvider({
+      warnOnAmbiguousConfig: false,
+      deploymentId: "d65d81e7c077e583",
+      resourceGroup: "production",
+    });
+
+    expect(provider("gpt-4o")).toBeDefined();
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it("should merge per-call settings with defaults", () => {

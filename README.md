@@ -321,6 +321,8 @@ const provider = createSAPAIProvider({
 interface SAPAIProviderSettings {
   resourceGroup?: string; // SAP AI Core resource group (default: 'default')
   deploymentId?: string; // Specific deployment ID (auto-resolved if not set)
+  warnOnAmbiguousConfig?: boolean; // Emit warnings (default: true)
+  // Note: if both `deploymentId` and `resourceGroup` are provided, `deploymentId` takes precedence.
   destination?: HttpDestinationOrFetchOptions; // Custom destination
   defaultSettings?: SAPAISettings; // Default settings for all models
 }

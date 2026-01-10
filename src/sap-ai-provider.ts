@@ -81,6 +81,14 @@ export interface SAPAIProvider extends ProviderV2 {
  */
 export interface SAPAIProviderSettings {
   /**
+   * Whether to emit warnings for ambiguous configurations.
+   *
+   * When enabled (default), the provider will warn when mutually-exclusive
+   * settings are provided (e.g. both `deploymentId` and `resourceGroup`).
+   */
+  warnOnAmbiguousConfig?: boolean;
+
+  /**
    * SAP AI Core resource group.
    *
    * Logical grouping of AI resources in SAP AI Core.
@@ -207,6 +215,17 @@ export function createSAPAIProvider(
   options: SAPAIProviderSettings = {},
 ): SAPAIProvider {
   const resourceGroup = options.resourceGroup ?? "default";
+
+  const warnOnAmbiguousConfig = options.warnOnAmbiguousConfig ?? true;
+
+  if (warnOnAmbiguousConfig && options.deploymentId && options.resourceGroup) {
+    // Align with AI SDK provider conventions: when multiple mutually-exclusive
+    // routing options are provided, prefer the most specific one.
+    // Deployment ID wins over resource group.
+    console.warn(
+      "createSAPAIProvider: both 'deploymentId' and 'resourceGroup' were provided; using 'deploymentId' and ignoring 'resourceGroup'.",
+    );
+  }
 
   const deploymentConfig: DeploymentConfig = options.deploymentId
     ? { deploymentId: options.deploymentId }

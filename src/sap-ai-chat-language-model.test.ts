@@ -182,11 +182,15 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
 });
 
 describe("SAPAIChatLanguageModel", () => {
-  const createModel = (modelId = "gpt-4o", settings = {}) => {
-    return new SAPAIChatLanguageModel(modelId, settings, {
-      provider: "sap-ai",
-      deploymentConfig: { resourceGroup: "default" },
-    });
+  const createModel = (modelId = "gpt-4o", settings: unknown = {}) => {
+    return new SAPAIChatLanguageModel(
+      modelId,
+      settings as ConstructorParameters<typeof SAPAIChatLanguageModel>[1],
+      {
+        provider: "sap-ai",
+        deploymentConfig: { resourceGroup: "default" },
+      },
+    );
   };
 
   const expectRequestBodyHasMessages = (result: {
@@ -198,12 +202,47 @@ describe("SAPAIChatLanguageModel", () => {
     expect(body).toHaveProperty("messages");
   };
 
-  const getLastChatCompletionRequest = async () => {
+  const expectToOmitKeys = (value: unknown, keys: string[]) => {
+    expect(value).toBeTruthy();
+    expect(typeof value).toBe("object");
+
+    for (const key of keys) {
+      expect(value).not.toHaveProperty(key);
+    }
+  };
+
+  const setStreamChunks = async (chunks: unknown[]) => {
+    const MockClient = await getMockClient();
+    if (!MockClient.setStreamChunks) {
+      throw new Error("mock missing setStreamChunks");
+    }
+    MockClient.setStreamChunks(chunks);
+  };
+
+  const getMockClient = async () => {
     const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
-    const MockClient = OrchestrationClient as unknown as {
+    return OrchestrationClient as unknown as {
       lastChatCompletionRequest: unknown;
+      setStreamChunks?: (chunks: unknown[]) => void;
+      setChatCompletionError?: (error: Error) => void;
+      setStreamError?: (error: Error) => void;
     };
-    return MockClient.lastChatCompletionRequest;
+  };
+
+  type OrchestrationChatCompletionRequest = {
+    messages?: unknown;
+    model?: {
+      name?: string;
+      version?: string;
+      params?: Record<string, unknown>;
+    };
+    tools?: unknown;
+    response_format?: unknown;
+  } & Record<string, unknown>;
+
+  const getLastChatCompletionRequest = async () => {
+    const MockClient = await getMockClient();
+    return MockClient.lastChatCompletionRequest as OrchestrationChatCompletionRequest;
   };
 
   const expectRequestBodyHasMessagesAndNoWarnings = (result: {
@@ -287,10 +326,10 @@ describe("SAPAIChatLanguageModel", () => {
     });
 
     it("should propagate axios response headers into doGenerate errors", async () => {
-      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
-      const MockClient = OrchestrationClient as unknown as {
-        setChatCompletionError: (error: Error) => void;
-      };
+      const MockClient = await getMockClient();
+      if (!MockClient.setChatCompletionError) {
+        throw new Error("mock missing setChatCompletionError");
+      }
 
       const axiosError = new Error("Request failed") as Error & {
         isAxiosError: boolean;
@@ -402,9 +441,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       expectRequestBodyHasMessages(result);
 
-      const request = (await getLastChatCompletionRequest()) as {
-        response_format?: unknown;
-      };
+      const request = await getLastChatCompletionRequest();
 
       expect(request.response_format).toEqual({ type: "json_object" });
     });
@@ -437,9 +474,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       expectRequestBodyHasMessages(result);
 
-      const request = (await getLastChatCompletionRequest()) as {
-        response_format?: unknown;
-      };
+      const request = await getLastChatCompletionRequest();
 
       expect(request.response_format).toEqual({
         type: "json_schema",
@@ -552,9 +587,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       expectRequestBodyHasMessages(result);
 
-      const request = (await getLastChatCompletionRequest()) as {
-        tools?: unknown;
-      };
+      const request = await getLastChatCompletionRequest();
 
       // Call options.tools should override settings.tools
       const requestTools = Array.isArray(request.tools)
@@ -644,15 +677,10 @@ describe("SAPAIChatLanguageModel", () => {
 
   describe("doStream", () => {
     it("should not mutate stream-start warnings when warnings occur during stream", async () => {
-      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
-
       // Produce only a tool call delta with arguments, but without a tool name.
       // This triggers a warning during the final tool-call flush.
-      const MockClient = OrchestrationClient as unknown as {
-        setStreamChunks: (chunks: unknown[]) => void;
-      };
 
-      MockClient.setStreamChunks([
+      await setStreamChunks([
         {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
@@ -713,12 +741,7 @@ describe("SAPAIChatLanguageModel", () => {
     }
 
     it("should stream text response", async () => {
-      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
-      const MockClient = OrchestrationClient as unknown as {
-        setStreamChunks: (chunks: unknown[]) => void;
-      };
-
-      MockClient.setStreamChunks([
+      await setStreamChunks([
         {
           getDeltaContent: () => "Hello",
           getDeltaToolCalls: () => undefined,
@@ -767,12 +790,7 @@ describe("SAPAIChatLanguageModel", () => {
     });
 
     it("should flush tool calls immediately on tool-calls finishReason", async () => {
-      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
-      const MockClient = OrchestrationClient as unknown as {
-        setStreamChunks: (chunks: unknown[]) => void;
-      };
-
-      MockClient.setStreamChunks([
+      await setStreamChunks([
         {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
@@ -845,12 +863,7 @@ describe("SAPAIChatLanguageModel", () => {
     });
 
     it("should use latest tool call id when it changes", async () => {
-      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
-      const MockClient = OrchestrationClient as unknown as {
-        setStreamChunks: (chunks: unknown[]) => void;
-      };
-
-      MockClient.setStreamChunks([
+      await setStreamChunks([
         {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
@@ -957,13 +970,7 @@ describe("SAPAIChatLanguageModel", () => {
     ])(
       "should handle stream with finish reason: $description",
       async ({ input, expected }) => {
-        const { OrchestrationClient } =
-          await import("@sap-ai-sdk/orchestration");
-        const MockClient = OrchestrationClient as unknown as {
-          setStreamChunks: (chunks: unknown[]) => void;
-        };
-
-        MockClient.setStreamChunks([
+        await setStreamChunks([
           {
             getDeltaContent: () => "test content",
             getDeltaToolCalls: () => undefined,
@@ -992,13 +999,21 @@ describe("SAPAIChatLanguageModel", () => {
       },
     );
 
-    it("should handle stream chunks with null content", async () => {
-      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
-      const MockClient = OrchestrationClient as unknown as {
-        setStreamChunks: (chunks: unknown[]) => void;
-      };
+    it("should omit tools and response_format when not provided", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
 
-      MockClient.setStreamChunks([
+      const result = await model.doGenerate({ prompt });
+      expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+      expectToOmitKeys(request, ["tools", "response_format"]);
+    });
+
+    it("should handle stream chunks with null content", async () => {
+      await setStreamChunks([
         {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => undefined,
@@ -1041,12 +1056,7 @@ describe("SAPAIChatLanguageModel", () => {
     });
 
     it("should handle stream with empty string content", async () => {
-      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
-      const MockClient = OrchestrationClient as unknown as {
-        setStreamChunks: (chunks: unknown[]) => void;
-      };
-
-      MockClient.setStreamChunks([
+      await setStreamChunks([
         {
           getDeltaContent: () => "",
           getDeltaToolCalls: () => undefined,
@@ -1089,8 +1099,11 @@ describe("SAPAIChatLanguageModel", () => {
       ];
 
       const result = await model.doGenerate({ prompt });
-      // The model should still work, n is just ignored
-      expect(result.content).toBeDefined();
+      expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+
+      expect(request.model?.params?.n).toBeUndefined();
     });
 
     it("should disable n parameter for Anthropic models", async () => {
@@ -1102,22 +1115,62 @@ describe("SAPAIChatLanguageModel", () => {
       ];
 
       const result = await model.doGenerate({ prompt });
-      expect(result.content).toBeDefined();
+      expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+
+      expect(request.model?.params?.n).toBeUndefined();
     });
   });
 
   describe("masking and filtering configuration", () => {
-    it("should include masking module in orchestration config", async () => {
+    it("should omit masking when empty object", async () => {
       const model = createModel("gpt-4o", {
-        masking: {
-          masking_providers: [
-            {
-              type: "sap_data_privacy_integration",
-              method: "anonymization",
-              entities: [{ type: "profile-email" }, { type: "profile-phone" }],
-            },
-          ],
-        },
+        masking: {},
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+      expect(request).not.toHaveProperty("masking");
+    });
+
+    it("should omit filtering when empty object", async () => {
+      const model = createModel("gpt-4o", {
+        filtering: {},
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+      expect(request).not.toHaveProperty("filtering");
+    });
+
+    it("should include masking module in orchestration config", async () => {
+      const masking = {
+        masking_providers: [
+          {
+            type: "sap_data_privacy_integration",
+            method: "anonymization",
+            entities: [{ type: "profile-email" }, { type: "profile-phone" }],
+          },
+        ],
+      };
+
+      const model = createModel("gpt-4o", {
+        masking,
       });
 
       const prompt: LanguageModelV2Prompt = [
@@ -1130,62 +1183,31 @@ describe("SAPAIChatLanguageModel", () => {
       const result = await model.doGenerate({ prompt });
 
       expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+      expect(request).toHaveProperty("masking");
+      expect(request.masking).toEqual(masking);
     });
 
     it("should include filtering module in orchestration config", async () => {
-      const model = createModel("gpt-4o", {
-        filtering: {
-          input: {
-            filters: [
-              {
-                type: "azure_content_safety",
-                config: {
-                  Hate: 0,
-                  Violence: 0,
-                  SelfHarm: 0,
-                  Sexual: 0,
-                },
-              },
-            ],
-          },
-        },
-      });
-
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({ prompt });
-
-      expectRequestBodyHasMessages(result);
-    });
-
-    it("should include both masking and filtering when configured", async () => {
-      const model = createModel("gpt-4o", {
-        masking: {
-          masking_providers: [
+      const filtering = {
+        input: {
+          filters: [
             {
-              type: "sap_data_privacy_integration",
-              method: "pseudonymization",
-              entities: [{ type: "profile-person" }],
+              type: "azure_content_safety",
+              config: {
+                Hate: 0,
+                Violence: 0,
+                SelfHarm: 0,
+                Sexual: 0,
+              },
             },
           ],
         },
-        filtering: {
-          output: {
-            filters: [
-              {
-                type: "azure_content_safety",
-                config: {
-                  Hate: 2,
-                  Violence: 2,
-                  SelfHarm: 2,
-                  Sexual: 2,
-                },
-              },
-            ],
-          },
-        },
+      };
+
+      const model = createModel("gpt-4o", {
+        filtering,
       });
 
       const prompt: LanguageModelV2Prompt = [
@@ -1195,6 +1217,57 @@ describe("SAPAIChatLanguageModel", () => {
       const result = await model.doGenerate({ prompt });
 
       expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+      expect(request).toHaveProperty("filtering");
+      expect(request.filtering).toEqual(filtering);
+    });
+
+    it("should include both masking and filtering when configured", async () => {
+      const masking = {
+        masking_providers: [
+          {
+            type: "sap_data_privacy_integration",
+            method: "pseudonymization",
+            entities: [{ type: "profile-person" }],
+          },
+        ],
+      };
+
+      const filtering = {
+        output: {
+          filters: [
+            {
+              type: "azure_content_safety",
+              config: {
+                Hate: 2,
+                Violence: 2,
+                SelfHarm: 2,
+                Sexual: 2,
+              },
+            },
+          ],
+        },
+      };
+
+      const model = createModel("gpt-4o", {
+        masking,
+        filtering,
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+      expect(request).toHaveProperty("masking");
+      expect(request.masking).toEqual(masking);
+      expect(request).toHaveProperty("filtering");
+      expect(request.filtering).toEqual(filtering);
     });
   });
 
@@ -1212,9 +1285,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       expectRequestBodyHasMessages(result);
 
-      const request = (await getLastChatCompletionRequest()) as {
-        model?: { version?: string };
-      };
+      const request = await getLastChatCompletionRequest();
 
       expect(request.model?.version).toBe("2024-05-13");
     });
@@ -1230,9 +1301,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       expectRequestBodyHasMessages(result);
 
-      const request = (await getLastChatCompletionRequest()) as {
-        model?: { version?: string };
-      };
+      const request = await getLastChatCompletionRequest();
 
       expect(request.model?.version).toBe("latest");
     });
@@ -1273,13 +1342,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       expectRequestBodyHasMessages(result);
 
-      const request = (await getLastChatCompletionRequest()) as {
-        model?: {
-          params?: {
-            temperature?: number;
-          };
-        };
-      };
+      const request = await getLastChatCompletionRequest();
 
       expect(request.model?.params?.temperature).toBe(0.9);
     });
@@ -1302,13 +1365,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       expectRequestBodyHasMessages(result);
 
-      const request = (await getLastChatCompletionRequest()) as {
-        model?: {
-          params?: {
-            max_tokens?: number;
-          };
-        };
-      };
+      const request = await getLastChatCompletionRequest();
 
       expect(request.model?.params?.max_tokens).toBe(1000);
     });
@@ -1405,13 +1462,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       expectRequestBodyHasMessages(result);
 
-      const request = (await getLastChatCompletionRequest()) as {
-        model?: {
-          params?: {
-            stop?: string[];
-          };
-        };
-      };
+      const request = await getLastChatCompletionRequest();
 
       expect(request.model?.params?.stop).toEqual(["END", "STOP"]);
     });
@@ -1429,13 +1480,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       expectRequestBodyHasMessages(result);
 
-      const request = (await getLastChatCompletionRequest()) as {
-        model?: {
-          params?: {
-            seed?: number;
-          };
-        };
-      };
+      const request = await getLastChatCompletionRequest();
 
       expect(request.model?.params?.seed).toBe(42);
     });
@@ -1470,9 +1515,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       expectRequestBodyHasMessages(result);
 
-      const request = (await getLastChatCompletionRequest()) as {
-        tools?: unknown;
-      };
+      const request = await getLastChatCompletionRequest();
 
       const tools = Array.isArray(request.tools)
         ? (request.tools as unknown[])
@@ -1599,13 +1642,8 @@ describe("SAPAIChatLanguageModel", () => {
   describe("stream error handling", () => {
     it("should warn when tool call delta has no tool name", async () => {
       // (node-only)
-      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
-      const MockClient = OrchestrationClient as unknown as {
-        setStreamChunks: (chunks: unknown[]) => void;
-      };
-
       // Simulate tool call without a name (never receives name in any chunk)
-      MockClient.setStreamChunks([
+      await setStreamChunks([
         {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
@@ -1677,14 +1715,13 @@ describe("SAPAIChatLanguageModel", () => {
 
     it("should emit error part when stream iteration throws", async () => {
       // (node-only)
-      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
-      const MockClient = OrchestrationClient as unknown as {
-        setStreamChunks: (chunks: unknown[]) => void;
-        setStreamError: (error: Error) => void;
-      };
+      const MockClient = await getMockClient();
+      if (!MockClient.setStreamError) {
+        throw new Error("mock missing setStreamError");
+      }
 
       // Set up chunks that complete normally, but error is thrown after
-      MockClient.setStreamChunks([
+      await setStreamChunks([
         {
           getDeltaContent: () => "Hello",
           getDeltaToolCalls: () => undefined,
@@ -1740,7 +1777,7 @@ describe("SAPAIChatLanguageModel", () => {
       }
 
       // Reset the stream error for other tests
-      MockClient.setStreamChunks([
+      await setStreamChunks([
         {
           getDeltaContent: () => "reset",
           getDeltaToolCalls: () => undefined,

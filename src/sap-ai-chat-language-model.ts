@@ -381,35 +381,55 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       !this.modelId.startsWith("amazon--") &&
       !this.modelId.startsWith("anthropic--");
 
-    const modelParams: SAPModelParams = {
-      max_tokens:
-        options.maxOutputTokens ??
-        providerOptions.modelParams?.maxTokens ??
-        this.settings.modelParams?.maxTokens,
-      temperature:
-        options.temperature ??
-        providerOptions.modelParams?.temperature ??
-        this.settings.modelParams?.temperature,
-      top_p:
-        options.topP ??
-        providerOptions.modelParams?.topP ??
-        this.settings.modelParams?.topP,
-      top_k: options.topK,
-      frequency_penalty:
-        options.frequencyPenalty ??
-        providerOptions.modelParams?.frequencyPenalty ??
-        this.settings.modelParams?.frequencyPenalty,
-      presence_penalty:
-        options.presencePenalty ??
-        providerOptions.modelParams?.presencePenalty ??
-        this.settings.modelParams?.presencePenalty,
-      n: supportsN
-        ? (providerOptions.modelParams?.n ?? this.settings.modelParams?.n ?? 1)
-        : undefined,
-      parallel_tool_calls:
-        providerOptions.modelParams?.parallel_tool_calls ??
-        this.settings.modelParams?.parallel_tool_calls,
-    };
+    const modelParams: SAPModelParams = {};
+
+    const maxTokens =
+      options.maxOutputTokens ??
+      providerOptions.modelParams?.maxTokens ??
+      this.settings.modelParams?.maxTokens;
+    if (maxTokens !== undefined) modelParams.max_tokens = maxTokens;
+
+    const temperature =
+      options.temperature ??
+      providerOptions.modelParams?.temperature ??
+      this.settings.modelParams?.temperature;
+    if (temperature !== undefined) modelParams.temperature = temperature;
+
+    const topP =
+      options.topP ??
+      providerOptions.modelParams?.topP ??
+      this.settings.modelParams?.topP;
+    if (topP !== undefined) modelParams.top_p = topP;
+
+    if (options.topK !== undefined) modelParams.top_k = options.topK;
+
+    const frequencyPenalty =
+      options.frequencyPenalty ??
+      providerOptions.modelParams?.frequencyPenalty ??
+      this.settings.modelParams?.frequencyPenalty;
+    if (frequencyPenalty !== undefined) {
+      modelParams.frequency_penalty = frequencyPenalty;
+    }
+
+    const presencePenalty =
+      options.presencePenalty ??
+      providerOptions.modelParams?.presencePenalty ??
+      this.settings.modelParams?.presencePenalty;
+    if (presencePenalty !== undefined) {
+      modelParams.presence_penalty = presencePenalty;
+    }
+
+    if (supportsN) {
+      modelParams.n =
+        providerOptions.modelParams?.n ?? this.settings.modelParams?.n ?? 1;
+    }
+
+    const parallelToolCalls =
+      providerOptions.modelParams?.parallel_tool_calls ??
+      this.settings.modelParams?.parallel_tool_calls;
+    if (parallelToolCalls !== undefined) {
+      modelParams.parallel_tool_calls = parallelToolCalls;
+    }
 
     if (options.stopSequences && options.stopSequences.length > 0) {
       modelParams.stop = options.stopSequences;
@@ -471,12 +491,16 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           ...(responseFormat ? { response_format: responseFormat } : {}),
         },
       },
-      ...((providerOptions.masking ?? this.settings.masking)
-        ? { masking: providerOptions.masking ?? this.settings.masking }
-        : {}),
-      ...((providerOptions.filtering ?? this.settings.filtering)
-        ? { filtering: providerOptions.filtering ?? this.settings.filtering }
-        : {}),
+      ...(() => {
+        const masking = providerOptions.masking ?? this.settings.masking;
+        return masking && Object.keys(masking).length > 0 ? { masking } : {};
+      })(),
+      ...(() => {
+        const filtering = providerOptions.filtering ?? this.settings.filtering;
+        return filtering && Object.keys(filtering).length > 0
+          ? { filtering }
+          : {};
+      })(),
     };
 
     return { orchestrationConfig, messages, warnings };
@@ -555,8 +579,22 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         model: {
           ...orchestrationConfig.promptTemplating.model,
         },
-        tools: promptTemplating.prompt.tools,
-        response_format: promptTemplating.prompt.response_format,
+        ...(promptTemplating.prompt.tools
+          ? { tools: promptTemplating.prompt.tools }
+          : {}),
+        ...(promptTemplating.prompt.response_format
+          ? { response_format: promptTemplating.prompt.response_format }
+          : {}),
+        ...(() => {
+          const masking = orchestrationConfig.masking;
+          return masking && Object.keys(masking).length > 0 ? { masking } : {};
+        })(),
+        ...(() => {
+          const filtering = orchestrationConfig.filtering;
+          return filtering && Object.keys(filtering).length > 0
+            ? { filtering }
+            : {};
+        })(),
       };
 
       // SAP AI SDK limitation: chatCompletion() does not accept AbortSignal
@@ -704,8 +742,22 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         model: {
           ...orchestrationConfig.promptTemplating.model,
         },
-        tools: promptTemplating.prompt.tools,
-        response_format: promptTemplating.prompt.response_format,
+        ...(promptTemplating.prompt.tools
+          ? { tools: promptTemplating.prompt.tools }
+          : {}),
+        ...(promptTemplating.prompt.response_format
+          ? { response_format: promptTemplating.prompt.response_format }
+          : {}),
+        ...(() => {
+          const masking = orchestrationConfig.masking;
+          return masking && Object.keys(masking).length > 0 ? { masking } : {};
+        })(),
+        ...(() => {
+          const filtering = orchestrationConfig.filtering;
+          return filtering && Object.keys(filtering).length > 0
+            ? { filtering }
+            : {};
+        })(),
       };
 
       const streamResponse = await client.stream(
