@@ -421,34 +421,73 @@ describe("SAPAIChatLanguageModel", () => {
       });
     });
 
-    it("should propagate axios response headers into doGenerate errors", async () => {
-      const MockClient = await getMockClient();
-      if (!MockClient.setChatCompletionError) {
-        throw new Error("mock missing setChatCompletionError");
-      }
+    describe("error handling", () => {
+      it("should propagate axios response headers into doGenerate errors", async () => {
+        const MockClient = await getMockClient();
+        if (!MockClient.setChatCompletionError) {
+          throw new Error("mock missing setChatCompletionError");
+        }
 
-      const axiosError = new Error("Request failed") as Error & {
-        isAxiosError: boolean;
-        response: { headers: Record<string, string> };
-      };
-      axiosError.isAxiosError = true;
-      axiosError.response = {
-        headers: {
-          "x-request-id": "do-generate-axios-123",
-        },
-      };
+        const axiosError = new Error("Request failed") as Error & {
+          isAxiosError: boolean;
+          response: { headers: Record<string, string> };
+        };
+        axiosError.isAxiosError = true;
+        axiosError.response = {
+          headers: {
+            "x-request-id": "do-generate-axios-123",
+          },
+        };
 
-      MockClient.setChatCompletionError(axiosError);
+        MockClient.setChatCompletionError(axiosError);
 
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
 
-      await expect(model.doGenerate({ prompt })).rejects.toMatchObject({
-        responseHeaders: {
-          "x-request-id": "do-generate-axios-123",
-        },
+        await expect(model.doGenerate({ prompt })).rejects.toMatchObject({
+          responseHeaders: {
+            "x-request-id": "do-generate-axios-123",
+          },
+        });
+      });
+
+      it("should sanitize requestBodyValues in errors", async () => {
+        const model = createModel();
+
+        const prompt: LanguageModelV2Prompt = [
+          {
+            role: "user",
+            content: [
+              {
+                type: "file",
+                mediaType: "image/png",
+                data: "BASE64_IMAGE_DATA",
+              },
+            ],
+          },
+        ];
+
+        let caught: unknown;
+        try {
+          await model.doGenerate({ prompt });
+        } catch (error: unknown) {
+          caught = error;
+        }
+
+        const caughtError = caught as {
+          name?: string;
+          requestBodyValues?: unknown;
+        };
+
+        expect(caughtError.name).toEqual(
+          expect.stringContaining("APICallError"),
+        );
+        expect(caughtError.requestBodyValues).toMatchObject({
+          promptMessages: 1,
+          hasImageParts: true,
+        });
       });
     });
 
@@ -580,41 +619,6 @@ describe("SAPAIChatLanguageModel", () => {
           schema,
           strict: null,
         },
-      });
-    });
-
-    it("should sanitize requestBodyValues in errors", async () => {
-      const model = createModel();
-
-      const prompt: LanguageModelV2Prompt = [
-        {
-          role: "user",
-          content: [
-            {
-              type: "file",
-              mediaType: "image/png",
-              data: "BASE64_IMAGE_DATA",
-            },
-          ],
-        },
-      ];
-
-      let caught: unknown;
-      try {
-        await model.doGenerate({ prompt });
-      } catch (error: unknown) {
-        caught = error;
-      }
-
-      const caughtError = caught as {
-        name?: string;
-        requestBodyValues?: unknown;
-      };
-
-      expect(caughtError.name).toEqual(expect.stringContaining("APICallError"));
-      expect(caughtError.requestBodyValues).toMatchObject({
-        promptMessages: 1,
-        hasImageParts: true,
       });
     });
 
@@ -965,10 +969,24 @@ describe("SAPAIChatLanguageModel", () => {
         "x-valid": "keep-this",
       });
     });
+
+    it("should include response body in doGenerate result", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      expect(result.response.body).toBeDefined();
+      expect(result.response.body).toHaveProperty("content");
+      expect(result.response.body).toHaveProperty("tokenUsage");
+      expect(result.response.body).toHaveProperty("finishReason");
+    });
   });
 
-  describe("edge-runtime", () => {
-    it("should stream basic text", async () => {
+  describe("doStream", () => {
+    it("should stream basic text (edge-runtime compatible)", async () => {
       const model = createModel();
       const prompt: LanguageModelV2Prompt = [
         { role: "user", content: [{ type: "text", text: "Hello" }] },
@@ -992,9 +1010,7 @@ describe("SAPAIChatLanguageModel", () => {
         parts.some((p) => (p as { type?: string }).type === "finish"),
       ).toBe(true);
     });
-  });
 
-  describe("doStream", () => {
     it("should not mutate stream-start warnings when warnings occur during stream", async () => {
       // Produce only a tool call delta with arguments, but without a tool name.
       // This triggers a warning during the final tool-call flush.
@@ -1406,1014 +1422,996 @@ describe("SAPAIChatLanguageModel", () => {
       const textDeltas = parts.filter((p) => p.type === "text-delta");
       expect(textDeltas.length).toBeGreaterThanOrEqual(1);
     });
-  });
 
-  describe("model-specific behavior", () => {
-    it("should disable n parameter for Amazon models", async () => {
-      const model = createModel("amazon--nova-pro", {
-        modelParams: { n: 2 },
-      });
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({ prompt });
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-
-      expect(request.model?.params?.n).toBeUndefined();
-    });
-
-    it("should disable n parameter for Anthropic models", async () => {
-      const model = createModel("anthropic--claude-3.5-sonnet", {
-        modelParams: { n: 2 },
-      });
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({ prompt });
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-
-      expect(request.model?.params?.n).toBeUndefined();
-    });
-  });
-
-  describe("masking and filtering configuration", () => {
-    it("should omit masking when empty object", async () => {
-      const model = createModel("gpt-4o", {
-        masking: {},
-      });
-
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({ prompt });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-      expect(request).not.toHaveProperty("masking");
-    });
-
-    it("should omit filtering when empty object", async () => {
-      const model = createModel("gpt-4o", {
-        filtering: {},
-      });
-
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({ prompt });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-      expect(request).not.toHaveProperty("filtering");
-    });
-
-    it("should include masking module in orchestration config", async () => {
-      const masking = {
-        masking_providers: [
+    describe("error handling", () => {
+      it("should warn when tool call delta has no tool name", async () => {
+        // (node-only)
+        // Simulate tool call without a name (never receives name in any chunk)
+        await setStreamChunks([
           {
-            type: "sap_data_privacy_integration",
-            method: "anonymization",
-            entities: [{ type: "profile-email" }, { type: "profile-phone" }],
+            getDeltaContent: () => null,
+            getDeltaToolCalls: () => [
+              {
+                index: 0,
+                id: "call_nameless",
+                function: { arguments: '{"x":1}' },
+                // Note: No "name" property
+              },
+            ],
+            getFinishReason: () => "tool_calls",
+            getTokenUsage: () => ({
+              prompt_tokens: 10,
+              completion_tokens: 5,
+              total_tokens: 15,
+            }),
           },
-        ],
-      };
+        ]);
 
-      const model = createModel("gpt-4o", {
-        masking,
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Use tool" }] },
+        ];
+
+        const result = await model.doStream({ prompt });
+        const { stream } = result;
+        const parts: LanguageModelV2StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Should have a tool-call part even if tool name is missing.
+        const toolCall = parts.find((p) => p.type === "tool-call");
+        expect(toolCall).toBeDefined();
+        if (toolCall?.type === "tool-call") {
+          expect(toolCall.toolName).toBe("");
+          expect(toolCall.input).toBe('{"x":1}');
+        }
+
+        // Warning should be surfaced on the result (not retroactively in stream-start)
+        const streamStart = parts.find(
+          (
+            p,
+          ): p is Extract<
+            LanguageModelV2StreamPart,
+            { type: "stream-start" }
+          > => p.type === "stream-start",
+        );
+        expect(streamStart).toBeDefined();
+        expect(streamStart?.warnings).toHaveLength(0);
+
+        // Consume the stream first: warnings are collected during streaming.
+        const warnings = result.warnings;
+
+        expect(warnings.length).toBeGreaterThan(0);
+
+        expect(parts.some((p) => p.type === "error")).toBe(false);
+        expect(parts.some((p) => p.type === "finish")).toBe(true);
+
+        const finish = parts.find(
+          (p): p is Extract<LanguageModelV2StreamPart, { type: "finish" }> =>
+            p.type === "finish",
+        );
+        expect(finish?.finishReason).toBeDefined();
       });
 
-      const prompt: LanguageModelV2Prompt = [
-        {
-          role: "user",
-          content: [{ type: "text", text: "My email is test@example.com" }],
-        },
-      ];
+      it("should emit error part when stream iteration throws", async () => {
+        // (node-only)
+        const MockClient = await getMockClient();
+        if (!MockClient.setStreamError) {
+          throw new Error("mock missing setStreamError");
+        }
 
-      const result = await model.doGenerate({ prompt });
+        // Set up chunks that complete normally, but error is thrown after
+        await setStreamChunks([
+          {
+            getDeltaContent: () => "Hello",
+            getDeltaToolCalls: () => undefined,
+            getFinishReason: () => null,
+            getTokenUsage: () => undefined,
+          },
+        ]);
+        const axiosError = new Error("Stream iteration failed") as unknown as {
+          isAxiosError: boolean;
+          response: { headers: Record<string, string> };
+        };
+        axiosError.isAxiosError = true;
+        axiosError.response = {
+          headers: {
+            "x-request-id": "stream-axios-123",
+          },
+        };
 
-      expectRequestBodyHasMessages(result);
+        MockClient.setStreamError(axiosError as unknown as Error);
 
-      const request = await getLastChatCompletionRequest();
-      expect(request).toHaveProperty("masking");
-      expect(request.masking).toEqual(masking);
-    });
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
 
-    it("should include filtering module in orchestration config", async () => {
-      const filtering = {
-        input: {
-          filters: [
-            {
-              type: "azure_content_safety",
-              config: {
-                Hate: 0,
-                Violence: 0,
-                SelfHarm: 0,
-                Sexual: 0,
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV2StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Should have text delta before error
+        const textDelta = parts.find((p) => p.type === "text-delta");
+        expect(textDelta).toBeDefined();
+
+        // Should have error part
+        const errorPart = parts.find((p) => p.type === "error");
+        expect(errorPart).toBeDefined();
+        if (errorPart?.type === "error") {
+          expect((errorPart.error as Error).message).toEqual(
+            expect.stringContaining("Stream iteration failed"),
+          );
+          expect(
+            (errorPart.error as { responseHeaders?: unknown }).responseHeaders,
+          ).toMatchObject({
+            "x-request-id": "stream-axios-123",
+          });
+        }
+
+        // Reset the stream error for other tests
+        await setStreamChunks([
+          {
+            getDeltaContent: () => "reset",
+            getDeltaToolCalls: () => undefined,
+            getFinishReason: () => "stop",
+            getTokenUsage: () => ({
+              prompt_tokens: 10,
+              completion_tokens: 5,
+              total_tokens: 15,
+            }),
+          },
+        ]);
+      });
+
+      it("should skip tool call deltas with invalid index", async () => {
+        await setStreamChunks([
+          {
+            getDeltaContent: () => "Hello",
+            getDeltaToolCalls: () => [
+              {
+                index: NaN, // Invalid index
+                id: "call_invalid",
+                function: { name: "test_tool", arguments: "{}" },
               },
+            ],
+            getFinishReason: () => null,
+            getTokenUsage: () => undefined,
+          },
+          {
+            getDeltaContent: () => null,
+            getDeltaToolCalls: () => [
+              {
+                index: undefined as unknown as number, // Also invalid
+                id: "call_undefined",
+                function: { name: "other_tool", arguments: "{}" },
+              },
+            ],
+            getFinishReason: () => "stop",
+            getTokenUsage: () => ({
+              prompt_tokens: 10,
+              completion_tokens: 5,
+              total_tokens: 15,
+            }),
+          },
+        ]);
+
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV2StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Should complete without error
+        expect(parts.some((p) => p.type === "finish")).toBe(true);
+        // No tool calls should be emitted due to invalid indices
+        expect(parts.some((p) => p.type === "tool-call")).toBe(false);
+      });
+
+      it("should flush unflushed tool calls at stream end (with finishReason=stop)", async () => {
+        await setStreamChunks([
+          {
+            getDeltaContent: () => null,
+            getDeltaToolCalls: () => [
+              {
+                index: 0,
+                id: "call_unflushed",
+                function: { name: "get_info", arguments: '{"q":"test"}' },
+              },
+            ],
+            getFinishReason: () => null,
+            getTokenUsage: () => undefined,
+          },
+          // End stream without tool-calls finish reason - tool should still be emitted
+          {
+            getDeltaContent: () => null,
+            getDeltaToolCalls: () => undefined,
+            getFinishReason: () => "stop",
+            getTokenUsage: () => ({
+              prompt_tokens: 10,
+              completion_tokens: 5,
+              total_tokens: 15,
+            }),
+          },
+        ]);
+
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Test" }] },
+        ];
+
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV2StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Tool call should be emitted even though finishReason was "stop"
+        const toolCall = parts.find((p) => p.type === "tool-call");
+        expect(toolCall).toBeDefined();
+        if (toolCall?.type === "tool-call") {
+          expect(toolCall.toolCallId).toBe("call_unflushed");
+          expect(toolCall.toolName).toBe("get_info");
+        }
+
+        // Finish reason should be "tool-calls" since we emitted tool calls
+        const finish = parts.find(
+          (p): p is Extract<LanguageModelV2StreamPart, { type: "finish" }> =>
+            p.type === "finish",
+        );
+        expect(finish?.finishReason).toBe("tool-calls");
+      });
+
+      it("should handle undefined finish reason from stream", async () => {
+        await setStreamChunks([
+          {
+            getDeltaContent: () => "Hello",
+            getDeltaToolCalls: () => undefined,
+            getFinishReason: () => undefined as unknown as string,
+            getTokenUsage: () => undefined,
+          },
+          {
+            getDeltaContent: () => "!",
+            getDeltaToolCalls: () => undefined,
+            getFinishReason: () => undefined as unknown as string,
+            getTokenUsage: () => ({
+              prompt_tokens: 10,
+              completion_tokens: 5,
+              total_tokens: 15,
+            }),
+          },
+        ]);
+
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV2StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        const finish = parts.find(
+          (p): p is Extract<LanguageModelV2StreamPart, { type: "finish" }> =>
+            p.type === "finish",
+        );
+        // Should default to "unknown" when no finish reason is provided
+        expect(finish?.finishReason).toBe("unknown");
+      });
+
+      it("should flush tool calls that never received input-start", async () => {
+        await setStreamChunks([
+          {
+            getDeltaContent: () => null,
+            getDeltaToolCalls: () => [
+              {
+                index: 0,
+                id: "call_no_start",
+                // No name in first chunk - so didEmitInputStart stays false
+                function: { arguments: '{"partial":' },
+              },
+            ],
+            getFinishReason: () => null,
+            getTokenUsage: () => undefined,
+          },
+          {
+            getDeltaContent: () => null,
+            getDeltaToolCalls: () => [
+              {
+                index: 0,
+                // Name comes later but input-start was never emitted
+                function: { name: "delayed_name", arguments: '"value"}' },
+              },
+            ],
+            getFinishReason: () => "tool_calls",
+            getTokenUsage: () => ({
+              prompt_tokens: 10,
+              completion_tokens: 5,
+              total_tokens: 15,
+            }),
+          },
+        ]);
+
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Test" }] },
+        ];
+
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV2StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Tool call should still be properly emitted
+        const toolCall = parts.find((p) => p.type === "tool-call");
+        expect(toolCall).toBeDefined();
+        if (toolCall?.type === "tool-call") {
+          expect(toolCall.toolName).toBe("delayed_name");
+          expect(toolCall.input).toBe('{"partial":"value"}');
+        }
+      });
+
+      it("should throw converted error when doStream setup fails", async () => {
+        const MockClient = await getMockClient();
+        if (!MockClient.setStreamSetupError) {
+          throw new Error("mock missing setStreamSetupError");
+        }
+
+        const setupError = new Error("Stream setup failed");
+        MockClient.setStreamSetupError(setupError);
+
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        await expect(model.doStream({ prompt })).rejects.toThrow(
+          "Stream setup failed",
+        );
+      });
+    });
+  });
+
+  describe("configuration", () => {
+    describe("masking and filtering", () => {
+      it("should omit masking when empty object", async () => {
+        const model = createModel("gpt-4o", {
+          masking: {},
+        });
+
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).not.toHaveProperty("masking");
+      });
+
+      it("should omit filtering when empty object", async () => {
+        const model = createModel("gpt-4o", {
+          filtering: {},
+        });
+
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).not.toHaveProperty("filtering");
+      });
+
+      it("should include masking module in orchestration config", async () => {
+        const masking = {
+          masking_providers: [
+            {
+              type: "sap_data_privacy_integration",
+              method: "anonymization",
+              entities: [{ type: "profile-email" }, { type: "profile-phone" }],
             },
           ],
-        },
-      };
+        };
 
-      const model = createModel("gpt-4o", {
-        filtering,
+        const model = createModel("gpt-4o", {
+          masking,
+        });
+
+        const prompt: LanguageModelV2Prompt = [
+          {
+            role: "user",
+            content: [{ type: "text", text: "My email is test@example.com" }],
+          },
+        ];
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("masking");
+        expect(request.masking).toEqual(masking);
       });
 
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({ prompt });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-      expect(request).toHaveProperty("filtering");
-      expect(request.filtering).toEqual(filtering);
-    });
-
-    it("should include both masking and filtering when configured", async () => {
-      const masking = {
-        masking_providers: [
-          {
-            type: "sap_data_privacy_integration",
-            method: "pseudonymization",
-            entities: [{ type: "profile-person" }],
-          },
-        ],
-      };
-
-      const filtering = {
-        output: {
-          filters: [
-            {
-              type: "azure_content_safety",
-              config: {
-                Hate: 2,
-                Violence: 2,
-                SelfHarm: 2,
-                Sexual: 2,
+      it("should include filtering module in orchestration config", async () => {
+        const filtering = {
+          input: {
+            filters: [
+              {
+                type: "azure_content_safety",
+                config: {
+                  Hate: 0,
+                  Violence: 0,
+                  SelfHarm: 0,
+                  Sexual: 0,
+                },
               },
+            ],
+          },
+        };
+
+        const model = createModel("gpt-4o", {
+          filtering,
+        });
+
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("filtering");
+        expect(request.filtering).toEqual(filtering);
+      });
+
+      it("should include both masking and filtering when configured", async () => {
+        const masking = {
+          masking_providers: [
+            {
+              type: "sap_data_privacy_integration",
+              method: "pseudonymization",
+              entities: [{ type: "profile-person" }],
             },
           ],
-        },
-      };
+        };
 
-      const model = createModel("gpt-4o", {
-        masking,
-        filtering,
+        const filtering = {
+          output: {
+            filters: [
+              {
+                type: "azure_content_safety",
+                config: {
+                  Hate: 2,
+                  Violence: 2,
+                  SelfHarm: 2,
+                  Sexual: 2,
+                },
+              },
+            ],
+          },
+        };
+
+        const model = createModel("gpt-4o", {
+          masking,
+          filtering,
+        });
+
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("masking");
+        expect(request.masking).toEqual(masking);
+        expect(request).toHaveProperty("filtering");
+        expect(request.filtering).toEqual(filtering);
       });
-
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({ prompt });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-      expect(request).toHaveProperty("masking");
-      expect(request.masking).toEqual(masking);
-      expect(request).toHaveProperty("filtering");
-      expect(request.filtering).toEqual(filtering);
-    });
-  });
-
-  describe("model version configuration", () => {
-    it("should pass model version to orchestration config", async () => {
-      const model = createModel("gpt-4o", {
-        modelVersion: "2024-05-13",
-      });
-
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({ prompt });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-
-      expect(request.model?.version).toBe("2024-05-13");
     });
 
-    it("should use 'latest' as default version", async () => {
-      const model = createModel("gpt-4o");
+    describe("model version", () => {
+      it("should pass model version to orchestration config", async () => {
+        const model = createModel("gpt-4o", {
+          modelVersion: "2024-05-13",
+        });
 
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
 
-      const result = await model.doGenerate({ prompt });
+        const result = await model.doGenerate({ prompt });
 
-      expectRequestBodyHasMessages(result);
+        expectRequestBodyHasMessages(result);
 
-      const request = await getLastChatCompletionRequest();
+        const request = await getLastChatCompletionRequest();
 
-      expect(request.model?.version).toBe("latest");
-    });
-  });
-
-  describe("response body", () => {
-    it("should include response body in doGenerate result", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({ prompt });
-
-      expect(result.response.body).toBeDefined();
-      expect(result.response.body).toHaveProperty("content");
-      expect(result.response.body).toHaveProperty("tokenUsage");
-      expect(result.response.body).toHaveProperty("finishReason");
-    });
-  });
-
-  describe("settings from options take precedence", () => {
-    it("should prefer options.temperature over settings.modelParams.temperature", async () => {
-      const model = createModel("gpt-4o", {
-        modelParams: {
-          temperature: 0.5,
-        },
+        expect(request.model?.version).toBe("2024-05-13");
       });
 
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      it("should use 'latest' as default version", async () => {
+        const model = createModel("gpt-4o");
 
-      const result = await model.doGenerate({
-        prompt,
-        temperature: 0.9,
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.version).toBe("latest");
       });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-
-      expect(request.model?.params?.temperature).toBe(0.9);
     });
 
-    it("should prefer options.maxOutputTokens over settings.modelParams.maxTokens", async () => {
-      const model = createModel("gpt-4o", {
-        modelParams: {
-          maxTokens: 500,
-        },
+    describe("model parameters", () => {
+      it("should prefer options.temperature over settings.modelParams.temperature", async () => {
+        const model = createModel("gpt-4o", {
+          modelParams: {
+            temperature: 0.5,
+          },
+        });
+
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({
+          prompt,
+          temperature: 0.9,
+        });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.params?.temperature).toBe(0.9);
       });
 
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      it("should prefer options.maxOutputTokens over settings.modelParams.maxTokens", async () => {
+        const model = createModel("gpt-4o", {
+          modelParams: {
+            maxTokens: 500,
+          },
+        });
 
-      const result = await model.doGenerate({
-        prompt,
-        maxOutputTokens: 1000,
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({
+          prompt,
+          maxOutputTokens: 1000,
+        });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.params?.max_tokens).toBe(1000);
       });
 
-      expectRequestBodyHasMessages(result);
+      it("should pass topP from options to model params", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
 
-      const request = await getLastChatCompletionRequest();
+        const result = await model.doGenerate({
+          prompt,
+          topP: 0.9,
+        });
 
-      expect(request.model?.params?.max_tokens).toBe(1000);
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.params?.top_p).toBe(0.9);
+      });
+
+      it("should pass topK from options to model params", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({
+          prompt,
+          topK: 40,
+        });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.params?.top_k).toBe(40);
+      });
+
+      it("should pass frequencyPenalty from options to model params", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({
+          prompt,
+          frequencyPenalty: 0.5,
+        });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.params?.frequency_penalty).toBe(0.5);
+      });
+
+      it("should pass presencePenalty from options to model params", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({
+          prompt,
+          presencePenalty: 0.3,
+        });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.params?.presence_penalty).toBe(0.3);
+      });
+
+      it("should pass stop sequences to model params", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({
+          prompt,
+          stopSequences: ["END", "STOP"],
+        });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.params?.stop).toEqual(["END", "STOP"]);
+      });
+
+      it("should pass seed to model params", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
+
+        const result = await model.doGenerate({
+          prompt,
+          seed: 42,
+        });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.params?.seed).toBe(42);
+      });
     });
 
-    it("should pass topP from options to model params", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+    describe("model-specific behavior", () => {
+      it("should disable n parameter for Amazon models", async () => {
+        const model = createModel("amazon--nova-pro", {
+          modelParams: { n: 2 },
+        });
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
 
-      const result = await model.doGenerate({
-        prompt,
-        topP: 0.9,
+        const result = await model.doGenerate({ prompt });
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.params?.n).toBeUndefined();
       });
 
-      expectRequestBodyHasMessages(result);
+      it("should disable n parameter for Anthropic models", async () => {
+        const model = createModel("anthropic--claude-3.5-sonnet", {
+          modelParams: { n: 2 },
+        });
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
 
-      const request = await getLastChatCompletionRequest();
+        const result = await model.doGenerate({ prompt });
+        expectRequestBodyHasMessages(result);
 
-      expect(request.model?.params?.top_p).toBe(0.9);
-    });
+        const request = await getLastChatCompletionRequest();
 
-    it("should pass topK from options to model params", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({
-        prompt,
-        topK: 40,
+        expect(request.model?.params?.n).toBeUndefined();
       });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-
-      expect(request.model?.params?.top_k).toBe(40);
     });
 
-    it("should pass frequencyPenalty from options to model params", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+    describe("warnings", () => {
+      it("should warn when toolChoice is not 'auto'", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
 
-      const result = await model.doGenerate({
-        prompt,
-        frequencyPenalty: 0.5,
-      });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-
-      expect(request.model?.params?.frequency_penalty).toBe(0.5);
-    });
-
-    it("should pass presencePenalty from options to model params", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({
-        prompt,
-        presencePenalty: 0.3,
-      });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-
-      expect(request.model?.params?.presence_penalty).toBe(0.3);
-    });
-  });
-
-  describe("toolChoice warning", () => {
-    it("should warn when toolChoice is not 'auto'", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const tools: LanguageModelV2FunctionTool[] = [
-        {
-          type: "function",
-          name: "test_tool",
-          description: "A test tool",
-          inputSchema: { type: "object", properties: {}, required: [] },
-        },
-      ];
-
-      const result = await model.doGenerate({
-        prompt,
-        tools,
-        toolChoice: { type: "required" },
-      });
-
-      expect(result.warnings).toContainEqual(
-        expect.objectContaining({
-          type: "unsupported-setting",
-          setting: "toolChoice",
-        }),
-      );
-    });
-
-    it("should not warn when toolChoice is 'auto'", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const tools: LanguageModelV2FunctionTool[] = [
-        {
-          type: "function",
-          name: "test_tool",
-          description: "A test tool",
-          inputSchema: { type: "object", properties: {}, required: [] },
-        },
-      ];
-
-      const result = await model.doGenerate({
-        prompt,
-        tools,
-        toolChoice: { type: "auto" },
-      });
-
-      const toolChoiceWarnings = result.warnings.filter(
-        (w) =>
-          w.type === "unsupported-setting" &&
-          (w as unknown as { setting?: string }).setting === "toolChoice",
-      );
-      expect(toolChoiceWarnings).toHaveLength(0);
-    });
-  });
-
-  describe("responseFormat warning", () => {
-    it("should emit a best-effort warning for responseFormat json", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Return JSON" }] },
-      ];
-
-      const result = await model.doGenerate({
-        prompt,
-        responseFormat: { type: "json" },
-      });
-      const warnings = result.warnings;
-
-      expect(warnings.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe("stop sequences and seed", () => {
-    it("should pass stop sequences to model params", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({
-        prompt,
-        stopSequences: ["END", "STOP"],
-      });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-
-      expect(request.model?.params?.stop).toEqual(["END", "STOP"]);
-    });
-
-    it("should pass seed to model params", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const result = await model.doGenerate({
-        prompt,
-        seed: 42,
-      });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-
-      expect(request.model?.params?.seed).toBe(42);
-    });
-  });
-
-  describe("tools from settings", () => {
-    it("should use tools from settings when provided", async () => {
-      const model = createModel("gpt-4o", {
-        tools: [
+        const tools: LanguageModelV2FunctionTool[] = [
           {
             type: "function",
-            function: {
-              name: "custom_tool",
-              description: "A custom tool from settings",
-              parameters: {
-                type: "object",
-                properties: {
-                  input: { type: "string" },
-                },
-                required: ["input"],
-              },
-            },
+            name: "test_tool",
+            description: "A test tool",
+            inputSchema: { type: "object", properties: {}, required: [] },
           },
-        ],
+        ];
+
+        const result = await model.doGenerate({
+          prompt,
+          tools,
+          toolChoice: { type: "required" },
+        });
+
+        expect(result.warnings).toContainEqual(
+          expect.objectContaining({
+            type: "unsupported-setting",
+            setting: "toolChoice",
+          }),
+        );
       });
 
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Use a tool" }] },
-      ];
+      it("should not warn when toolChoice is 'auto'", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Hello" }] },
+        ];
 
-      const result = await model.doGenerate({ prompt });
-
-      expectRequestBodyHasMessages(result);
-
-      const request = await getLastChatCompletionRequest();
-
-      const tools = Array.isArray(request.tools)
-        ? (request.tools as unknown[])
-        : undefined;
-
-      expect(tools).toBeDefined();
-      if (tools) {
-        expect(tools).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              type: "function",
-            }),
-          ]),
-        );
-
-        const customTool = tools.find(
-          (tool): tool is { type?: string; function?: { name?: string } } =>
-            typeof tool === "object" &&
-            tool !== null &&
-            (tool as { type?: unknown }).type === "function" &&
-            typeof (tool as { function?: { name?: unknown } }).function
-              ?.name === "string" &&
-            (tool as { function?: { name?: string } }).function?.name ===
-              "custom_tool",
-        );
-
-        expect(customTool).toBeDefined();
-      }
-    });
-  });
-
-  describe("tool schema edge cases", () => {
-    it("should coerce non-object schema type to object", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Use tool" }] },
-      ];
-
-      // Tool with "array" type schema - should be coerced to object
-      const tools: LanguageModelV2FunctionTool[] = [
-        {
-          type: "function",
-          name: "array_tool",
-          description: "Tool with array schema",
-          inputSchema: {
-            type: "array",
-            items: { type: "string" },
+        const tools: LanguageModelV2FunctionTool[] = [
+          {
+            type: "function",
+            name: "test_tool",
+            description: "A test tool",
+            inputSchema: { type: "object", properties: {}, required: [] },
           },
-        },
-      ];
+        ];
 
-      const result = await model.doGenerate({ prompt, tools });
-
-      expectRequestBodyHasMessages(result);
-    });
-
-    it("should handle tool with string type schema", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Use tool" }] },
-      ];
-
-      // Tool with "string" type schema - should be coerced to object
-      const tools: LanguageModelV2FunctionTool[] = [
-        {
-          type: "function",
-          name: "string_tool",
-          description: "Tool with string schema",
-          inputSchema: {
-            type: "string",
-          },
-        },
-      ];
-
-      const result = await model.doGenerate({ prompt, tools });
-
-      expectRequestBodyHasMessages(result);
-    });
-
-    it("should handle tool with schema that has no properties", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Use tool" }] },
-      ];
-
-      const tools: LanguageModelV2FunctionTool[] = [
-        {
-          type: "function",
-          name: "empty_props_tool",
-          description: "Tool with empty properties",
-          inputSchema: {
-            type: "object",
-            properties: {},
-          },
-        },
-      ];
-
-      const result = await model.doGenerate({ prompt, tools });
-
-      expectRequestBodyHasMessages(result);
-    });
-
-    it("should handle tool with undefined inputSchema", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Use tool" }] },
-      ];
-
-      const tools: LanguageModelV2FunctionTool[] = [
-        {
-          type: "function",
-          name: "no_schema_tool",
-          description: "Tool without schema",
-          inputSchema: undefined as unknown as Record<string, unknown>,
-        },
-      ];
-
-      const result = await model.doGenerate({ prompt, tools });
-
-      expectRequestBodyHasMessages(result);
-    });
-  });
-
-  describe("stream error handling", () => {
-    it("should warn when tool call delta has no tool name", async () => {
-      // (node-only)
-      // Simulate tool call without a name (never receives name in any chunk)
-      await setStreamChunks([
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
-            {
-              index: 0,
-              id: "call_nameless",
-              function: { arguments: '{"x":1}' },
-              // Note: No "name" property
-            },
-          ],
-          getFinishReason: () => "tool_calls",
-          getTokenUsage: () => ({
-            prompt_tokens: 10,
-            completion_tokens: 5,
-            total_tokens: 15,
-          }),
-        },
-      ]);
-
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Use tool" }] },
-      ];
-
-      const result = await model.doStream({ prompt });
-      const { stream } = result;
-      const parts: LanguageModelV2StreamPart[] = [];
-      const reader = stream.getReader();
-
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        parts.push(value);
-      }
-
-      // Should have a tool-call part even if tool name is missing.
-      const toolCall = parts.find((p) => p.type === "tool-call");
-      expect(toolCall).toBeDefined();
-      if (toolCall?.type === "tool-call") {
-        expect(toolCall.toolName).toBe("");
-        expect(toolCall.input).toBe('{"x":1}');
-      }
-
-      // Warning should be surfaced on the result (not retroactively in stream-start)
-      const streamStart = parts.find(
-        (
-          p,
-        ): p is Extract<LanguageModelV2StreamPart, { type: "stream-start" }> =>
-          p.type === "stream-start",
-      );
-      expect(streamStart).toBeDefined();
-      expect(streamStart?.warnings).toHaveLength(0);
-
-      // Consume the stream first: warnings are collected during streaming.
-      const warnings = result.warnings;
-
-      expect(warnings.length).toBeGreaterThan(0);
-
-      expect(parts.some((p) => p.type === "error")).toBe(false);
-      expect(parts.some((p) => p.type === "finish")).toBe(true);
-
-      const finish = parts.find(
-        (p): p is Extract<LanguageModelV2StreamPart, { type: "finish" }> =>
-          p.type === "finish",
-      );
-      expect(finish?.finishReason).toBeDefined();
-    });
-
-    it("should emit error part when stream iteration throws", async () => {
-      // (node-only)
-      const MockClient = await getMockClient();
-      if (!MockClient.setStreamError) {
-        throw new Error("mock missing setStreamError");
-      }
-
-      // Set up chunks that complete normally, but error is thrown after
-      await setStreamChunks([
-        {
-          getDeltaContent: () => "Hello",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-      ]);
-      const axiosError = new Error("Stream iteration failed") as unknown as {
-        isAxiosError: boolean;
-        response: { headers: Record<string, string> };
-      };
-      axiosError.isAxiosError = true;
-      axiosError.response = {
-        headers: {
-          "x-request-id": "stream-axios-123",
-        },
-      };
-
-      MockClient.setStreamError(axiosError as unknown as Error);
-
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const { stream } = await model.doStream({ prompt });
-      const parts: LanguageModelV2StreamPart[] = [];
-      const reader = stream.getReader();
-
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        parts.push(value);
-      }
-
-      // Should have text delta before error
-      const textDelta = parts.find((p) => p.type === "text-delta");
-      expect(textDelta).toBeDefined();
-
-      // Should have error part
-      const errorPart = parts.find((p) => p.type === "error");
-      expect(errorPart).toBeDefined();
-      if (errorPart?.type === "error") {
-        expect((errorPart.error as Error).message).toEqual(
-          expect.stringContaining("Stream iteration failed"),
-        );
-        expect(
-          (errorPart.error as { responseHeaders?: unknown }).responseHeaders,
-        ).toMatchObject({
-          "x-request-id": "stream-axios-123",
+        const result = await model.doGenerate({
+          prompt,
+          tools,
+          toolChoice: { type: "auto" },
         });
-      }
 
-      // Reset the stream error for other tests
-      await setStreamChunks([
-        {
-          getDeltaContent: () => "reset",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => "stop",
-          getTokenUsage: () => ({
-            prompt_tokens: 10,
-            completion_tokens: 5,
-            total_tokens: 15,
-          }),
-        },
-      ]);
+        const toolChoiceWarnings = result.warnings.filter(
+          (w) =>
+            w.type === "unsupported-setting" &&
+            (w as unknown as { setting?: string }).setting === "toolChoice",
+        );
+        expect(toolChoiceWarnings).toHaveLength(0);
+      });
+
+      it("should emit a best-effort warning for responseFormat json", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Return JSON" }] },
+        ];
+
+        const result = await model.doGenerate({
+          prompt,
+          responseFormat: { type: "json" },
+        });
+        const warnings = result.warnings;
+
+        expect(warnings.length).toBeGreaterThan(0);
+      });
     });
 
-    it("should skip tool call deltas with invalid index", async () => {
-      await setStreamChunks([
-        {
-          getDeltaContent: () => "Hello",
-          getDeltaToolCalls: () => [
+    describe("tools", () => {
+      it("should use tools from settings when provided", async () => {
+        const model = createModel("gpt-4o", {
+          tools: [
             {
-              index: NaN, // Invalid index
-              id: "call_invalid",
-              function: { name: "test_tool", arguments: "{}" },
+              type: "function",
+              function: {
+                name: "custom_tool",
+                description: "A custom tool from settings",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    input: { type: "string" },
+                  },
+                  required: ["input"],
+                },
+              },
             },
           ],
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
-            {
-              index: undefined as unknown as number, // Also invalid
-              id: "call_undefined",
-              function: { name: "other_tool", arguments: "{}" },
+        });
+
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Use a tool" }] },
+        ];
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        const tools = Array.isArray(request.tools)
+          ? (request.tools as unknown[])
+          : undefined;
+
+        expect(tools).toBeDefined();
+        if (tools) {
+          expect(tools).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                type: "function",
+              }),
+            ]),
+          );
+
+          const customTool = tools.find(
+            (tool): tool is { type?: string; function?: { name?: string } } =>
+              typeof tool === "object" &&
+              tool !== null &&
+              (tool as { type?: unknown }).type === "function" &&
+              typeof (tool as { function?: { name?: unknown } }).function
+                ?.name === "string" &&
+              (tool as { function?: { name?: string } }).function?.name ===
+                "custom_tool",
+          );
+
+          expect(customTool).toBeDefined();
+        }
+      });
+
+      it("should coerce non-object schema type to object", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Use tool" }] },
+        ];
+
+        // Tool with "array" type schema - should be coerced to object
+        const tools: LanguageModelV2FunctionTool[] = [
+          {
+            type: "function",
+            name: "array_tool",
+            description: "Tool with array schema",
+            inputSchema: {
+              type: "array",
+              items: { type: "string" },
             },
-          ],
-          getFinishReason: () => "stop",
-          getTokenUsage: () => ({
-            prompt_tokens: 10,
-            completion_tokens: 5,
-            total_tokens: 15,
-          }),
-        },
-      ]);
+          },
+        ];
 
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+        const result = await model.doGenerate({ prompt, tools });
 
-      const { stream } = await model.doStream({ prompt });
-      const parts: LanguageModelV2StreamPart[] = [];
-      const reader = stream.getReader();
+        expectRequestBodyHasMessages(result);
+      });
 
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        parts.push(value);
-      }
+      it("should handle tool with string type schema", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Use tool" }] },
+        ];
 
-      // Should complete without error
-      expect(parts.some((p) => p.type === "finish")).toBe(true);
-      // No tool calls should be emitted due to invalid indices
-      expect(parts.some((p) => p.type === "tool-call")).toBe(false);
-    });
-
-    it("should flush unflushed tool calls at stream end (with finishReason=stop)", async () => {
-      await setStreamChunks([
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
-            {
-              index: 0,
-              id: "call_unflushed",
-              function: { name: "get_info", arguments: '{"q":"test"}' },
+        // Tool with "string" type schema - should be coerced to object
+        const tools: LanguageModelV2FunctionTool[] = [
+          {
+            type: "function",
+            name: "string_tool",
+            description: "Tool with string schema",
+            inputSchema: {
+              type: "string",
             },
-          ],
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        // End stream without tool-calls finish reason - tool should still be emitted
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => "stop",
-          getTokenUsage: () => ({
-            prompt_tokens: 10,
-            completion_tokens: 5,
-            total_tokens: 15,
-          }),
-        },
-      ]);
+          },
+        ];
 
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Test" }] },
-      ];
+        const result = await model.doGenerate({ prompt, tools });
 
-      const { stream } = await model.doStream({ prompt });
-      const parts: LanguageModelV2StreamPart[] = [];
-      const reader = stream.getReader();
+        expectRequestBodyHasMessages(result);
+      });
 
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        parts.push(value);
-      }
+      it("should handle tool with schema that has no properties", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Use tool" }] },
+        ];
 
-      // Tool call should be emitted even though finishReason was "stop"
-      const toolCall = parts.find((p) => p.type === "tool-call");
-      expect(toolCall).toBeDefined();
-      if (toolCall?.type === "tool-call") {
-        expect(toolCall.toolCallId).toBe("call_unflushed");
-        expect(toolCall.toolName).toBe("get_info");
-      }
-
-      // Finish reason should be "tool-calls" since we emitted tool calls
-      const finish = parts.find(
-        (p): p is Extract<LanguageModelV2StreamPart, { type: "finish" }> =>
-          p.type === "finish",
-      );
-      expect(finish?.finishReason).toBe("tool-calls");
-    });
-
-    it("should handle undefined finish reason from stream", async () => {
-      await setStreamChunks([
-        {
-          getDeltaContent: () => "Hello",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => undefined as unknown as string,
-          getTokenUsage: () => undefined,
-        },
-        {
-          getDeltaContent: () => "!",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => undefined as unknown as string,
-          getTokenUsage: () => ({
-            prompt_tokens: 10,
-            completion_tokens: 5,
-            total_tokens: 15,
-          }),
-        },
-      ]);
-
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const { stream } = await model.doStream({ prompt });
-      const parts: LanguageModelV2StreamPart[] = [];
-      const reader = stream.getReader();
-
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        parts.push(value);
-      }
-
-      const finish = parts.find(
-        (p): p is Extract<LanguageModelV2StreamPart, { type: "finish" }> =>
-          p.type === "finish",
-      );
-      // Should default to "unknown" when no finish reason is provided
-      expect(finish?.finishReason).toBe("unknown");
-    });
-
-    it("should flush tool calls that never received input-start", async () => {
-      await setStreamChunks([
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
-            {
-              index: 0,
-              id: "call_no_start",
-              // No name in first chunk - so didEmitInputStart stays false
-              function: { arguments: '{"partial":' },
+        const tools: LanguageModelV2FunctionTool[] = [
+          {
+            type: "function",
+            name: "empty_props_tool",
+            description: "Tool with empty properties",
+            inputSchema: {
+              type: "object",
+              properties: {},
             },
-          ],
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
-            {
-              index: 0,
-              // Name comes later but input-start was never emitted
-              function: { name: "delayed_name", arguments: '"value"}' },
-            },
-          ],
-          getFinishReason: () => "tool_calls",
-          getTokenUsage: () => ({
-            prompt_tokens: 10,
-            completion_tokens: 5,
-            total_tokens: 15,
-          }),
-        },
-      ]);
+          },
+        ];
 
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Test" }] },
-      ];
+        const result = await model.doGenerate({ prompt, tools });
 
-      const { stream } = await model.doStream({ prompt });
-      const parts: LanguageModelV2StreamPart[] = [];
-      const reader = stream.getReader();
+        expectRequestBodyHasMessages(result);
+      });
 
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        parts.push(value);
-      }
+      it("should handle tool with undefined inputSchema", async () => {
+        const model = createModel();
+        const prompt: LanguageModelV2Prompt = [
+          { role: "user", content: [{ type: "text", text: "Use tool" }] },
+        ];
 
-      // Tool call should still be properly emitted
-      const toolCall = parts.find((p) => p.type === "tool-call");
-      expect(toolCall).toBeDefined();
-      if (toolCall?.type === "tool-call") {
-        expect(toolCall.toolName).toBe("delayed_name");
-        expect(toolCall.input).toBe('{"partial":"value"}');
-      }
-    });
+        const tools: LanguageModelV2FunctionTool[] = [
+          {
+            type: "function",
+            name: "no_schema_tool",
+            description: "Tool without schema",
+            inputSchema: undefined as unknown as Record<string, unknown>,
+          },
+        ];
 
-    it("should throw converted error when doStream setup fails", async () => {
-      const MockClient = await getMockClient();
-      if (!MockClient.setStreamSetupError) {
-        throw new Error("mock missing setStreamSetupError");
-      }
+        const result = await model.doGenerate({ prompt, tools });
 
-      const setupError = new Error("Stream setup failed");
-      MockClient.setStreamSetupError(setupError);
-
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      await expect(model.doStream({ prompt })).rejects.toThrow(
-        "Stream setup failed",
-      );
+        expectRequestBodyHasMessages(result);
+      });
     });
   });
 });
