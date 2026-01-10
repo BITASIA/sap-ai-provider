@@ -65,10 +65,6 @@ function createAISDKRequestBodySummary(options: LanguageModelV2CallOptions): {
   };
 }
 
-/**
- * Type guard to check if an object is a Zod schema.
- * @internal
- */
 type SapModelParams = LlmModelParams & {
   top_k?: number;
   stop?: string[];
@@ -99,6 +95,10 @@ function hasCallableParse(
   return typeof obj.parse === "function";
 }
 
+/**
+ * Type guard to check if an object is a Zod schema.
+ * @internal
+ */
 function isZodSchema(obj: unknown): obj is ZodType {
   if (obj === null || typeof obj !== "object") {
     return false;

@@ -105,7 +105,6 @@ export function convertToSAPMessages(
       }
 
       case "user": {
-        // Build content parts for user messages
         const contentParts: UserContentItem[] = [];
 
         for (const part of message.content) {
@@ -215,7 +214,6 @@ export function convertToSAPMessages(
       }
 
       case "tool": {
-        // Convert tool results to tool messages
         for (const part of message.content) {
           const toolMessage: ToolChatMessage = {
             role: "tool",
