@@ -880,14 +880,14 @@ describe("SAPAIChatLanguageModel", () => {
     });
   });
 
-  describe("stream error handling", () => {
-    it("should handle error thrown during stream iteration", async () => {
+  describe("stream chunk processing", () => {
+    it("should process stream chunks and emit correct parts", async () => {
       const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
       const MockClient = OrchestrationClient as unknown as {
         setStreamChunks: (chunks: unknown[]) => void;
       };
 
-      // Reset stream chunks to default behavior
+      // Set up stream chunks explicitly
       MockClient.setStreamChunks([
         {
           getDeltaContent: () => "Hello",
@@ -912,7 +912,6 @@ describe("SAPAIChatLanguageModel", () => {
         { role: "user", content: [{ type: "text", text: "Hello" }] },
       ];
 
-      // Normal stream should work without errors
       const { stream } = await model.doStream({ prompt });
       const parts: LanguageModelV2StreamPart[] = [];
       const reader = stream.getReader();
@@ -924,7 +923,7 @@ describe("SAPAIChatLanguageModel", () => {
         parts.push(value);
       }
 
-      // Verify we got text delta and finish parts
+      // Verify stream emits expected part types
       const textPart = parts.find((p) => p.type === "text-delta");
       expect(textPart).toBeDefined();
 

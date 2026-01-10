@@ -129,22 +129,18 @@ describe("createSAPAIProvider", () => {
 });
 
 describe("sapai default provider", () => {
-  it("should be a valid provider", () => {
+  it("should be a valid provider with chat method", () => {
     expect(sapai).toBeDefined();
     expect(typeof sapai).toBe("function");
-  });
-
-  it("should create models", () => {
-    const model = sapai("gpt-4o");
-    expect(model).toBeDefined();
-    expect(model.modelId).toBe("gpt-4o");
-  });
-
-  it("should have chat method", () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(sapai.chat).toBeDefined();
-    const model = sapai.chat("gpt-4o");
-    expect(model).toBeDefined();
-    expect(model.modelId).toBe("gpt-4o");
+  });
+
+  it("should create models via both call and chat method", () => {
+    const model1 = sapai("gpt-4o");
+    const model2 = sapai.chat("gpt-4o");
+
+    expect(model1.modelId).toBe("gpt-4o");
+    expect(model2.modelId).toBe("gpt-4o");
   });
 });

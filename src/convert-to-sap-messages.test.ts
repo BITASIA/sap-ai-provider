@@ -243,42 +243,32 @@ describe("convertToSAPMessages", () => {
     });
   });
 
-  it("should throw error for unsupported file types (audio)", () => {
-    const prompt: LanguageModelV2Prompt = [
-      {
-        role: "user",
-        content: [
-          {
-            type: "file",
-            mediaType: "audio/mp3",
-            data: "base64audiodata",
-          },
-        ],
-      },
+  it("should throw error for unsupported file types", () => {
+    const unsupportedTypes = [
+      { mediaType: "audio/mp3", description: "audio" },
+      { mediaType: "application/pdf", description: "pdf" },
+      { mediaType: "video/mp4", description: "video" },
     ];
 
-    expect(() => convertToSAPMessages(prompt)).toThrow(
-      "Only image files are supported",
-    );
-  });
+    for (const { mediaType, description } of unsupportedTypes) {
+      const prompt: LanguageModelV2Prompt = [
+        {
+          role: "user",
+          content: [
+            {
+              type: "file",
+              mediaType,
+              data: "base64data",
+            },
+          ],
+        },
+      ];
 
-  it("should throw error for unsupported file types (pdf)", () => {
-    const prompt: LanguageModelV2Prompt = [
-      {
-        role: "user",
-        content: [
-          {
-            type: "file",
-            mediaType: "application/pdf",
-            data: "base64pdfdata",
-          },
-        ],
-      },
-    ];
-
-    expect(() => convertToSAPMessages(prompt)).toThrow(
-      "Only image files are supported",
-    );
+      expect(
+        () => convertToSAPMessages(prompt),
+        `should throw for ${description}`,
+      ).toThrow("Only image files are supported");
+    }
   });
 
   it("should convert multiple tool calls in single assistant message", () => {
