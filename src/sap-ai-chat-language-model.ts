@@ -863,14 +863,21 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                     if (tc.didEmitCall) {
                       continue;
                     }
-                    if (!tc.didEmitInputStart || !tc.toolName) {
+                    if (!tc.didEmitInputStart) {
+                      tc.didEmitInputStart = true;
+                      controller.enqueue({
+                        type: "tool-input-start",
+                        id: tc.id,
+                        toolName: tc.toolName ?? "",
+                      });
+                    }
+
+                    if (!tc.toolName) {
                       warningsOut.push({
                         type: "other",
                         message:
-                          "Received tool-call delta without a tool name. Dropping tool-call output.",
+                          "Received tool-call delta without a tool name. Emitting tool-call with an empty tool name.",
                       });
-                      tc.didEmitCall = true;
-                      continue;
                     }
 
                     tc.didEmitCall = true;
@@ -878,7 +885,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                     controller.enqueue({
                       type: "tool-call",
                       toolCallId: tc.id,
-                      toolName: tc.toolName,
+                      toolName: tc.toolName ?? "",
                       input: tc.arguments,
                     });
                   }
@@ -907,14 +914,22 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               if (tc.didEmitCall) {
                 continue;
               }
-              if (!tc.didEmitInputStart || !tc.toolName) {
+
+              if (!tc.didEmitInputStart) {
+                tc.didEmitInputStart = true;
+                controller.enqueue({
+                  type: "tool-input-start",
+                  id: tc.id,
+                  toolName: tc.toolName ?? "",
+                });
+              }
+
+              if (!tc.toolName) {
                 warningsOut.push({
                   type: "other",
                   message:
-                    "Received tool-call delta without a tool name. Dropping tool-call output.",
+                    "Received tool-call delta without a tool name. Emitting tool-call with an empty tool name.",
                 });
-                tc.didEmitCall = true;
-                continue;
               }
 
               didEmitAnyToolCalls = true;
@@ -923,7 +938,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               controller.enqueue({
                 type: "tool-call",
                 toolCallId: tc.id,
-                toolName: tc.toolName,
+                toolName: tc.toolName ?? "",
                 input: tc.arguments,
               });
             }
@@ -1003,6 +1018,7 @@ function mapFinishReason(
   switch (reason.toLowerCase()) {
     case "stop":
     case "end_turn":
+    case "stop_sequence":
       return "stop";
     case "length":
     case "max_tokens":

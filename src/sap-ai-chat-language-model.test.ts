@@ -895,6 +895,40 @@ describe("SAPAIChatLanguageModel", () => {
       }
     });
 
+    it("should handle stream with 'stop_sequence' finish reason", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "Hi",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "stop_sequence",
+          getTokenUsage: () => ({
+            prompt_tokens: 1,
+            completion_tokens: 1,
+            total_tokens: 2,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("stop");
+      }
+    });
+
     it("should handle stream with 'content_filter' finish reason", async () => {
       const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
       const MockClient = OrchestrationClient as unknown as {
@@ -1798,9 +1832,13 @@ describe("SAPAIChatLanguageModel", () => {
         parts.push(value);
       }
 
-      // Should not have a tool-call part (it was dropped)
+      // Should have a tool-call part even if tool name is missing.
       const toolCall = parts.find((p) => p.type === "tool-call");
-      expect(toolCall).toBeUndefined();
+      expect(toolCall).toBeDefined();
+      if (toolCall?.type === "tool-call") {
+        expect(toolCall.toolName).toBe("");
+        expect(toolCall.input).toBe('{"x":1}');
+      }
 
       // Warning should be surfaced on the result (not retroactively in stream-start)
       const streamStart = parts.find(
