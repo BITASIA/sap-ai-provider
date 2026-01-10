@@ -11,9 +11,21 @@ import type {
 vi.mock("@sap-ai-sdk/orchestration", () => {
   class MockOrchestrationClient {
     static lastChatCompletionRequest: unknown;
+    static chatCompletionError: Error | undefined;
+
+    static setChatCompletionError(error: Error) {
+      MockOrchestrationClient.chatCompletionError = error;
+    }
 
     chatCompletion = vi.fn().mockImplementation((request) => {
       MockOrchestrationClient.lastChatCompletionRequest = request;
+
+      const errorToThrow = MockOrchestrationClient.chatCompletionError;
+      if (errorToThrow) {
+        MockOrchestrationClient.chatCompletionError = undefined;
+        throw errorToThrow;
+      }
+
       const messages = (request as { messages?: unknown[] }).messages;
       const hasImage =
         messages?.some(
@@ -266,6 +278,37 @@ describe("SAPAIChatLanguageModel", () => {
       expect(result.response.headers).toBeDefined();
       expect(result.response.headers).toMatchObject({
         "x-request-id": "test-request-id",
+      });
+    });
+
+    it("should propagate axios response headers into doGenerate errors", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setChatCompletionError: (error: Error) => void;
+      };
+
+      const axiosError = new Error("Request failed") as Error & {
+        isAxiosError: boolean;
+        response: { headers: Record<string, string> };
+      };
+      axiosError.isAxiosError = true;
+      axiosError.response = {
+        headers: {
+          "x-request-id": "do-generate-axios-123",
+        },
+      };
+
+      MockClient.setChatCompletionError(axiosError);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      await expect(model.doGenerate({ prompt })).rejects.toMatchObject({
+        responseHeaders: {
+          "x-request-id": "do-generate-axios-123",
+        },
       });
     });
 
