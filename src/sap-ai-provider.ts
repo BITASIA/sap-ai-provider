@@ -208,12 +208,10 @@ export function createSAPAIProvider(
 ): SAPAIProvider {
   const resourceGroup = options.resourceGroup ?? "default";
 
-  // Build deployment config for SAP AI SDK
   const deploymentConfig: DeploymentConfig = options.deploymentId
     ? { deploymentId: options.deploymentId }
     : { resourceGroup };
 
-  // Create the model factory function
   const createModel = (modelId: SAPAIModelId, settings: SAPAISettings = {}) => {
     const mergedSettings: SAPAISettings = {
       ...options.defaultSettings,
@@ -231,7 +229,6 @@ export function createSAPAIProvider(
     });
   };
 
-  // Create the provider function
   const provider = function (modelId: SAPAIModelId, settings?: SAPAISettings) {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (new.target) {

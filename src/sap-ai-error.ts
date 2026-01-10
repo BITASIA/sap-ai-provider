@@ -47,21 +47,19 @@ export function convertSAPErrorToAPICallError(
 ): APICallError {
   const error = errorResponse.error;
 
-  // Handle both single error and error list
   let message: string;
   let code: number | undefined;
   let location: string | undefined;
   let requestId: string | undefined;
 
   if (Array.isArray(error)) {
-    // ErrorList - get first error (array is never empty based on SAP AI SDK behavior)
+    // SAP AI SDK ErrorList is never empty; use first error
     const firstError = error[0];
     message = firstError.message;
     code = firstError.code;
     location = firstError.location;
     requestId = firstError.request_id;
   } else {
-    // Single Error object
     message = error.message;
     code = error.code;
     location = error.location;
@@ -70,7 +68,6 @@ export function convertSAPErrorToAPICallError(
 
   const statusCode = getStatusCodeFromSAPError(code);
 
-  // Build detailed error response body with SAP-specific metadata
   const responseBody = JSON.stringify({
     error: {
       message,
@@ -80,7 +77,6 @@ export function convertSAPErrorToAPICallError(
     },
   });
 
-  // Add helpful context to error message based on error type
   let enhancedMessage = message;
 
   if (statusCode === 401 || statusCode === 403) {
@@ -124,7 +120,6 @@ function isOrchestrationErrorResponse(
   const errorEnvelope = error as { error?: unknown };
   const innerError = errorEnvelope.error;
 
-  // Must be present (array/object)
   if (innerError === undefined) return false;
 
   if (Array.isArray(innerError)) {
@@ -209,12 +204,10 @@ export function convertToAISDKError(
     responseHeaders?: Record<string, string>;
   },
 ): APICallError | LoadAPIKeyError {
-  // If it's already a Vercel AI SDK error, return as-is
   if (error instanceof APICallError || error instanceof LoadAPIKeyError) {
     return error;
   }
 
-  // Handle SAP AI SDK OrchestrationErrorResponse
   if (isOrchestrationErrorResponse(error)) {
     return convertSAPErrorToAPICallError(error, {
       ...context,
@@ -226,7 +219,6 @@ export function convertToAISDKError(
   const responseHeaders =
     context?.responseHeaders ?? getAxiosResponseHeaders(error);
 
-  // Handle authentication errors
   if (error instanceof Error) {
     const errorMsg = error.message.toLowerCase();
     if (
@@ -240,7 +232,6 @@ export function convertToAISDKError(
       });
     }
 
-    // Handle network/connection errors
     if (
       errorMsg.includes("econnrefused") ||
       errorMsg.includes("enotfound") ||
@@ -259,7 +250,6 @@ export function convertToAISDKError(
     }
   }
 
-  // Generic error - wrap in APICallError
   const message =
     error instanceof Error
       ? error.message
