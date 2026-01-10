@@ -29,6 +29,11 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
       }
 
       return Promise.resolve({
+        rawResponse: {
+          headers: {
+            "x-request-id": "test-request-id",
+          },
+        },
         getContent: () => "Hello!",
         getToolCalls: () => undefined,
         getTokenUsage: () => ({
@@ -257,6 +262,10 @@ describe("SAPAIChatLanguageModel", () => {
         inputTokens: 10,
         outputTokens: 5,
         totalTokens: 15,
+      });
+      expect(result.response.headers).toBeDefined();
+      expect(result.response.headers).toMatchObject({
+        "x-request-id": "test-request-id",
       });
     });
 

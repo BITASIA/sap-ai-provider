@@ -576,6 +576,21 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         response_format: promptTemplating.prompt.response_format,
       };
       const response = await client.chatCompletion(requestBody);
+      const responseHeadersRaw = response.rawResponse.headers as
+        | Record<string, unknown>
+        | undefined;
+      const responseHeaders = responseHeadersRaw
+        ? Object.fromEntries(
+            Object.entries(responseHeadersRaw).flatMap(([key, value]) => {
+              if (typeof value === "string") return [[key, value]];
+              if (Array.isArray(value)) return [[key, value.join(",")]];
+              if (typeof value === "number" || typeof value === "boolean") {
+                return [[key, String(value)]];
+              }
+              return [];
+            }),
+          )
+        : undefined;
 
       const content: LanguageModelV2Content[] = [];
 
@@ -636,6 +651,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         response: {
           timestamp: new Date(),
           modelId: this.modelId,
+          headers: responseHeaders,
           body: rawResponseBody,
         },
         warnings,
