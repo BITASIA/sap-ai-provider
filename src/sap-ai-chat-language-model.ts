@@ -15,14 +15,14 @@ import {
   ChatCompletionTool,
 } from "@sap-ai-sdk/orchestration";
 import type { LlmModelParams } from "@sap-ai-sdk/orchestration";
-import type { Template } from "@sap-ai-sdk/orchestration/dist/client/api/schema/template.js";
 import type { HttpDestinationOrFetchOptions } from "@sap-cloud-sdk/connectivity";
 import type {
   ResourceGroupConfig,
   DeploymentIdConfig,
 } from "@sap-ai-sdk/ai-api/internal.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import type { ZodSchema } from "zod/v3";
+import type { ZodType } from "zod/v3";
+import type { Template } from "@sap-ai-sdk/orchestration/dist/client/api/schema/template.js";
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
 import { convertToAISDKError } from "./sap-ai-error";
@@ -97,7 +97,7 @@ function hasCallableParse(
   return typeof obj.parse === "function";
 }
 
-function isZodSchema(obj: unknown): obj is ZodSchema {
+function isZodSchema(obj: unknown): obj is ZodType {
   if (obj === null || typeof obj !== "object") {
     return false;
   }
@@ -204,10 +204,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * Checks if a URL is supported for file/image uploads.
    *
    * @param url - The URL to check
-   * @returns True if the URL protocol is HTTPS
+   * @returns True if the URL protocol is HTTPS or data
    */
   supportsUrl(url: URL): boolean {
-    return url.protocol === "https:";
+    return url.protocol === "https:" || url.protocol === "data:";
   }
 
   /**

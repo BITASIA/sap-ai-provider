@@ -36,7 +36,7 @@ interface UserContentItem {
  * - Conversation history
  *
  * **Limitations:**
- * - Images must be in data URL format or accessible HTTP URLs
+ * - Images must be in data URL format or accessible HTTPS URLs
  * - Audio messages are not supported
  * - File attachments (non-image) are not supported
  * - Reasoning parts are included in assistant text as `<reasoning>...</reasoning>` markers
@@ -179,7 +179,12 @@ export function convertToSAPMessages(
                 type: "function",
                 function: {
                   name: part.toolName,
-                  arguments: JSON.stringify(part.input),
+                  // AI SDK tool-call input can be either a JSON string or an object.
+                  // SAP expects arguments as a JSON string.
+                  arguments:
+                    typeof part.input === "string"
+                      ? part.input
+                      : JSON.stringify(part.input),
                 },
               });
               break;

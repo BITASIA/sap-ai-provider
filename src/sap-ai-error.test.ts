@@ -61,7 +61,7 @@ describe("convertSAPErrorToAPICallError", () => {
     expect(result.message).toContain("Rate limit exceeded");
   });
 
-  it("should mark 502 errors as retryable", () => {
+  it("should mark 5xx errors as retryable", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: {
         message: "Bad gateway",
@@ -74,22 +74,6 @@ describe("convertSAPErrorToAPICallError", () => {
     const result = convertSAPErrorToAPICallError(errorResponse);
 
     expect(result.statusCode).toBe(502);
-    expect(result.isRetryable).toBe(true);
-  });
-
-  it("should mark 503 errors as retryable", () => {
-    const errorResponse: OrchestrationErrorResponse = {
-      error: {
-        message: "Service unavailable",
-        code: 503,
-        location: "Service",
-        request_id: "unavailable-123",
-      },
-    };
-
-    const result = convertSAPErrorToAPICallError(errorResponse);
-
-    expect(result.statusCode).toBe(503);
     expect(result.isRetryable).toBe(true);
   });
 

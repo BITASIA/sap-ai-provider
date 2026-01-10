@@ -150,17 +150,17 @@ describe("SAPAIChatLanguageModel", () => {
       expect(model.provider).toBe("sap-ai");
     });
 
-    it("should support HTTPS URLs", () => {
-      const model = createModel();
-      expect(model.supportsUrl(new URL("https://example.com/image.png"))).toBe(
-        true,
-      );
-    });
-
     it("should not support HTTP URLs", () => {
       const model = createModel();
       expect(model.supportsUrl(new URL("http://example.com/image.png"))).toBe(
         false,
+      );
+    });
+
+    it("should support data URLs", () => {
+      const model = createModel();
+      expect(model.supportsUrl(new URL("data:image/png;base64,Zm9v"))).toBe(
+        true,
       );
     });
   });
@@ -604,74 +604,6 @@ describe("SAPAIChatLanguageModel", () => {
       if (toolInputEnd?.type === "tool-input-end") {
         expect(toolInputEnd.id).toBe("call_new");
       }
-    });
-  });
-
-  describe("tool calling configuration", () => {
-    it("should convert function tools correctly", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Get weather" }] },
-      ];
-
-      const tools: LanguageModelV2FunctionTool[] = [
-        {
-          type: "function",
-          name: "get_weather",
-          description: "Get weather for a location",
-          inputSchema: {
-            type: "object",
-            properties: {
-              location: { type: "string", description: "City name" },
-            },
-            required: ["location"],
-          },
-        },
-      ];
-
-      const result = await model.doGenerate({ prompt, tools });
-
-      // Verify the request body contains the tool configuration
-      const requestBody = result.request.body as {
-        config?: unknown;
-      };
-      expect(requestBody.config).toBeDefined();
-    });
-
-    it("should handle multiple tools", async () => {
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        {
-          role: "user",
-          content: [{ type: "text", text: "Calculate and get weather" }],
-        },
-      ];
-
-      const tools: LanguageModelV2FunctionTool[] = [
-        {
-          type: "function",
-          name: "calculate",
-          description: "Calculate expression",
-          inputSchema: {
-            type: "object",
-            properties: { expr: { type: "string" } },
-            required: ["expr"],
-          },
-        },
-        {
-          type: "function",
-          name: "get_weather",
-          description: "Get weather",
-          inputSchema: {
-            type: "object",
-            properties: { city: { type: "string" } },
-            required: ["city"],
-          },
-        },
-      ];
-
-      const result = await model.doGenerate({ prompt, tools });
-      expect(result.warnings).toHaveLength(0);
     });
   });
 

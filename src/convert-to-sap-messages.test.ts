@@ -134,6 +134,40 @@ describe("convertToSAPMessages", () => {
     });
   });
 
+  it("should not double-encode tool-call input when already a JSON string", () => {
+    const prompt: LanguageModelV2Prompt = [
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool-call",
+            toolCallId: "call_123",
+            toolName: "get_weather",
+            input: '{"location":"Tokyo"}',
+          },
+        ],
+      },
+    ];
+
+    const result = convertToSAPMessages(prompt);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      role: "assistant",
+      content: "",
+      tool_calls: [
+        {
+          id: "call_123",
+          type: "function",
+          function: {
+            name: "get_weather",
+            arguments: '{"location":"Tokyo"}',
+          },
+        },
+      ],
+    });
+  });
+
   it("should convert tool result message", () => {
     const prompt: LanguageModelV2Prompt = [
       {
