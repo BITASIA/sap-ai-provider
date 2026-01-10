@@ -50,64 +50,56 @@ function validateModelParameters(
   },
   warnings: LanguageModelV2CallWarning[],
 ): void {
-  // Temperature: typically [0, 2] for most models (OpenAI standard)
-  if (params.temperature !== undefined) {
-    if (params.temperature < 0 || params.temperature > 2) {
-      warnings.push({
-        type: "other",
-        message: `temperature=${String(params.temperature)} is outside typical range [0, 2]. The API may reject this value.`,
-      });
-    }
+  // Heuristic range checks (provider/model-specific constraints may differ).
+  if (
+    params.temperature !== undefined &&
+    (params.temperature < 0 || params.temperature > 2)
+  ) {
+    warnings.push({
+      type: "other",
+      message: `temperature=${String(params.temperature)} is outside typical range [0, 2]. The API may reject this value.`,
+    });
   }
 
-  // topP: probability mass [0, 1]
-  if (params.topP !== undefined) {
-    if (params.topP < 0 || params.topP > 1) {
-      warnings.push({
-        type: "other",
-        message: `topP=${String(params.topP)} is outside valid range [0, 1]. The API may reject this value.`,
-      });
-    }
+  if (params.topP !== undefined && (params.topP < 0 || params.topP > 1)) {
+    warnings.push({
+      type: "other",
+      message: `topP=${String(params.topP)} is outside valid range [0, 1]. The API may reject this value.`,
+    });
   }
 
-  // Frequency penalty: typically [-2, 2] (OpenAI standard)
-  if (params.frequencyPenalty !== undefined) {
-    if (params.frequencyPenalty < -2 || params.frequencyPenalty > 2) {
-      warnings.push({
-        type: "other",
-        message: `frequencyPenalty=${String(params.frequencyPenalty)} is outside typical range [-2, 2]. The API may reject this value.`,
-      });
-    }
+  if (
+    params.frequencyPenalty !== undefined &&
+    (params.frequencyPenalty < -2 || params.frequencyPenalty > 2)
+  ) {
+    warnings.push({
+      type: "other",
+      message: `frequencyPenalty=${String(params.frequencyPenalty)} is outside typical range [-2, 2]. The API may reject this value.`,
+    });
   }
 
-  // Presence penalty: typically [-2, 2] (OpenAI standard)
-  if (params.presencePenalty !== undefined) {
-    if (params.presencePenalty < -2 || params.presencePenalty > 2) {
-      warnings.push({
-        type: "other",
-        message: `presencePenalty=${String(params.presencePenalty)} is outside typical range [-2, 2]. The API may reject this value.`,
-      });
-    }
+  if (
+    params.presencePenalty !== undefined &&
+    (params.presencePenalty < -2 || params.presencePenalty > 2)
+  ) {
+    warnings.push({
+      type: "other",
+      message: `presencePenalty=${String(params.presencePenalty)} is outside typical range [-2, 2]. The API may reject this value.`,
+    });
   }
 
-  // Max tokens: should be positive
-  if (params.maxTokens !== undefined) {
-    if (params.maxTokens <= 0) {
-      warnings.push({
-        type: "other",
-        message: `maxTokens=${String(params.maxTokens)} must be positive. The API will likely reject this value.`,
-      });
-    }
+  if (params.maxTokens !== undefined && params.maxTokens <= 0) {
+    warnings.push({
+      type: "other",
+      message: `maxTokens=${String(params.maxTokens)} must be positive. The API will likely reject this value.`,
+    });
   }
 
-  // n: number of completions, should be positive
-  if (params.n !== undefined) {
-    if (params.n <= 0) {
-      warnings.push({
-        type: "other",
-        message: `n=${String(params.n)} must be positive. The API will likely reject this value.`,
-      });
-    }
+  if (params.n !== undefined && params.n <= 0) {
+    warnings.push({
+      type: "other",
+      message: `n=${String(params.n)} must be positive. The API will likely reject this value.`,
+    });
   }
 }
 
@@ -332,7 +324,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * Checks if a URL is supported for file/image uploads.
    *
    * @param url - The URL to check
-   * @returns True if the URL protocol is HTTPS or data
+   * @returns True if the URL protocol is HTTPS or data (content-type rules are enforced via supportedUrls)
    */
   supportsUrl(url: URL): boolean {
     return url.protocol === "https:" || url.protocol === "data:";
@@ -359,58 +351,27 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
   }
 
   /**
-   * Model Capabilities
+   * Model capabilities.
    *
-   * All capabilities default to `true` assuming modern model behavior.
-   * This avoids maintaining a per-model capability list that becomes outdated.
-   * If a specific model doesn't support a capability, the API will return
-   * an appropriate error at runtime.
-   */
-
-  /**
-   * Whether this model supports image URLs in prompts (vision capability).
-   *
-   * Defaults to `true` as most modern models support vision.
-   * If a model doesn't support images, the API will return an error at runtime.
+   * These defaults assume “modern” model behavior to avoid maintaining a
+   * per-model capability matrix. If a deployment doesn't support a feature,
+   * SAP AI Core will fail the request at runtime.
    */
   readonly supportsImageUrls: boolean = true;
 
-  /**
-   * Whether this model supports structured JSON outputs (json_schema response format).
-   *
-   * Defaults to `true` as most modern models support structured outputs.
-   * If a model doesn't support this, the API will return an error at runtime.
-   */
+  /** Structured JSON outputs (json_schema response format). */
   readonly supportsStructuredOutputs: boolean = true;
 
-  /**
-   * Whether this model supports tool/function calling.
-   *
-   * Defaults to `true` as most modern models support tool calling.
-   * If a model doesn't support tools, the API will return an error at runtime.
-   */
+  /** Tool/function calling. */
   readonly supportsToolCalls: boolean = true;
 
-  /**
-   * Whether this model supports streaming responses.
-   *
-   * Defaults to `true` as all SAP AI Core orchestration models support streaming.
-   */
+  /** Streaming responses. */
   readonly supportsStreaming: boolean = true;
 
-  /**
-   * Whether this model supports the `n` parameter for multiple completions.
-   *
-   * Defaults to `true` as most models support this.
-   * Amazon Bedrock and Anthropic models may not support this parameter.
-   */
+  /** Multiple completions via the `n` parameter (provider-specific support). */
   readonly supportsMultipleCompletions: boolean = true;
 
-  /**
-   * Whether this model supports parallel tool calls.
-   *
-   * Defaults to `true` as most modern models support parallel tool calls.
-   */
+  /** Parallel tool calls. */
   readonly supportsParallelToolCalls: boolean = true;
 
   /**
@@ -776,7 +737,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       };
 
       // SAP AI SDK's chatCompletion() doesn't accept AbortSignal directly
-      // Implement cancellation via Promise.race() when AbortSignal is provided
+      // Implement cancellation via Promise.race() when an AbortSignal is provided
       const response = await (async () => {
         const completionPromise = client.chatCompletion(requestBody);
 
@@ -982,9 +943,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         { promptTemplating: { include_usage: true } },
       );
 
-      // Encapsulate stream state to prevent race conditions with mutable variables
-      // Using an object ensures atomic updates and prevents timing issues where
-      // finishReason and usage might be read before being fully updated
+      // Track stream state in one place to keep updates consistent
       const streamState = {
         finishReason: "unknown" as LanguageModelV2FinishReason,
         usage: {
@@ -1012,10 +971,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
       const warningsSnapshot = [...warnings];
 
-      // `doStream` may discover additional warnings while iterating the upstream
-      // stream (e.g. malformed tool-call deltas). Those warnings should be
-      // observable on the returned result after stream consumption, without
-      // mutating the `stream-start` warnings payload
+      // Warnings may be discovered while consuming the upstream stream
+      // Expose them on the final result without mutating stream-start
       const warningsOut: LanguageModelV2CallWarning[] = [...warningsSnapshot];
 
       const transformedStream = new ReadableStream<LanguageModelV2StreamPart>({
@@ -1038,9 +995,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
               const deltaToolCalls = chunk.getDeltaToolCalls();
               if (Array.isArray(deltaToolCalls) && deltaToolCalls.length > 0) {
-                // Once tool call deltas appear, avoid emitting further text deltas.
-                // Many upstream providers treat tool calls as mutually exclusive
-                // with assistant text.
+                // Once tool call deltas appear, stop emitting text deltas
                 streamState.finishReason = "tool-calls";
               }
 
@@ -1205,10 +1160,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               controller.enqueue({ type: "text-end", id: "0" });
             }
 
-            // Determine final finish reason with server priority
-            // 1. Server's finish reason is authoritative (if provided)
-            // 2. Fall back to client-side detection (tool calls emitted)
-            // 3. Default to 'unknown' if neither is available
+            // Determine final finish reason
+            // Prefer the server value, otherwise fall back to tool-call detection
             const finalFinishReason = streamResponse.getFinishReason();
             if (finalFinishReason) {
               streamState.finishReason = mapFinishReason(finalFinishReason);
@@ -1216,9 +1169,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               streamState.finishReason = "tool-calls";
             }
 
-            // Get final token usage from SAP AI SDK's aggregated response
-            // The SDK accumulates usage across all chunks; use this authoritative
-            // value instead of manually summing individual chunk usage
+            // Get final token usage from the SDK aggregate
             const finalUsage = streamResponse.getTokenUsage();
             if (finalUsage) {
               streamState.usage.inputTokens = finalUsage.prompt_tokens;
@@ -1248,7 +1199,6 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           }
         },
         cancel(reason) {
-          // Stream cancellation handler for proper resource cleanup
           // SAP AI SDK stream auto-closes; log cancellation for debugging
           if (reason) {
             console.debug("SAP AI stream cancelled:", reason);

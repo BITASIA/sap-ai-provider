@@ -72,7 +72,7 @@ export function convertSAPErrorToAPICallError(
   let requestId: string | undefined;
 
   if (Array.isArray(error)) {
-    // SAP AI SDK ErrorList is never empty; use first error
+    // Prefer the first entry when an error list is returned
     const firstError = error[0];
     message = firstError.message;
     code = firstError.code;

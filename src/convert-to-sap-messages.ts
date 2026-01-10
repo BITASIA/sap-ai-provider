@@ -36,14 +36,16 @@ interface UserContentItem {
  * - Text messages (system, user, assistant)
  * - Multi-modal messages (text + images)
  * - Tool calls and tool results
- * - Reasoning parts (converted to text content)
+ * - Reasoning parts (optional)
  * - Conversation history
  *
  * **Limitations:**
  * - Images must be in data URL format or accessible HTTPS URLs
  * - Audio messages are not supported
  * - File attachments (non-image) are not supported
- * - Reasoning parts are included in assistant text as `<reasoning>...</reasoning>` markers
+ *
+ * **Behavior:**
+ * - Reasoning parts are dropped by default; when enabled via `includeReasoning`, they are preserved inline as `<reasoning>...</reasoning>` markers
  *
  * @param prompt - The Vercel AI SDK prompt to convert
  * @param options - Optional conversion settings
@@ -88,8 +90,8 @@ export interface ConvertToSAPMessagesOptions {
   /**
    * Include assistant reasoning parts in the converted messages.
    *
-   * When false (default), reasoning content is dropped to prevent chain-of-thought
-   * leakage. When true, reasoning is preserved as `<reasoning>` XML markers.
+   * When false (default), reasoning content is dropped
+   * When true, reasoning is preserved as `<reasoning>...</reasoning>` markers
    */
   includeReasoning?: boolean;
 }
@@ -161,8 +163,7 @@ export function convertToSAPMessages(
                 const base64Data = Buffer.from(part.data).toString("base64");
                 imageUrl = `data:${part.mediaType};base64,${base64Data}`;
               } else {
-                // Fallback for unknown data types
-                // AI SDK file parts should be URL | string | Uint8Array, but keep a defensive fallback.
+                // Defensive fallback for unexpected data types
                 const maybeBufferLike = part.data as unknown;
 
                 if (
@@ -233,8 +234,7 @@ export function convertToSAPMessages(
             }
             case "reasoning": {
               // SAP AI SDK doesn't support reasoning parts natively
-              // By default (when includeReasoning is false), drop them to avoid leaking chain-of-thought
-              // If explicitly enabled, preserve it as an XML marker
+              // Drop them by default, or preserve as <reasoning>...</reasoning> when enabled
               if (includeReasoning && part.text) {
                 text += `<reasoning>${part.text}</reasoning>`;
               }

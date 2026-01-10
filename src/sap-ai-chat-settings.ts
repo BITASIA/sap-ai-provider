@@ -18,10 +18,8 @@ export interface SAPAISettings {
   /**
    * Whether to include assistant reasoning parts in the SAP prompt conversion.
    *
-   * Reasoning parts may contain chain-of-thought with internal model reasoning
-   * that should not be persisted or shown to users for security/privacy reasons.
-   * Best practice is to keep this disabled (default false) unless you have an
-   * explicit need to persist them.
+   * Reasoning parts may contain internal model reasoning that you may not want
+   * to persist or show to users
    */
   includeReasoning?: boolean;
 
@@ -128,9 +126,10 @@ export interface SAPAISettings {
   filtering?: FilteringModule;
 
   /**
-   * Response format for templating prompt (OpenAI-compatible).
-   * Allows specifying structured output formats.
+   * Response format for templating prompt (OpenAI-compatible)
+   * Allows specifying structured output formats
    *
+
    * @example
    * ```typescript
    * const model = provider('gpt-4o', {
@@ -158,8 +157,9 @@ export interface SAPAISettings {
       };
 
   /**
-   * Tool definitions in SAP AI SDK format.
+   * Tool definitions in SAP AI SDK format
    *
+
    * Use this to pass tools directly with proper JSON Schema definitions.
    * This bypasses the AI SDK's Zod conversion which may have issues.
    *

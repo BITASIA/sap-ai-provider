@@ -293,8 +293,6 @@ export function createSAPAIProvider(
      * // Default tools are completely replaced
      * ```
      */
-    // Settings merge strategy: deep merge modelParams, override complex objects
-    // Complex objects (masking, filtering, tools) use override to avoid unexpected behavior
     const mergedSettings: SAPAISettings = {
       ...options.defaultSettings,
       ...settings,
@@ -302,7 +300,8 @@ export function createSAPAIProvider(
         ...(options.defaultSettings?.modelParams ?? {}),
         ...(settings.modelParams ?? {}),
       },
-      // For complex objects, prefer settings over defaultSettings (override, not merge)
+      // Complex objects: override, do not merge
+
       masking: settings.masking ?? options.defaultSettings?.masking,
       filtering: settings.filtering ?? options.defaultSettings?.filtering,
       tools: settings.tools ?? options.defaultSettings?.tools,
