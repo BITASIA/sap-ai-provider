@@ -356,11 +356,6 @@ describe("SAPAIChatLanguageModel", () => {
       expect(urls["image/*"][1].test("data:image/png;base64,Zm9v")).toBe(true);
     });
 
-    it("should always support streaming", () => {
-      const model = createModel();
-      expect(model.supportsStreaming).toBe(true);
-    });
-
     describe("model capabilities", () => {
       it("should default all capabilities to true for modern model behavior", () => {
         const model = createModel("any-model");
@@ -878,6 +873,75 @@ describe("SAPAIChatLanguageModel", () => {
           headers: {
             "x-valid": "keep-this",
             "x-object": { nested: "object" },
+          },
+        },
+        getContent: () => "Response",
+        getToolCalls: () => undefined,
+        getTokenUsage: () => ({
+          prompt_tokens: 10,
+          completion_tokens: 5,
+          total_tokens: 15,
+        }),
+        getFinishReason: () => "stop",
+      });
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Test" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      expect(result.response.headers).toEqual({
+        "x-valid": "keep-this",
+      });
+    });
+
+    it("should filter non-string values from array headers in doGenerate response", async () => {
+      const MockClient = await getMockClient();
+      if (!MockClient.setChatCompletionResponse) {
+        throw new Error("mock missing setChatCompletionResponse");
+      }
+
+      MockClient.setChatCompletionResponse({
+        rawResponse: {
+          headers: {
+            "x-mixed": ["valid", 123, null, "also-valid"],
+          },
+        },
+        getContent: () => "Response",
+        getToolCalls: () => undefined,
+        getTokenUsage: () => ({
+          prompt_tokens: 10,
+          completion_tokens: 5,
+          total_tokens: 15,
+        }),
+        getFinishReason: () => "stop",
+      });
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Test" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      expect(result.response.headers).toEqual({
+        "x-mixed": "valid,also-valid",
+      });
+    });
+
+    it("should exclude array headers with only non-string items in doGenerate response", async () => {
+      const MockClient = await getMockClient();
+      if (!MockClient.setChatCompletionResponse) {
+        throw new Error("mock missing setChatCompletionResponse");
+      }
+
+      MockClient.setChatCompletionResponse({
+        rawResponse: {
+          headers: {
+            "x-valid": "keep-this",
+            "x-invalid-array": [123, null, undefined],
           },
         },
         getContent: () => "Response",

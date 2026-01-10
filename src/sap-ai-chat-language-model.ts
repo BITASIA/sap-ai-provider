@@ -662,7 +662,12 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         ? Object.fromEntries(
             Object.entries(responseHeadersRaw).flatMap(([key, value]) => {
               if (typeof value === "string") return [[key, value]];
-              if (Array.isArray(value)) return [[key, value.join(",")]];
+              if (Array.isArray(value)) {
+                const strings = value
+                  .filter((item): item is string => typeof item === "string")
+                  .join(",");
+                return strings.length > 0 ? [[key, strings]] : [];
+              }
               if (typeof value === "number" || typeof value === "boolean") {
                 return [[key, String(value)]];
               }
