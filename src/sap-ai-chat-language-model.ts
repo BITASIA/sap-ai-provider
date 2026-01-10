@@ -31,6 +31,10 @@ import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
 import { convertToAISDKError } from "./sap-ai-error";
 
+/**
+ * Creates a summary of the AI SDK request body for error reporting.
+ * @internal
+ */
 function createAISDKRequestBodySummary(options: LanguageModelV2CallOptions): {
   promptMessages: number;
   hasImageParts: boolean;
@@ -65,6 +69,10 @@ function createAISDKRequestBodySummary(options: LanguageModelV2CallOptions): {
   };
 }
 
+/**
+ * Extended SAP model parameters including additional OpenAI-compatible options.
+ * @internal
+ */
 type SAPModelParams = LlmModelParams & {
   top_k?: number;
   stop?: string[];
@@ -72,6 +80,10 @@ type SAPModelParams = LlmModelParams & {
   parallel_tool_calls?: boolean;
 };
 
+/**
+ * SAP tool parameters with required object type.
+ * @internal
+ */
 type SAPToolParameters = Record<string, unknown> & {
   type: "object";
 };
@@ -252,15 +264,14 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     return this.config.provider;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Model Capabilities
-  // ─────────────────────────────────────────────────────────────────────────────
-  //
-  // All capabilities default to `true` assuming modern model behavior.
-  // This avoids maintaining a list of models that becomes outdated.
-  // If a specific model doesn't support a capability, the API will return
-  // an appropriate error at runtime.
-  // ─────────────────────────────────────────────────────────────────────────────
+  /**
+   * Model Capabilities
+   *
+   * All capabilities default to `true` assuming modern model behavior.
+   * This avoids maintaining a list of models that becomes outdated.
+   * If a specific model doesn't support a capability, the API will return
+   * an appropriate error at runtime.
+   */
 
   /**
    * Whether this model supports image URLs in prompts (vision capability).
@@ -433,6 +444,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         .filter((t): t is ChatCompletionTool => t !== null);
     }
 
+    // Amazon Bedrock and Anthropic models don't support the 'n' parameter
+    // (multiple completions in a single request)
     const supportsN =
       !this.modelId.startsWith("amazon--") &&
       !this.modelId.startsWith("anthropic--");
@@ -1102,6 +1115,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
   }
 }
 
+/**
+ * Maps SAP AI finish reason to Vercel AI SDK finish reason.
+ * @internal
+ */
 function mapFinishReason(
   reason: string | undefined,
 ): LanguageModelV2FinishReason {

@@ -219,9 +219,6 @@ export function createSAPAIProvider(
   const warnOnAmbiguousConfig = options.warnOnAmbiguousConfig ?? true;
 
   if (warnOnAmbiguousConfig && options.deploymentId && options.resourceGroup) {
-    // Align with AI SDK provider conventions: when multiple mutually-exclusive
-    // routing options are provided, prefer the most specific one.
-    // Deployment ID wins over resource group.
     console.warn(
       "createSAPAIProvider: both 'deploymentId' and 'resourceGroup' were provided; using 'deploymentId' and ignoring 'resourceGroup'.",
     );

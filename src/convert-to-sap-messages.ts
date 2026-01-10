@@ -12,6 +12,7 @@ import type {
 
 /**
  * User chat message content item for multi-modal messages.
+ * @internal
  */
 interface UserContentItem {
   type: "text" | "image_url";
@@ -178,7 +179,7 @@ export function convertToSAPMessages(
             }
             case "reasoning": {
               // SAP AI SDK doesn't support reasoning parts natively.
-              // By default, drop them to avoid leaking chain-of-thought.
+              // By default (when includeReasoning is false), drop them to avoid leaking chain-of-thought.
               // If explicitly enabled, preserve it as an XML marker.
               if (includeReasoning && part.text) {
                 text += `<reasoning>${part.text}</reasoning>`;

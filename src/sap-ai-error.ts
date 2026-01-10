@@ -29,6 +29,7 @@ function isRetryable(statusCode: number): boolean {
  * @returns APICallError compatible with Vercel AI SDK
  *
  * @example
+ * **Basic Usage**
  * ```typescript
  * try {
  *   await client.chatCompletion({ messages });
@@ -189,6 +190,7 @@ function getAxiosResponseHeaders(
  * @returns APICallError or LoadAPIKeyError
  *
  * @example
+ * **Basic Usage**
  * ```typescript
  * catch (error) {
  *   throw convertToAISDKError(error, { operation: 'doGenerate' });

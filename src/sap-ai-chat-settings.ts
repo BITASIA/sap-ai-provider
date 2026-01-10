@@ -30,8 +30,6 @@ export interface SAPAISettings {
     /**
      * Maximum number of tokens to generate.
      * Higher values allow for longer responses but increase latency and cost.
-     *
-     * Note: The Vercel AI SDK call option is `maxOutputTokens`.
      */
     maxTokens?: number;
 
