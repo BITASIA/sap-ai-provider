@@ -61,7 +61,6 @@ Always reference these instructions first and fallback to search or bash command
   - `npm run prettier-check`
   - `npm run build`
   - `npm run check-build`
-- Include `npm run lint` when touching JS/TS files
 
 ### Manual Testing with Examples
 

@@ -79,6 +79,27 @@ describe("convertToSAPMessages", () => {
     });
   });
 
+  it("should wrap assistant reasoning in XML marker", () => {
+    const prompt: LanguageModelV2Prompt = [
+      {
+        role: "assistant",
+        content: [
+          { type: "reasoning", text: "Hidden chain of thought" },
+          { type: "text", text: "Final answer" },
+        ],
+      },
+    ];
+
+    const result = convertToSAPMessages(prompt);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      role: "assistant",
+      content: "<reasoning>Hidden chain of thought</reasoning>Final answer",
+      tool_calls: undefined,
+    });
+  });
+
   it("should convert assistant message with tool calls", () => {
     const prompt: LanguageModelV2Prompt = [
       {

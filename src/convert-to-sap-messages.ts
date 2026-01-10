@@ -39,7 +39,7 @@ interface UserContentItem {
  * - Images must be in data URL format or accessible HTTP URLs
  * - Audio messages are not supported
  * - File attachments (non-image) are not supported
- * - Reasoning parts are included as plain text (no special handling)
+ * - Reasoning parts are included in assistant text as `<reasoning>...</reasoning>` markers
  *
  * @param prompt - The Vercel AI SDK prompt to convert
  * @returns Array of SAP AI SDK compatible ChatMessage objects
@@ -166,11 +166,10 @@ export function convertToSAPMessages(
               break;
             }
             case "reasoning": {
-              // SAP AI SDK doesn't support reasoning parts natively
-              // Include reasoning text as part of the regular text content
-              // to preserve context in the conversation history
+              // SAP AI SDK doesn't support reasoning parts natively.
+              // Preserve it as an XML marker so downstream consumers can strip it.
               if (part.text) {
-                text += part.text;
+                text += `<reasoning>${part.text}</reasoning>`;
               }
               break;
             }
