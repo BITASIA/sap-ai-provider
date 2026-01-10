@@ -590,4 +590,173 @@ describe("convertToAISDKError", () => {
     expect(result.message).toContain("First error in list");
     expect(result.statusCode).toBe(400);
   });
+
+  it("should return undefined when error property is explicitly undefined", () => {
+    const malformed = { error: undefined } as unknown;
+
+    const result = convertToAISDKError(malformed);
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.message).toContain("Unknown error occurred");
+  });
+
+  it("should normalize array header values from axios errors by joining with comma", () => {
+    const axiosError = new Error("Request failed") as unknown as {
+      isAxiosError: boolean;
+      response: { headers: Record<string, unknown> };
+    };
+    axiosError.isAxiosError = true;
+    axiosError.response = {
+      headers: {
+        "x-multi-value": ["value1", "value2", "value3"],
+      },
+    };
+
+    const result = convertToAISDKError(axiosError) as APICallError;
+
+    expect(result.responseHeaders).toEqual({
+      "x-multi-value": "value1,value2,value3",
+    });
+  });
+
+  it("should filter non-string values from array headers in axios errors", () => {
+    const axiosError = new Error("Request failed") as unknown as {
+      isAxiosError: boolean;
+      response: { headers: Record<string, unknown> };
+    };
+    axiosError.isAxiosError = true;
+    axiosError.response = {
+      headers: {
+        "x-mixed": ["valid", 123, null, "also-valid"],
+      },
+    };
+
+    const result = convertToAISDKError(axiosError) as APICallError;
+
+    expect(result.responseHeaders).toEqual({
+      "x-mixed": "valid,also-valid",
+    });
+  });
+
+  it("should exclude array headers with only non-string items from axios errors", () => {
+    const axiosError = new Error("Request failed") as unknown as {
+      isAxiosError: boolean;
+      response: { headers: Record<string, unknown> };
+    };
+    axiosError.isAxiosError = true;
+    axiosError.response = {
+      headers: {
+        "x-valid": "keep-this",
+        "x-invalid-array": [123, null, undefined],
+      },
+    };
+
+    const result = convertToAISDKError(axiosError) as APICallError;
+
+    expect(result.responseHeaders).toEqual({
+      "x-valid": "keep-this",
+    });
+  });
+
+  it("should convert number header values to strings from axios errors", () => {
+    const axiosError = new Error("Request failed") as unknown as {
+      isAxiosError: boolean;
+      response: { headers: Record<string, unknown> };
+    };
+    axiosError.isAxiosError = true;
+    axiosError.response = {
+      headers: {
+        "x-numeric": 42,
+        "content-length": 1024,
+      },
+    };
+
+    const result = convertToAISDKError(axiosError) as APICallError;
+
+    expect(result.responseHeaders).toEqual({
+      "x-numeric": "42",
+      "content-length": "1024",
+    });
+  });
+
+  it("should convert boolean header values to strings from axios errors", () => {
+    const axiosError = new Error("Request failed") as unknown as {
+      isAxiosError: boolean;
+      response: { headers: Record<string, unknown> };
+    };
+    axiosError.isAxiosError = true;
+    axiosError.response = {
+      headers: {
+        "x-enabled": true,
+        "x-disabled": false,
+      },
+    };
+
+    const result = convertToAISDKError(axiosError) as APICallError;
+
+    expect(result.responseHeaders).toEqual({
+      "x-enabled": "true",
+      "x-disabled": "false",
+    });
+  });
+
+  it("should skip object and unsupported header value types from axios errors", () => {
+    const axiosError = new Error("Request failed") as unknown as {
+      isAxiosError: boolean;
+      response: { headers: Record<string, unknown> };
+    };
+    axiosError.isAxiosError = true;
+    axiosError.response = {
+      headers: {
+        "x-valid": "valid-value",
+        "x-object": { nested: "object" },
+      },
+    };
+
+    const result = convertToAISDKError(axiosError) as APICallError;
+
+    expect(result.responseHeaders).toEqual({
+      "x-valid": "valid-value",
+    });
+  });
+
+  it("should return undefined when all axios header values are unsupported types", () => {
+    const axiosError = new Error("Request failed") as unknown as {
+      isAxiosError: boolean;
+      response: { headers: Record<string, unknown> };
+    };
+    axiosError.isAxiosError = true;
+    axiosError.response = {
+      headers: {
+        "x-object": { nested: "object" },
+      },
+    };
+
+    const result = convertToAISDKError(axiosError) as APICallError;
+
+    expect(result.responseHeaders).toBeUndefined();
+  });
+
+  it("should return undefined for null axios headers", () => {
+    const axiosError = new Error("Request failed") as unknown as {
+      isAxiosError: boolean;
+      response: { headers: null };
+    };
+    axiosError.isAxiosError = true;
+    axiosError.response = {
+      headers: null,
+    };
+
+    const result = convertToAISDKError(axiosError) as APICallError;
+
+    expect(result.responseHeaders).toBeUndefined();
+  });
+
+  it("should return undefined when rootCause is not an object", () => {
+    const primitiveError = "just a string error";
+
+    const result = convertToAISDKError(primitiveError) as APICallError;
+
+    expect(result.responseHeaders).toBeUndefined();
+  });
 });

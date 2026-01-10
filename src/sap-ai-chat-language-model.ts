@@ -252,6 +252,62 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     return this.config.provider;
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Model Capabilities
+  // ─────────────────────────────────────────────────────────────────────────────
+  //
+  // All capabilities default to `true` assuming modern model behavior.
+  // This avoids maintaining a list of models that becomes outdated.
+  // If a specific model doesn't support a capability, the API will return
+  // an appropriate error at runtime.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Whether this model supports image URLs in prompts (vision capability).
+   *
+   * Defaults to `true` as most modern models support vision.
+   * If a model doesn't support images, the API will return an error at runtime.
+   */
+  readonly supportsImageUrls: boolean = true;
+
+  /**
+   * Whether this model supports structured JSON outputs (json_schema response format).
+   *
+   * Defaults to `true` as most modern models support structured outputs.
+   * If a model doesn't support this, the API will return an error at runtime.
+   */
+  readonly supportsStructuredOutputs: boolean = true;
+
+  /**
+   * Whether this model supports tool/function calling.
+   *
+   * Defaults to `true` as most modern models support tool calling.
+   * If a model doesn't support tools, the API will return an error at runtime.
+   */
+  readonly supportsToolCalls: boolean = true;
+
+  /**
+   * Whether this model supports streaming responses.
+   *
+   * Defaults to `true` as all SAP AI Core orchestration models support streaming.
+   */
+  readonly supportsStreaming: boolean = true;
+
+  /**
+   * Whether this model supports the `n` parameter for multiple completions.
+   *
+   * Defaults to `true` as most models support this.
+   * Amazon Bedrock and Anthropic models may not support this parameter.
+   */
+  readonly supportsMultipleCompletions: boolean = true;
+
+  /**
+   * Whether this model supports parallel tool calls.
+   *
+   * Defaults to `true` as most modern models support parallel tool calls.
+   */
+  readonly supportsParallelToolCalls: boolean = true;
+
   /**
    * Builds orchestration module config for SAP AI SDK.
    *
