@@ -643,6 +643,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         providerMetadata: {
           "sap-ai": {
             finishReason: finishReasonRaw ?? "unknown",
+            finishReasonMapped: finishReason,
+            ...(typeof responseHeaders?.["x-request-id"] === "string"
+              ? { requestId: responseHeaders["x-request-id"] }
+              : {}),
           },
         },
         request: {

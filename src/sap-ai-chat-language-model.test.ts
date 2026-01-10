@@ -279,6 +279,11 @@ describe("SAPAIChatLanguageModel", () => {
       expect(result.response.headers).toMatchObject({
         "x-request-id": "test-request-id",
       });
+      expect(result.providerMetadata?.["sap-ai"]).toMatchObject({
+        finishReason: "stop",
+        finishReasonMapped: "stop",
+        requestId: "test-request-id",
+      });
     });
 
     it("should propagate axios response headers into doGenerate errors", async () => {
