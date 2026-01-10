@@ -365,34 +365,34 @@ describe("SAPAIChatLanguageModel", () => {
         const model = createModel("any-model");
 
         // All capabilities default to true - no model list maintenance needed
-        expect(model.supportsImageUrls).toBe(true);
-        expect(model.supportsStructuredOutputs).toBe(true);
-        expect(model.supportsToolCalls).toBe(true);
-        expect(model.supportsStreaming).toBe(true);
-        expect(model.supportsMultipleCompletions).toBe(true);
-        expect(model.supportsParallelToolCalls).toBe(true);
+        expect(model).toMatchObject({
+          supportsImageUrls: true,
+          supportsStructuredOutputs: true,
+          supportsToolCalls: true,
+          supportsStreaming: true,
+          supportsMultipleCompletions: true,
+          supportsParallelToolCalls: true,
+        });
       });
 
-      it("should have consistent capabilities across different model IDs", () => {
+      it.each([
+        "gpt-4o",
+        "anthropic--claude-3.5-sonnet",
+        "gemini-2.0-flash",
+        "amazon--nova-pro",
+        "mistralai--mistral-large-instruct",
+        "unknown-future-model",
+      ])("should have consistent capabilities for model %s", (modelId) => {
         // Capabilities are static defaults, not model-dependent
-        const models = [
-          "gpt-4o",
-          "anthropic--claude-3.5-sonnet",
-          "gemini-2.0-flash",
-          "amazon--nova-pro",
-          "mistralai--mistral-large-instruct",
-          "unknown-future-model",
-        ];
-
-        for (const modelId of models) {
-          const model = createModel(modelId);
-          expect(model.supportsImageUrls).toBe(true);
-          expect(model.supportsStructuredOutputs).toBe(true);
-          expect(model.supportsToolCalls).toBe(true);
-          expect(model.supportsStreaming).toBe(true);
-          expect(model.supportsMultipleCompletions).toBe(true);
-          expect(model.supportsParallelToolCalls).toBe(true);
-        }
+        const model = createModel(modelId);
+        expect(model).toMatchObject({
+          supportsImageUrls: true,
+          supportsStructuredOutputs: true,
+          supportsToolCalls: true,
+          supportsStreaming: true,
+          supportsMultipleCompletions: true,
+          supportsParallelToolCalls: true,
+        });
       });
     });
   });
@@ -773,171 +773,85 @@ describe("SAPAIChatLanguageModel", () => {
       expect(result.finishReason).toBe("tool-calls");
     });
 
-    it("should normalize array header values in doGenerate response", async () => {
-      const MockClient = await getMockClient();
-      if (!MockClient.setChatCompletionResponse) {
-        throw new Error("mock missing setChatCompletionResponse");
-      }
-
-      MockClient.setChatCompletionResponse({
-        rawResponse: {
-          headers: {
-            "x-request-id": "array-header-test",
-            "x-multi-value": ["value1", "value2"],
-          },
+    it.each([
+      {
+        description: "normalize array header values",
+        headers: {
+          "x-request-id": "array-header-test",
+          "x-multi-value": ["value1", "value2"],
         },
-        getContent: () => "Response",
-        getToolCalls: () => undefined,
-        getTokenUsage: () => ({
-          prompt_tokens: 10,
-          completion_tokens: 5,
-          total_tokens: 15,
-        }),
-        getFinishReason: () => "stop",
-      });
-
-      const model = createModel();
-      const prompt = createPrompt("Test");
-
-      const result = await model.doGenerate({ prompt });
-
-      expect(result.response.headers).toEqual({
-        "x-request-id": "array-header-test",
-        "x-multi-value": "value1,value2",
-      });
-    });
-
-    it("should convert numeric header values to strings in doGenerate response", async () => {
-      const MockClient = await getMockClient();
-      if (!MockClient.setChatCompletionResponse) {
-        throw new Error("mock missing setChatCompletionResponse");
-      }
-
-      MockClient.setChatCompletionResponse({
-        rawResponse: {
-          headers: {
-            "content-length": 1024,
-            "x-retry-after": 30,
-          },
+        expected: {
+          "x-request-id": "array-header-test",
+          "x-multi-value": "value1,value2",
         },
-        getContent: () => "Response",
-        getToolCalls: () => undefined,
-        getTokenUsage: () => ({
-          prompt_tokens: 10,
-          completion_tokens: 5,
-          total_tokens: 15,
-        }),
-        getFinishReason: () => "stop",
-      });
-
-      const model = createModel();
-      const prompt = createPrompt("Test");
-
-      const result = await model.doGenerate({ prompt });
-
-      expect(result.response.headers).toEqual({
-        "content-length": "1024",
-        "x-retry-after": "30",
-      });
-    });
-
-    it("should skip unsupported header value types in doGenerate response", async () => {
-      const MockClient = await getMockClient();
-      if (!MockClient.setChatCompletionResponse) {
-        throw new Error("mock missing setChatCompletionResponse");
-      }
-
-      MockClient.setChatCompletionResponse({
-        rawResponse: {
-          headers: {
-            "x-valid": "keep-this",
-            "x-object": { nested: "object" },
-          },
+      },
+      {
+        description: "convert numeric header values to strings",
+        headers: {
+          "content-length": 1024,
+          "x-retry-after": 30,
         },
-        getContent: () => "Response",
-        getToolCalls: () => undefined,
-        getTokenUsage: () => ({
-          prompt_tokens: 10,
-          completion_tokens: 5,
-          total_tokens: 15,
-        }),
-        getFinishReason: () => "stop",
-      });
-
-      const model = createModel();
-      const prompt = createPrompt("Test");
-
-      const result = await model.doGenerate({ prompt });
-
-      expect(result.response.headers).toEqual({
-        "x-valid": "keep-this",
-      });
-    });
-
-    it("should filter non-string values from array headers in doGenerate response", async () => {
-      const MockClient = await getMockClient();
-      if (!MockClient.setChatCompletionResponse) {
-        throw new Error("mock missing setChatCompletionResponse");
-      }
-
-      MockClient.setChatCompletionResponse({
-        rawResponse: {
-          headers: {
-            "x-mixed": ["valid", 123, null, "also-valid"],
-          },
+        expected: {
+          "content-length": "1024",
+          "x-retry-after": "30",
         },
-        getContent: () => "Response",
-        getToolCalls: () => undefined,
-        getTokenUsage: () => ({
-          prompt_tokens: 10,
-          completion_tokens: 5,
-          total_tokens: 15,
-        }),
-        getFinishReason: () => "stop",
-      });
-
-      const model = createModel();
-      const prompt = createPrompt("Test");
-
-      const result = await model.doGenerate({ prompt });
-
-      expect(result.response.headers).toEqual({
-        "x-mixed": "valid,also-valid",
-      });
-    });
-
-    it("should exclude array headers with only non-string items in doGenerate response", async () => {
-      const MockClient = await getMockClient();
-      if (!MockClient.setChatCompletionResponse) {
-        throw new Error("mock missing setChatCompletionResponse");
-      }
-
-      MockClient.setChatCompletionResponse({
-        rawResponse: {
-          headers: {
-            "x-valid": "keep-this",
-            "x-invalid-array": [123, null, undefined],
-          },
+      },
+      {
+        description: "skip unsupported header value types",
+        headers: {
+          "x-valid": "keep-this",
+          "x-object": { nested: "object" },
         },
-        getContent: () => "Response",
-        getToolCalls: () => undefined,
-        getTokenUsage: () => ({
-          prompt_tokens: 10,
-          completion_tokens: 5,
-          total_tokens: 15,
-        }),
-        getFinishReason: () => "stop",
-      });
+        expected: {
+          "x-valid": "keep-this",
+        },
+      },
+      {
+        description: "filter non-string values from array headers",
+        headers: {
+          "x-mixed": ["valid", 123, null, "also-valid"],
+        },
+        expected: {
+          "x-mixed": "valid,also-valid",
+        },
+      },
+      {
+        description: "exclude array headers with only non-string items",
+        headers: {
+          "x-valid": "keep-this",
+          "x-invalid-array": [123, null, undefined],
+        },
+        expected: {
+          "x-valid": "keep-this",
+        },
+      },
+    ])(
+      "should $description in doGenerate response",
+      async ({ headers, expected }) => {
+        const MockClient = await getMockClient();
+        if (!MockClient.setChatCompletionResponse) {
+          throw new Error("mock missing setChatCompletionResponse");
+        }
 
-      const model = createModel();
-      const prompt = createPrompt("Test");
+        MockClient.setChatCompletionResponse({
+          rawResponse: { headers },
+          getContent: () => "Response",
+          getToolCalls: () => undefined,
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 5,
+            total_tokens: 15,
+          }),
+          getFinishReason: () => "stop",
+        });
 
-      const result = await model.doGenerate({ prompt });
+        const model = createModel();
+        const prompt = createPrompt("Test");
+        const result = await model.doGenerate({ prompt });
 
-      expect(result.response.headers).toEqual({
-        "x-valid": "keep-this",
-      });
-    });
+        expect(result.response.headers).toEqual(expected);
+      },
+    );
 
     it("should include response body in doGenerate result", async () => {
       const model = createModel();
@@ -1071,18 +985,20 @@ describe("SAPAIChatLanguageModel", () => {
         (p) => p.type === "response-metadata",
       );
       expect(responseMetadata).toBeDefined();
-      if (responseMetadata?.type === "response-metadata") {
-        expect(responseMetadata.modelId).toBe("gpt-4o");
-      }
+      expect(responseMetadata).toMatchObject({
+        type: "response-metadata",
+        modelId: "gpt-4o",
+      });
       expect(parts.some((p) => p.type === "text-delta")).toBe(true);
       expect(parts.some((p) => p.type === "finish")).toBe(true);
 
       // Check finish part
       const finishPart = parts.find((p) => p.type === "finish");
       expect(finishPart).toBeDefined();
-      if (finishPart?.type === "finish") {
-        expect(finishPart.finishReason).toBe("stop");
-      }
+      expect(finishPart).toMatchObject({
+        type: "finish",
+        finishReason: "stop",
+      });
     });
 
     it("should flush tool calls immediately on tool-calls finishReason", async () => {
@@ -1201,17 +1117,19 @@ describe("SAPAIChatLanguageModel", () => {
 
       const toolCall = parts.find((p) => p.type === "tool-call");
       expect(toolCall).toBeDefined();
-      if (toolCall?.type === "tool-call") {
-        expect(toolCall.toolCallId).toBe("call_new");
-        expect(toolCall.toolName).toBe("calc");
-        expect(toolCall.input).toBe('{"x":1}');
-      }
+      expect(toolCall).toMatchObject({
+        type: "tool-call",
+        toolCallId: "call_new",
+        toolName: "calc",
+        input: '{"x":1}',
+      });
 
       const toolInputEnd = parts.find((p) => p.type === "tool-input-end");
       expect(toolInputEnd).toBeDefined();
-      if (toolInputEnd?.type === "tool-input-end") {
-        expect(toolInputEnd.id).toBe("call_new");
-      }
+      expect(toolInputEnd).toMatchObject({
+        type: "tool-input-end",
+        id: "call_new",
+      });
     });
 
     it.each([
@@ -1283,9 +1201,10 @@ describe("SAPAIChatLanguageModel", () => {
 
         const finishPart = parts.find((p) => p.type === "finish");
         expect(finishPart).toBeDefined();
-        if (finishPart?.type === "finish") {
-          expect(finishPart.finishReason).toBe(expected);
-        }
+        expect(finishPart).toMatchObject({
+          type: "finish",
+          finishReason: expected,
+        });
       },
     );
 
@@ -1414,10 +1333,11 @@ describe("SAPAIChatLanguageModel", () => {
         // Should have a tool-call part even if tool name is missing.
         const toolCall = parts.find((p) => p.type === "tool-call");
         expect(toolCall).toBeDefined();
-        if (toolCall?.type === "tool-call") {
-          expect(toolCall.toolName).toBe("");
-          expect(toolCall.input).toBe('{"x":1}');
-        }
+        expect(toolCall).toMatchObject({
+          type: "tool-call",
+          toolName: "",
+          input: '{"x":1}',
+        });
 
         // Warning should be surfaced on the result (not retroactively in stream-start)
         const streamStart = parts.find(
@@ -1496,16 +1416,18 @@ describe("SAPAIChatLanguageModel", () => {
         // Should have error part
         const errorPart = parts.find((p) => p.type === "error");
         expect(errorPart).toBeDefined();
-        if (errorPart?.type === "error") {
-          expect((errorPart.error as Error).message).toEqual(
-            expect.stringContaining("Stream iteration failed"),
-          );
-          expect(
-            (errorPart.error as { responseHeaders?: unknown }).responseHeaders,
-          ).toMatchObject({
-            "x-request-id": "stream-axios-123",
-          });
-        }
+        expect(errorPart).toMatchObject({
+          type: "error",
+        });
+        expect((errorPart as { error: Error }).error.message).toEqual(
+          expect.stringContaining("Stream iteration failed"),
+        );
+        expect(
+          (errorPart as { error: { responseHeaders?: unknown } }).error
+            .responseHeaders,
+        ).toMatchObject({
+          "x-request-id": "stream-axios-123",
+        });
 
         // Reset the stream error for other tests
         await setStreamChunks([
@@ -1618,10 +1540,11 @@ describe("SAPAIChatLanguageModel", () => {
         // Tool call should be emitted even though finishReason was "stop"
         const toolCall = parts.find((p) => p.type === "tool-call");
         expect(toolCall).toBeDefined();
-        if (toolCall?.type === "tool-call") {
-          expect(toolCall.toolCallId).toBe("call_unflushed");
-          expect(toolCall.toolName).toBe("get_info");
-        }
+        expect(toolCall).toMatchObject({
+          type: "tool-call",
+          toolCallId: "call_unflushed",
+          toolName: "get_info",
+        });
 
         // Finish reason should be "stop" from server (we respect server's decision)
         const finish = parts.find(
@@ -1723,10 +1646,11 @@ describe("SAPAIChatLanguageModel", () => {
         // Tool call should still be properly emitted
         const toolCall = parts.find((p) => p.type === "tool-call");
         expect(toolCall).toBeDefined();
-        if (toolCall?.type === "tool-call") {
-          expect(toolCall.toolName).toBe("delayed_name");
-          expect(toolCall.input).toBe('{"partial":"value"}');
-        }
+        expect(toolCall).toMatchObject({
+          type: "tool-call",
+          toolName: "delayed_name",
+          input: '{"partial":"value"}',
+        });
       });
 
       it("should throw converted error when doStream setup fails", async () => {
@@ -1750,35 +1674,24 @@ describe("SAPAIChatLanguageModel", () => {
 
   describe("configuration", () => {
     describe("masking and filtering", () => {
-      it("should omit masking when empty object", async () => {
-        const model = createModel("gpt-4o", {
-          masking: {},
-        });
+      it.each([
+        { property: "masking", settings: { masking: {} } },
+        { property: "filtering", settings: { filtering: {} } },
+      ])(
+        "should omit $property when empty object",
+        async ({ property, settings }) => {
+          const model = createModel("gpt-4o", settings);
 
-        const prompt = createPrompt("Hello");
+          const prompt = createPrompt("Hello");
 
-        const result = await model.doGenerate({ prompt });
+          const result = await model.doGenerate({ prompt });
 
-        expectRequestBodyHasMessages(result);
+          expectRequestBodyHasMessages(result);
 
-        const request = await getLastChatCompletionRequest();
-        expect(request).not.toHaveProperty("masking");
-      });
-
-      it("should omit filtering when empty object", async () => {
-        const model = createModel("gpt-4o", {
-          filtering: {},
-        });
-
-        const prompt = createPrompt("Hello");
-
-        const result = await model.doGenerate({ prompt });
-
-        expectRequestBodyHasMessages(result);
-
-        const request = await getLastChatCompletionRequest();
-        expect(request).not.toHaveProperty("filtering");
-      });
+          const request = await getLastChatCompletionRequest();
+          expect(request).not.toHaveProperty(property);
+        },
+      );
 
       it("should include masking module in orchestration config", async () => {
         const masking = {
@@ -1917,173 +1830,133 @@ describe("SAPAIChatLanguageModel", () => {
     });
 
     describe("model parameters", () => {
-      it("should prefer options.temperature over settings.modelParams.temperature", async () => {
-        const model = createModel("gpt-4o", {
-          modelParams: {
-            temperature: 0.5,
-          },
-        });
+      it.each([
+        {
+          testName: "temperature",
+          settingsKey: "temperature",
+          settingsValue: 0.5,
+          optionKey: "temperature",
+          optionValue: 0.9,
+          expectedKey: "temperature",
+          expectedValue: 0.9,
+        },
+        {
+          testName: "maxOutputTokens",
+          settingsKey: "maxTokens",
+          settingsValue: 500,
+          optionKey: "maxOutputTokens",
+          optionValue: 1000,
+          expectedKey: "max_tokens",
+          expectedValue: 1000,
+        },
+      ])(
+        "should prefer options.$testName over settings.modelParams.$settingsKey",
+        async ({
+          settingsKey,
+          settingsValue,
+          optionKey,
+          optionValue,
+          expectedKey,
+          expectedValue,
+        }) => {
+          const model = createModel("gpt-4o", {
+            modelParams: {
+              [settingsKey]: settingsValue,
+            },
+          });
 
-        const prompt = createPrompt("Hello");
+          const prompt = createPrompt("Hello");
 
-        const result = await model.doGenerate({
-          prompt,
-          temperature: 0.9,
-        });
+          const result = await model.doGenerate({
+            prompt,
+            [optionKey]: optionValue,
+          });
 
-        expectRequestBodyHasMessages(result);
+          expectRequestBodyHasMessages(result);
 
-        const request = await getLastChatCompletionRequest();
+          const request = await getLastChatCompletionRequest();
 
-        expect(request.model?.params?.temperature).toBe(0.9);
-      });
+          expect(request.model?.params?.[expectedKey]).toBe(expectedValue);
+        },
+      );
 
-      it("should prefer options.maxOutputTokens over settings.modelParams.maxTokens", async () => {
-        const model = createModel("gpt-4o", {
-          modelParams: {
-            maxTokens: 500,
-          },
-        });
+      it.each([
+        {
+          paramName: "topP",
+          paramValue: 0.9,
+          expectedKey: "top_p",
+          expectedValue: 0.9,
+        },
+        {
+          paramName: "topK",
+          paramValue: 40,
+          expectedKey: "top_k",
+          expectedValue: 40,
+        },
+        {
+          paramName: "frequencyPenalty",
+          paramValue: 0.5,
+          expectedKey: "frequency_penalty",
+          expectedValue: 0.5,
+        },
+        {
+          paramName: "presencePenalty",
+          paramValue: 0.3,
+          expectedKey: "presence_penalty",
+          expectedValue: 0.3,
+        },
+        {
+          paramName: "stopSequences",
+          paramValue: ["END", "STOP"],
+          expectedKey: "stop",
+          expectedValue: ["END", "STOP"],
+        },
+        {
+          paramName: "seed",
+          paramValue: 42,
+          expectedKey: "seed",
+          expectedValue: 42,
+        },
+      ])(
+        "should pass $paramName from options to model params",
+        async ({ paramName, paramValue, expectedKey, expectedValue }) => {
+          const model = createModel();
+          const prompt = createPrompt("Hello");
 
-        const prompt = createPrompt("Hello");
+          const result = await model.doGenerate({
+            prompt,
+            [paramName]: paramValue,
+          });
 
-        const result = await model.doGenerate({
-          prompt,
-          maxOutputTokens: 1000,
-        });
+          expectRequestBodyHasMessages(result);
 
-        expectRequestBodyHasMessages(result);
+          const request = await getLastChatCompletionRequest();
 
-        const request = await getLastChatCompletionRequest();
-
-        expect(request.model?.params?.max_tokens).toBe(1000);
-      });
-
-      it("should pass topP from options to model params", async () => {
-        const model = createModel();
-        const prompt = createPrompt("Hello");
-
-        const result = await model.doGenerate({
-          prompt,
-          topP: 0.9,
-        });
-
-        expectRequestBodyHasMessages(result);
-
-        const request = await getLastChatCompletionRequest();
-
-        expect(request.model?.params?.top_p).toBe(0.9);
-      });
-
-      it("should pass topK from options to model params", async () => {
-        const model = createModel();
-        const prompt = createPrompt("Hello");
-
-        const result = await model.doGenerate({
-          prompt,
-          topK: 40,
-        });
-
-        expectRequestBodyHasMessages(result);
-
-        const request = await getLastChatCompletionRequest();
-
-        expect(request.model?.params?.top_k).toBe(40);
-      });
-
-      it("should pass frequencyPenalty from options to model params", async () => {
-        const model = createModel();
-        const prompt = createPrompt("Hello");
-
-        const result = await model.doGenerate({
-          prompt,
-          frequencyPenalty: 0.5,
-        });
-
-        expectRequestBodyHasMessages(result);
-
-        const request = await getLastChatCompletionRequest();
-
-        expect(request.model?.params?.frequency_penalty).toBe(0.5);
-      });
-
-      it("should pass presencePenalty from options to model params", async () => {
-        const model = createModel();
-        const prompt = createPrompt("Hello");
-
-        const result = await model.doGenerate({
-          prompt,
-          presencePenalty: 0.3,
-        });
-
-        expectRequestBodyHasMessages(result);
-
-        const request = await getLastChatCompletionRequest();
-
-        expect(request.model?.params?.presence_penalty).toBe(0.3);
-      });
-
-      it("should pass stop sequences to model params", async () => {
-        const model = createModel();
-        const prompt = createPrompt("Hello");
-
-        const result = await model.doGenerate({
-          prompt,
-          stopSequences: ["END", "STOP"],
-        });
-
-        expectRequestBodyHasMessages(result);
-
-        const request = await getLastChatCompletionRequest();
-
-        expect(request.model?.params?.stop).toEqual(["END", "STOP"]);
-      });
-
-      it("should pass seed to model params", async () => {
-        const model = createModel();
-        const prompt = createPrompt("Hello");
-
-        const result = await model.doGenerate({
-          prompt,
-          seed: 42,
-        });
-
-        expectRequestBodyHasMessages(result);
-
-        const request = await getLastChatCompletionRequest();
-
-        expect(request.model?.params?.seed).toBe(42);
-      });
+          expect(request.model?.params?.[expectedKey]).toEqual(expectedValue);
+        },
+      );
     });
 
     describe("model-specific behavior", () => {
-      it("should disable n parameter for Amazon models", async () => {
-        const model = createModel("amazon--nova-pro", {
-          modelParams: { n: 2 },
-        });
-        const prompt = createPrompt("Hello");
+      it.each([
+        { modelId: "amazon--nova-pro", vendor: "Amazon" },
+        { modelId: "anthropic--claude-3.5-sonnet", vendor: "Anthropic" },
+      ])(
+        "should disable n parameter for $vendor models",
+        async ({ modelId }) => {
+          const model = createModel(modelId, {
+            modelParams: { n: 2 },
+          });
+          const prompt = createPrompt("Hello");
 
-        const result = await model.doGenerate({ prompt });
-        expectRequestBodyHasMessages(result);
+          const result = await model.doGenerate({ prompt });
+          expectRequestBodyHasMessages(result);
 
-        const request = await getLastChatCompletionRequest();
+          const request = await getLastChatCompletionRequest();
 
-        expect(request.model?.params?.n).toBeUndefined();
-      });
-
-      it("should disable n parameter for Anthropic models", async () => {
-        const model = createModel("anthropic--claude-3.5-sonnet", {
-          modelParams: { n: 2 },
-        });
-        const prompt = createPrompt("Hello");
-
-        const result = await model.doGenerate({ prompt });
-        expectRequestBodyHasMessages(result);
-
-        const request = await getLastChatCompletionRequest();
-
-        expect(request.model?.params?.n).toBeUndefined();
-      });
+          expect(request.model?.params?.n).toBeUndefined();
+        },
+      );
     });
 
     describe("warnings", () => {
@@ -2213,80 +2086,41 @@ describe("SAPAIChatLanguageModel", () => {
         }
       });
 
-      it("should coerce non-object schema type to object", async () => {
-        const model = createModel();
-        const prompt = createPrompt("Use tool");
-
-        // Tool with "array" type schema - should be coerced to object
-        const tools: LanguageModelV2FunctionTool[] = [
-          {
-            type: "function",
-            name: "array_tool",
-            description: "Tool with array schema",
-            inputSchema: {
-              type: "array",
-              items: { type: "string" },
-            },
-          },
-        ];
-
-        const result = await model.doGenerate({ prompt, tools });
-
-        expectRequestBodyHasMessages(result);
-      });
-
-      it("should handle tool with string type schema", async () => {
-        const model = createModel();
-        const prompt = createPrompt("Use tool");
-
-        // Tool with "string" type schema - should be coerced to object
-        const tools: LanguageModelV2FunctionTool[] = [
-          {
-            type: "function",
-            name: "string_tool",
-            description: "Tool with string schema",
-            inputSchema: {
-              type: "string",
-            },
-          },
-        ];
-
-        const result = await model.doGenerate({ prompt, tools });
-
-        expectRequestBodyHasMessages(result);
-      });
-
-      it("should handle tool with schema that has no properties", async () => {
+      it.each([
+        {
+          testName: "coerce non-object schema type to object (array)",
+          toolName: "array_tool",
+          description: "Tool with array schema",
+          inputSchema: { type: "array", items: { type: "string" } },
+        },
+        {
+          testName: "handle tool with string type schema",
+          toolName: "string_tool",
+          description: "Tool with string schema",
+          inputSchema: { type: "string" },
+        },
+        {
+          testName: "handle tool with schema that has no properties",
+          toolName: "empty_props_tool",
+          description: "Tool with empty properties",
+          inputSchema: { type: "object", properties: {} },
+        },
+        {
+          testName: "handle tool with undefined inputSchema",
+          toolName: "no_schema_tool",
+          description: "Tool without schema",
+          inputSchema: undefined as unknown as Record<string, unknown>,
+        },
+      ])("should $testName", async ({ toolName, description, inputSchema }) => {
         const model = createModel();
         const prompt = createPrompt("Use tool");
 
         const tools: LanguageModelV2FunctionTool[] = [
           {
             type: "function",
-            name: "empty_props_tool",
-            description: "Tool with empty properties",
-            inputSchema: {
-              type: "object",
-              properties: {},
-            },
-          },
-        ];
-
-        const result = await model.doGenerate({ prompt, tools });
-
-        expectRequestBodyHasMessages(result);
-      });
-
-      it("should handle tool with undefined inputSchema", async () => {
-        const model = createModel();
-        const prompt = createPrompt("Use tool");
-
-        const tools: LanguageModelV2FunctionTool[] = [
-          {
-            type: "function",
-            name: "no_schema_tool",
-            description: "Tool without schema",
-            inputSchema: undefined as unknown as Record<string, unknown>,
+            name: toolName,
+            description,
+            inputSchema,
           },
         ];
 

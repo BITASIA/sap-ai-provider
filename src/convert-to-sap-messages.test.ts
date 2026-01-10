@@ -302,14 +302,13 @@ describe("convertToSAPMessages", () => {
     });
   });
 
-  it("should throw error for unsupported file types", () => {
-    const unsupportedTypes = [
-      { mediaType: "audio/mp3", description: "audio" },
-      { mediaType: "application/pdf", description: "pdf" },
-      { mediaType: "video/mp4", description: "video" },
-    ];
-
-    for (const { mediaType, description } of unsupportedTypes) {
+  it.each([
+    { mediaType: "audio/mp3", description: "audio" },
+    { mediaType: "application/pdf", description: "pdf" },
+    { mediaType: "video/mp4", description: "video" },
+  ])(
+    "should throw error for unsupported file type: $description",
+    ({ mediaType }) => {
       const prompt: LanguageModelV2Prompt = [
         {
           role: "user",
@@ -323,12 +322,11 @@ describe("convertToSAPMessages", () => {
         },
       ];
 
-      expect(
-        () => convertToSAPMessages(prompt),
-        `should throw for ${description}`,
-      ).toThrow("Only image files are supported");
-    }
-  });
+      expect(() => convertToSAPMessages(prompt)).toThrow(
+        "Only image files are supported",
+      );
+    },
+  );
 
   it("should convert multiple tool calls in single assistant message", () => {
     const prompt: LanguageModelV2Prompt = [

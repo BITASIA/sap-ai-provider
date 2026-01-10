@@ -44,30 +44,26 @@ describe("convertSAPErrorToAPICallError", () => {
     expect(result.message).toContain("First error");
   });
 
-  it("should mark 429 errors as retryable", () => {
-    const errorResponse: OrchestrationErrorResponse = {
-      error: {
-        message: "Rate limit exceeded",
-        code: 429,
-        location: "API Gateway",
-        request_id: "rate-limit-123",
-      },
-    };
-
-    const result = convertSAPErrorToAPICallError(errorResponse);
-
-    expect(result.statusCode).toBe(429);
-    expect(result.isRetryable).toBe(true);
-    expect(result.message).toContain("Rate limit exceeded");
-  });
-
-  it("should mark 5xx errors as retryable", () => {
-    const serverErrorCodes = [500, 502, 503, 504];
-
-    for (const code of serverErrorCodes) {
+  it.each([
+    { code: 429, message: "Rate limit exceeded", description: "Rate Limit" },
+    {
+      code: 500,
+      message: "Server error 500",
+      description: "Internal Server Error",
+    },
+    { code: 502, message: "Server error 502", description: "Bad Gateway" },
+    {
+      code: 503,
+      message: "Server error 503",
+      description: "Service Unavailable",
+    },
+    { code: 504, message: "Server error 504", description: "Gateway Timeout" },
+  ])(
+    "should mark $code ($description) errors as retryable",
+    ({ code, message }) => {
       const errorResponse: OrchestrationErrorResponse = {
         error: {
-          message: `Server error ${String(code)}`,
+          message,
           code,
           location: "Gateway",
           request_id: `error-${String(code)}`,
@@ -76,49 +72,49 @@ describe("convertSAPErrorToAPICallError", () => {
 
       const result = convertSAPErrorToAPICallError(errorResponse);
 
-      expect(
-        result.statusCode,
-        `${String(code)} should have correct status`,
-      ).toBe(code);
-      expect(result.isRetryable, `${String(code)} should be retryable`).toBe(
-        true,
-      );
-    }
-  });
+      expect(result.statusCode).toBe(code);
+      expect(result.isRetryable).toBe(true);
+    },
+  );
 
-  it("should NOT mark 401 errors as retryable", () => {
-    const errorResponse: OrchestrationErrorResponse = {
-      error: {
-        message: "Unauthorized",
-        code: 401,
-        location: "Auth",
-        request_id: "auth-error-123",
-      },
-    };
+  it.each([
+    {
+      code: 401,
+      message: "Unauthorized",
+      messageContains: "Authentication failed",
+      description: "Unauthorized",
+    },
+    {
+      code: 403,
+      message: "Forbidden",
+      messageContains: "Authentication failed",
+      description: "Forbidden",
+    },
+    {
+      code: 404,
+      message: "Model not found",
+      messageContains: "Resource not found",
+      description: "Not Found",
+    },
+  ])(
+    "should not mark $code ($description) errors as retryable",
+    ({ code, message, messageContains }) => {
+      const errorResponse: OrchestrationErrorResponse = {
+        error: {
+          message,
+          code,
+          location: "Auth",
+          request_id: `error-${String(code)}`,
+        },
+      };
 
-    const result = convertSAPErrorToAPICallError(errorResponse);
+      const result = convertSAPErrorToAPICallError(errorResponse);
 
-    expect(result.statusCode).toBe(401);
-    expect(result.isRetryable).toBe(false);
-    expect(result.message).toContain("Authentication failed");
-  });
-
-  it("should NOT mark 404 errors as retryable", () => {
-    const errorResponse: OrchestrationErrorResponse = {
-      error: {
-        message: "Model not found",
-        code: 404,
-        location: "LLM Module",
-        request_id: "not-found-123",
-      },
-    };
-
-    const result = convertSAPErrorToAPICallError(errorResponse);
-
-    expect(result.statusCode).toBe(404);
-    expect(result.isRetryable).toBe(false);
-    expect(result.message).toContain("Resource not found");
-  });
+      expect(result.statusCode).toBe(code);
+      expect(result.isRetryable).toBe(false);
+      expect(result.message).toContain(messageContains);
+    },
+  );
 
   it("should preserve SAP metadata in responseBody", () => {
     const errorResponse: OrchestrationErrorResponse = {
@@ -260,61 +256,44 @@ describe("convertToAISDKError", () => {
     expect(result.message).toContain("Orchestration error");
   });
 
-  it("should not treat arbitrary objects with 'error' property as orchestration errors", () => {
-    const notAnOrchestrationError = {
-      error: { message: 123 },
-    };
+  it.each([
+    {
+      testName: "arbitrary objects with 'error' property",
+      errorObject: { error: { message: 123 } },
+      expectsUnknown: false,
+    },
+    {
+      testName: "error array with non-object entries",
+      errorObject: { error: ["not an object", "also not an object"] },
+      expectsUnknown: true,
+    },
+    {
+      testName: "error array with null entries",
+      errorObject: { error: [null, { message: "valid" }] },
+      expectsUnknown: false,
+    },
+    {
+      testName: "error array with entries missing message",
+      errorObject: { error: [{ code: 400, location: "Module" }] },
+      expectsUnknown: false,
+    },
+    {
+      testName: "error array with non-string message",
+      errorObject: { error: [{ message: { nested: "object" } }] },
+      expectsUnknown: false,
+    },
+  ])(
+    "should not treat $testName as orchestration errors",
+    ({ errorObject, expectsUnknown }) => {
+      const result = convertToAISDKError(errorObject);
 
-    const result = convertToAISDKError(notAnOrchestrationError);
-
-    expect(result).toBeInstanceOf(APICallError);
-    expect((result as APICallError).statusCode).toBe(500);
-  });
-
-  it("should not treat error array with non-object entries as orchestration errors", () => {
-    const malformedErrorArray = {
-      error: ["not an object", "also not an object"],
-    };
-
-    const result = convertToAISDKError(malformedErrorArray);
-
-    expect(result).toBeInstanceOf(APICallError);
-    expect((result as APICallError).statusCode).toBe(500);
-    expect(result.message).toContain("Unknown error occurred");
-  });
-
-  it("should not treat error array with null entries as orchestration errors", () => {
-    const malformedErrorArray = {
-      error: [null, { message: "valid" }],
-    };
-
-    const result = convertToAISDKError(malformedErrorArray);
-
-    expect(result).toBeInstanceOf(APICallError);
-    expect((result as APICallError).statusCode).toBe(500);
-  });
-
-  it("should not treat error array with entries missing message as orchestration errors", () => {
-    const malformedErrorArray = {
-      error: [{ code: 400, location: "Module" }],
-    };
-
-    const result = convertToAISDKError(malformedErrorArray);
-
-    expect(result).toBeInstanceOf(APICallError);
-    expect((result as APICallError).statusCode).toBe(500);
-  });
-
-  it("should not treat error array with non-string message as orchestration errors", () => {
-    const malformedErrorArray = {
-      error: [{ message: { nested: "object" } }],
-    };
-
-    const result = convertToAISDKError(malformedErrorArray);
-
-    expect(result).toBeInstanceOf(APICallError);
-    expect((result as APICallError).statusCode).toBe(500);
-  });
+      expect(result).toBeInstanceOf(APICallError);
+      expect((result as APICallError).statusCode).toBe(500);
+      if (expectsUnknown) {
+        expect(result.message).toContain("Unknown error occurred");
+      }
+    },
+  );
 
   it("should convert authentication errors to LoadAPIKeyError", () => {
     const authError = new Error("Authentication failed for AICORE_SERVICE_KEY");
@@ -438,22 +417,12 @@ describe("convertToAISDKError", () => {
     });
   });
 
-  it("should handle error with null value", () => {
-    const result = convertToAISDKError(null);
-
-    expect(result).toBeInstanceOf(APICallError);
-    expect(result.message).toContain("Unknown error occurred");
-  });
-
-  it("should handle error with undefined value", () => {
-    const result = convertToAISDKError(undefined);
-
-    expect(result).toBeInstanceOf(APICallError);
-    expect(result.message).toContain("Unknown error occurred");
-  });
-
-  it("should handle error with number value", () => {
-    const result = convertToAISDKError(42);
+  it.each([
+    { value: null, description: "null" },
+    { value: undefined, description: "undefined" },
+    { value: 42, description: "number" },
+  ])("should handle error with $description value", ({ value }) => {
+    const result = convertToAISDKError(value);
 
     expect(result).toBeInstanceOf(APICallError);
     expect(result.message).toContain("Unknown error occurred");
@@ -485,23 +454,6 @@ describe("convertToAISDKError", () => {
     expect(result).toBeInstanceOf(APICallError);
     expect(result.message).toContain("SAP AI Core error:");
     expect(result.message).not.toContain("undefined");
-  });
-
-  it("should handle 403 forbidden errors as non-retryable with auth hint", () => {
-    const errorResponse: OrchestrationErrorResponse = {
-      error: {
-        message: "Forbidden",
-        code: 403,
-        location: "Auth",
-        request_id: "forbidden-123",
-      },
-    };
-
-    const result = convertSAPErrorToAPICallError(errorResponse);
-
-    expect(result.statusCode).toBe(403);
-    expect(result.isRetryable).toBe(false);
-    expect(result.message).toContain("Authentication failed");
   });
 
   it("should handle error without code (defaults to 500)", () => {
@@ -600,124 +552,51 @@ describe("convertToAISDKError", () => {
     expect(result.message).toContain("Unknown error occurred");
   });
 
-  it("should normalize array header values from axios errors by joining with comma", () => {
-    const axiosError = new Error("Request failed") as unknown as {
-      isAxiosError: boolean;
-      response: { headers: Record<string, unknown> };
-    };
-    axiosError.isAxiosError = true;
-    axiosError.response = {
-      headers: {
-        "x-multi-value": ["value1", "value2", "value3"],
-      },
-    };
-
-    const result = convertToAISDKError(axiosError) as APICallError;
-
-    expect(result.responseHeaders).toEqual({
-      "x-multi-value": "value1; value2; value3",
-    });
-  });
-
-  it("should filter non-string values from array headers in axios errors", () => {
-    const axiosError = new Error("Request failed") as unknown as {
-      isAxiosError: boolean;
-      response: { headers: Record<string, unknown> };
-    };
-    axiosError.isAxiosError = true;
-    axiosError.response = {
-      headers: {
-        "x-mixed": ["valid", 123, null, "also-valid"],
-      },
-    };
-
-    const result = convertToAISDKError(axiosError) as APICallError;
-
-    expect(result.responseHeaders).toEqual({
-      "x-mixed": "valid; also-valid",
-    });
-  });
-
-  it("should exclude array headers with only non-string items from axios errors", () => {
-    const axiosError = new Error("Request failed") as unknown as {
-      isAxiosError: boolean;
-      response: { headers: Record<string, unknown> };
-    };
-    axiosError.isAxiosError = true;
-    axiosError.response = {
+  it.each([
+    {
+      description: "normalize array header values by joining with semicolon",
+      headers: { "x-multi-value": ["value1", "value2", "value3"] },
+      expected: { "x-multi-value": "value1; value2; value3" },
+    },
+    {
+      description: "filter non-string values from array headers",
+      headers: { "x-mixed": ["valid", 123, null, "also-valid"] },
+      expected: { "x-mixed": "valid; also-valid" },
+    },
+    {
+      description: "exclude array headers with only non-string items",
       headers: {
         "x-valid": "keep-this",
         "x-invalid-array": [123, null, undefined],
       },
-    };
-
-    const result = convertToAISDKError(axiosError) as APICallError;
-
-    expect(result.responseHeaders).toEqual({
-      "x-valid": "keep-this",
-    });
-  });
-
-  it("should convert number header values to strings from axios errors", () => {
+      expected: { "x-valid": "keep-this" },
+    },
+    {
+      description: "convert number header values to strings",
+      headers: { "x-numeric": 42, "content-length": 1024 },
+      expected: { "x-numeric": "42", "content-length": "1024" },
+    },
+    {
+      description: "convert boolean header values to strings",
+      headers: { "x-enabled": true, "x-disabled": false },
+      expected: { "x-enabled": "true", "x-disabled": "false" },
+    },
+    {
+      description: "skip object and unsupported header value types",
+      headers: { "x-valid": "valid-value", "x-object": { nested: "object" } },
+      expected: { "x-valid": "valid-value" },
+    },
+  ])("should $description from axios errors", ({ headers, expected }) => {
     const axiosError = new Error("Request failed") as unknown as {
       isAxiosError: boolean;
       response: { headers: Record<string, unknown> };
     };
     axiosError.isAxiosError = true;
-    axiosError.response = {
-      headers: {
-        "x-numeric": 42,
-        "content-length": 1024,
-      },
-    };
+    axiosError.response = { headers };
 
     const result = convertToAISDKError(axiosError) as APICallError;
 
-    expect(result.responseHeaders).toEqual({
-      "x-numeric": "42",
-      "content-length": "1024",
-    });
-  });
-
-  it("should convert boolean header values to strings from axios errors", () => {
-    const axiosError = new Error("Request failed") as unknown as {
-      isAxiosError: boolean;
-      response: { headers: Record<string, unknown> };
-    };
-    axiosError.isAxiosError = true;
-    axiosError.response = {
-      headers: {
-        "x-enabled": true,
-        "x-disabled": false,
-      },
-    };
-
-    const result = convertToAISDKError(axiosError) as APICallError;
-
-    expect(result.responseHeaders).toEqual({
-      "x-enabled": "true",
-      "x-disabled": "false",
-    });
-  });
-
-  it("should skip object and unsupported header value types from axios errors", () => {
-    const axiosError = new Error("Request failed") as unknown as {
-      isAxiosError: boolean;
-      response: { headers: Record<string, unknown> };
-    };
-    axiosError.isAxiosError = true;
-    axiosError.response = {
-      headers: {
-        "x-valid": "valid-value",
-        "x-object": { nested: "object" },
-      },
-    };
-
-    const result = convertToAISDKError(axiosError) as APICallError;
-
-    expect(result.responseHeaders).toEqual({
-      "x-valid": "valid-value",
-    });
+    expect(result.responseHeaders).toEqual(expected);
   });
 
   it("should return undefined when all axios header values are unsupported types", () => {
