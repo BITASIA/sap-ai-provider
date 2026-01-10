@@ -615,7 +615,7 @@ describe("convertToAISDKError", () => {
     const result = convertToAISDKError(axiosError) as APICallError;
 
     expect(result.responseHeaders).toEqual({
-      "x-multi-value": "value1,value2,value3",
+      "x-multi-value": "value1; value2; value3",
     });
   });
 
@@ -634,7 +634,7 @@ describe("convertToAISDKError", () => {
     const result = convertToAISDKError(axiosError) as APICallError;
 
     expect(result.responseHeaders).toEqual({
-      "x-mixed": "valid,also-valid",
+      "x-mixed": "valid; also-valid",
     });
   });
 

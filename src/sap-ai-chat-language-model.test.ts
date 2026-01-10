@@ -1623,12 +1623,12 @@ describe("SAPAIChatLanguageModel", () => {
           expect(toolCall.toolName).toBe("get_info");
         }
 
-        // Finish reason should be "tool-calls" since we emitted tool calls
+        // Finish reason should be "stop" from server (we respect server's decision)
         const finish = parts.find(
           (p): p is Extract<LanguageModelV2StreamPart, { type: "finish" }> =>
             p.type === "finish",
         );
-        expect(finish?.finishReason).toBe("tool-calls");
+        expect(finish?.finishReason).toBe("stop");
       });
 
       it("should handle undefined finish reason from stream", async () => {

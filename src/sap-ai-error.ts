@@ -4,10 +4,19 @@ import { isErrorWithCause } from "@sap-cloud-sdk/util";
 
 /**
  * Maps SAP AI Core error codes to HTTP status codes for retry logic.
+ * SAP AI Core typically uses standard HTTP status codes, but we validate
+ * they are in the expected range and provide a safe fallback.
  */
 function getStatusCodeFromSAPError(code?: number): number {
   if (!code) return 500;
-  return code;
+
+  // Validate the code is a standard HTTP status code (100-599)
+  if (code >= 100 && code < 600) {
+    return code;
+  }
+
+  // If code is outside HTTP range (custom SAP codes), map to generic server error
+  return 500;
 }
 
 /**
@@ -150,9 +159,10 @@ function normalizeHeaders(
   const entries = Object.entries(record).flatMap(([key, value]) => {
     if (typeof value === "string") return [[key, value]];
     if (Array.isArray(value)) {
+      // Use semicolon to avoid ambiguity (comma is common in header values)
       const strings = value
         .filter((item): item is string => typeof item === "string")
-        .join(",");
+        .join("; ");
       return strings.length > 0 ? [[key, strings]] : [];
     }
     if (typeof value === "number" || typeof value === "boolean") {

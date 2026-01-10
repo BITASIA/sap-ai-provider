@@ -36,28 +36,28 @@ export interface SAPAISettings {
     /**
      * Sampling temperature between 0 and 2.
      * Higher values make output more random, lower values more deterministic.
-     * No default; omitted when unspecified or unsupported by the target model.
+     * If not specified, the model's default temperature is used.
      */
     temperature?: number;
 
     /**
      * Nucleus sampling parameter between 0 and 1.
      * Controls diversity via cumulative probability cutoff.
-     * @default 1
+     * If not specified, the model's default topP is used (typically 1).
      */
     topP?: number;
 
     /**
      * Frequency penalty between -2.0 and 2.0.
      * Positive values penalize tokens based on their frequency.
-     * @default 0
+     * If not specified, the model's default is used (typically 0).
      */
     frequencyPenalty?: number;
 
     /**
      * Presence penalty between -2.0 and 2.0.
      * Positive values penalize tokens that have appeared in the text.
-     * @default 0
+     * If not specified, the model's default is used (typically 0).
      */
     presencePenalty?: number;
 
@@ -65,7 +65,7 @@ export interface SAPAISettings {
      * Number of completions to generate.
      * Multiple completions provide alternative responses.
      * Note: Not supported by Amazon and Anthropic models.
-     * @default 1
+     * If not specified, typically defaults to 1 on the model side.
      */
     n?: number;
 

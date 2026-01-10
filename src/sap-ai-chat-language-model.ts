@@ -489,8 +489,12 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     }
 
     if (supportsN) {
-      modelParams.n =
-        providerOptions.modelParams?.n ?? this.settings.modelParams?.n ?? 1;
+      const nValue =
+        providerOptions.modelParams?.n ?? this.settings.modelParams?.n;
+      if (nValue !== undefined) {
+        modelParams.n = nValue;
+      }
+      // If n is not explicitly provided, omit it to allow the API to use its default
     }
 
     const parallelToolCalls =
@@ -666,8 +670,41 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         })(),
       };
 
-      // SAP AI SDK limitation: chatCompletion() does not accept AbortSignal
-      const response = await client.chatCompletion(requestBody);
+      // SAP AI SDK limitation: chatCompletion() does not accept AbortSignal directly.
+      // We implement cancellation support via Promise.race() when AbortSignal is provided.
+      const response = await (async () => {
+        const completionPromise = client.chatCompletion(requestBody);
+
+        if (options.abortSignal) {
+          return Promise.race([
+            completionPromise,
+            new Promise<never>((_, reject) => {
+              if (options.abortSignal?.aborted) {
+                reject(
+                  new Error(
+                    `Request aborted: ${String(options.abortSignal.reason ?? "unknown reason")}`,
+                  ),
+                );
+                return;
+              }
+
+              options.abortSignal?.addEventListener(
+                "abort",
+                () => {
+                  reject(
+                    new Error(
+                      `Request aborted: ${String(options.abortSignal?.reason ?? "unknown reason")}`,
+                    ),
+                  );
+                },
+                { once: true },
+              );
+            }),
+          ]);
+        }
+
+        return completionPromise;
+      })();
       const responseHeadersRaw = response.rawResponse.headers as
         | Record<string, unknown>
         | undefined;
@@ -840,15 +877,17 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         { promptTemplating: { include_usage: true } },
       );
 
-      let finishReason: LanguageModelV2FinishReason = "unknown";
-      const usage: LanguageModelV2Usage = {
-        inputTokens: undefined,
-        outputTokens: undefined,
-        totalTokens: undefined,
+      // Stream state encapsulated to avoid race conditions
+      const streamState = {
+        finishReason: "unknown" as LanguageModelV2FinishReason,
+        usage: {
+          inputTokens: undefined as number | undefined,
+          outputTokens: undefined as number | undefined,
+          totalTokens: undefined as number | undefined,
+        },
+        isFirstChunk: true,
+        activeText: false,
       };
-
-      let isFirstChunk = true;
-      let activeText = false;
 
       const toolCallsInProgress = new Map<
         number,
@@ -881,8 +920,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
           try {
             for await (const chunk of sdkStream) {
-              if (isFirstChunk) {
-                isFirstChunk = false;
+              if (streamState.isFirstChunk) {
+                streamState.isFirstChunk = false;
                 controller.enqueue({
                   type: "response-metadata",
                   modelId,
@@ -894,11 +933,11 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               if (
                 typeof deltaContent === "string" &&
                 deltaContent.length > 0 &&
-                finishReason !== "tool-calls"
+                streamState.finishReason !== "tool-calls"
               ) {
-                if (!activeText) {
+                if (!streamState.activeText) {
                   controller.enqueue({ type: "text-start", id: "0" });
-                  activeText = true;
+                  streamState.activeText = true;
                 }
                 controller.enqueue({
                   type: "text-delta",
@@ -969,9 +1008,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
               const chunkFinishReason = chunk.getFinishReason();
               if (chunkFinishReason) {
-                finishReason = mapFinishReason(chunkFinishReason);
+                streamState.finishReason = mapFinishReason(chunkFinishReason);
 
-                if (finishReason === "tool-calls") {
+                if (streamState.finishReason === "tool-calls") {
                   const toolCalls = Array.from(toolCallsInProgress.values());
                   for (const tc of toolCalls) {
                     if (tc.didEmitCall) {
@@ -1004,18 +1043,11 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                     });
                   }
 
-                  if (activeText) {
+                  if (streamState.activeText) {
                     controller.enqueue({ type: "text-end", id: "0" });
-                    activeText = false;
+                    streamState.activeText = false;
                   }
                 }
-              }
-
-              const chunkUsage = chunk.getTokenUsage();
-              if (chunkUsage) {
-                usage.inputTokens = chunkUsage.prompt_tokens;
-                usage.outputTokens = chunkUsage.completion_tokens;
-                usage.totalTokens = chunkUsage.total_tokens;
               }
             }
 
@@ -1055,30 +1087,34 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               });
             }
 
-            if (activeText) {
+            if (streamState.activeText) {
               controller.enqueue({ type: "text-end", id: "0" });
             }
 
-            if (didEmitAnyToolCalls) {
-              finishReason = "tool-calls";
+            // Determine final finish reason with clear priority
+            // Priority 1: Server's final finish reason (source of truth)
+            // Priority 2: Locally detected tool calls (if no server finish reason)
+            // Priority 3: Last chunk finish reason or "unknown"
+            const finalFinishReason = streamResponse.getFinishReason();
+            if (finalFinishReason) {
+              streamState.finishReason = mapFinishReason(finalFinishReason);
+            } else if (didEmitAnyToolCalls) {
+              streamState.finishReason = "tool-calls";
             }
 
+            // Get final token usage from streamResponse (source of truth)
+            // The SAP AI SDK aggregates usage across all chunks
             const finalUsage = streamResponse.getTokenUsage();
             if (finalUsage) {
-              usage.inputTokens = finalUsage.prompt_tokens;
-              usage.outputTokens = finalUsage.completion_tokens;
-              usage.totalTokens = finalUsage.total_tokens;
-            }
-
-            const finalFinishReason = streamResponse.getFinishReason();
-            if (finalFinishReason && finishReason !== "tool-calls") {
-              finishReason = mapFinishReason(finalFinishReason);
+              streamState.usage.inputTokens = finalUsage.prompt_tokens;
+              streamState.usage.outputTokens = finalUsage.completion_tokens;
+              streamState.usage.totalTokens = finalUsage.total_tokens;
             }
 
             controller.enqueue({
               type: "finish",
-              finishReason,
-              usage,
+              finishReason: streamState.finishReason,
+              usage: streamState.usage,
             });
 
             controller.close();
@@ -1094,6 +1130,13 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 aiError instanceof Error ? aiError : new Error(String(aiError)),
             });
             controller.close();
+          }
+        },
+        cancel(reason) {
+          // Stream cancellation handler for proper cleanup
+          // The SAP AI SDK stream auto-closes, but we log for debugging
+          if (reason) {
+            console.debug("SAP AI stream cancelled:", reason);
           }
         },
       });

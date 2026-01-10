@@ -229,6 +229,8 @@ export function createSAPAIProvider(
     : { resourceGroup };
 
   const createModel = (modelId: SAPAIModelId, settings: SAPAISettings = {}) => {
+    // Deep merge modelParams, but use override semantics for complex objects
+    // (masking, filtering, tools) to maintain predictable behavior
     const mergedSettings: SAPAISettings = {
       ...options.defaultSettings,
       ...settings,
@@ -236,6 +238,10 @@ export function createSAPAIProvider(
         ...(options.defaultSettings?.modelParams ?? {}),
         ...(settings.modelParams ?? {}),
       },
+      // For complex objects, prefer settings over defaultSettings (override, not merge)
+      masking: settings.masking ?? options.defaultSettings?.masking,
+      filtering: settings.filtering ?? options.defaultSettings?.filtering,
+      tools: settings.tools ?? options.defaultSettings?.tools,
     };
 
     return new SAPAIChatLanguageModel(modelId, mergedSettings, {
