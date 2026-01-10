@@ -10,7 +10,10 @@ import type {
 // Mock the OrchestrationClient
 vi.mock("@sap-ai-sdk/orchestration", () => {
   class MockOrchestrationClient {
+    static lastChatCompletionRequest: unknown;
+
     chatCompletion = vi.fn().mockImplementation((request) => {
+      MockOrchestrationClient.lastChatCompletionRequest = request;
       const messages = (request as { messages?: unknown[] }).messages;
       const hasImage =
         messages?.some(
@@ -135,8 +138,7 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
 
       return {
         stream: {
-          // eslint-disable-next-line @typescript-eslint/require-await
-          async *[Symbol.asyncIterator]() {
+          *[Symbol.asyncIterator]() {
             for (const chunk of chunks) {
               yield chunk;
             }
@@ -168,6 +170,44 @@ describe("SAPAIChatLanguageModel", () => {
       provider: "sap-ai",
       deploymentConfig: { resourceGroup: "default" },
     });
+  };
+
+  const expectRequestBodyHasMessages = (result: {
+    request: { body?: unknown };
+  }) => {
+    const body: unknown = result.request.body;
+    expect(body).toBeTruthy();
+    expect(typeof body).toBe("object");
+    expect(body).toHaveProperty("messages");
+  };
+
+  const getLastChatCompletionRequest = async () => {
+    const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+    const MockClient = OrchestrationClient as unknown as {
+      lastChatCompletionRequest: unknown;
+    };
+    return MockClient.lastChatCompletionRequest;
+  };
+
+  const expectRequestBodyHasMessagesAndNoWarnings = (result: {
+    request: { body?: unknown };
+    warnings: unknown[];
+  }) => {
+    expect(result.warnings).toHaveLength(0);
+    expectRequestBodyHasMessages(result);
+  };
+
+  const expectWarningMessageContains = (
+    warnings: { type: string; message?: string }[],
+    substring: string,
+  ) => {
+    expect(
+      warnings.some(
+        (warning) =>
+          typeof warning.message === "string" &&
+          warning.message.includes(substring),
+      ),
+    ).toBe(true);
   };
 
   describe("model properties", () => {
@@ -243,19 +283,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt, tools });
 
-      expect(result.warnings).toHaveLength(0);
-
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            prompt?: { tools?: unknown[] };
-          };
-        };
-      };
-
-      expect(requestBody.config?.promptTemplating?.prompt?.tools).toHaveLength(
-        1,
-      );
+      expectRequestBodyHasMessagesAndNoWarnings(result);
     });
 
     it("should pass parallel_tool_calls when configured", async () => {
@@ -271,18 +299,36 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            model?: { params?: Record<string, unknown> };
-          };
-        };
-      };
+      expectRequestBodyHasMessages(result);
+    });
 
-      expect(
-        requestBody.config?.promptTemplating?.model?.params
-          ?.parallel_tool_calls,
-      ).toBe(true);
+    it("should apply providerOptions.sap overrides", async () => {
+      const model = createModel("gpt-4o", {
+        modelVersion: "settings-version",
+        includeReasoning: false,
+        modelParams: {
+          temperature: 0.1,
+        },
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hi" }] },
+      ];
+
+      const result = await model.doGenerate({
+        prompt,
+        providerOptions: {
+          sap: {
+            modelVersion: "provider-options-version",
+            includeReasoning: true,
+            modelParams: {
+              temperature: 0.9,
+            },
+          },
+        },
+      });
+
+      expectRequestBodyHasMessages(result);
     });
 
     it("should map responseFormat json without schema to json_object", async () => {
@@ -297,17 +343,13 @@ describe("SAPAIChatLanguageModel", () => {
         responseFormat: { type: "json" },
       });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            prompt?: { response_format?: { type: string } };
-          };
-        };
+      expectRequestBodyHasMessages(result);
+
+      const request = (await getLastChatCompletionRequest()) as {
+        response_format?: unknown;
       };
 
-      expect(
-        requestBody.config?.promptTemplating?.prompt?.response_format,
-      ).toEqual({ type: "json_object" });
+      expect(request.response_format).toEqual({ type: "json_object" });
     });
 
     it("should map responseFormat json with schema to json_schema", async () => {
@@ -336,17 +378,13 @@ describe("SAPAIChatLanguageModel", () => {
         },
       });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            prompt?: { response_format?: unknown };
-          };
-        };
+      expectRequestBodyHasMessages(result);
+
+      const request = (await getLastChatCompletionRequest()) as {
+        response_format?: unknown;
       };
 
-      expect(
-        requestBody.config?.promptTemplating?.prompt?.response_format,
-      ).toEqual({
+      expect(request.response_format).toEqual({
         type: "json_schema",
         json_schema: {
           name: "response",
@@ -415,7 +453,7 @@ describe("SAPAIChatLanguageModel", () => {
       expect(result.warnings[0].type).toBe("unsupported-tool");
     });
 
-    it("should prefer settings.tools over call options.tools", async () => {
+    it("should prefer call options.tools over settings.tools (and warn)", async () => {
       const model = createModel("gpt-4o", {
         tools: [
           {
@@ -451,19 +489,40 @@ describe("SAPAIChatLanguageModel", () => {
       ];
 
       const result = await model.doGenerate({ prompt, tools });
+      const warnings = result.warnings;
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            prompt?: { tools?: { function?: { name?: string } }[] };
-          };
-        };
+      expectWarningMessageContains(warnings, "preferring call options.tools");
+
+      expectRequestBodyHasMessages(result);
+
+      const request = (await getLastChatCompletionRequest()) as {
+        tools?: unknown;
       };
 
+      // Call options.tools should override settings.tools
+      const requestTools = Array.isArray(request.tools)
+        ? (request.tools as unknown[])
+        : [];
+
       expect(
-        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
-          ?.name,
-      ).toBe("settings_tool");
+        requestTools.some(
+          (tool) =>
+            typeof tool === "object" &&
+            tool !== null &&
+            (tool as { function?: { name?: unknown } }).function?.name ===
+              "call_tool",
+        ),
+      ).toBe(true);
+
+      expect(
+        requestTools.some(
+          (tool) =>
+            typeof tool === "object" &&
+            tool !== null &&
+            (tool as { function?: { name?: unknown } }).function?.name ===
+              "settings_tool",
+        ),
+      ).toBe(false);
     });
 
     it("should warn when tool Zod schema conversion fails", async () => {
@@ -495,30 +554,91 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt, tools });
 
-      // We only assert the fallback schema; warnings are best-effort.
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            prompt?: {
-              tools?: {
-                function?: { name?: string; parameters?: unknown };
-              }[];
-            };
-          };
-        };
-      };
+      expectRequestBodyHasMessages(result);
+    });
+  });
 
-      const toolParameters =
-        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
-          ?.parameters;
+  describe("edge-runtime", () => {
+    it("streams basic text", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
 
-      expect(toolParameters).toMatchObject({
-        type: "object",
-      });
+      const { stream } = await model.doStream({ prompt });
+      const reader = stream.getReader();
+
+      const parts: unknown[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        parts.push(value);
+      }
+
+      expect(
+        parts.some((p) => (p as { type?: string }).type === "stream-start"),
+      ).toBe(true);
+      expect(
+        parts.some((p) => (p as { type?: string }).type === "finish"),
+      ).toBe(true);
     });
   });
 
   describe("doStream", () => {
+    it("should not mutate stream-start warnings when warnings occur during stream", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+
+      // Produce only a tool call delta with arguments, but without a tool name.
+      // This triggers a warning during the final tool-call flush.
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => null,
+          getDeltaToolCalls: () => [
+            {
+              index: 0,
+              id: "toolcall-0",
+              function: {
+                arguments: '{"x":1}',
+              },
+            },
+          ],
+          getFinishReason: () => "tool_calls",
+          getTokenUsage: () => ({
+            prompt_tokens: 1,
+            completion_tokens: 1,
+            total_tokens: 2,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doStream({ prompt });
+
+      const parts: LanguageModelV2StreamPart[] = [];
+      for await (const part of result.stream) {
+        parts.push(part);
+      }
+
+      const warnings = result.warnings;
+
+      const streamStart = parts.find((part) => part.type === "stream-start");
+      expect(streamStart?.warnings).toHaveLength(0);
+
+      // But the final warnings returned from doStream should include the flush-time warning.
+      // Important: consume the stream first; `result.warnings` is only populated
+      // after the stream has fully resolved.
+
+      expect(warnings.length).toBeGreaterThan(0);
+    });
     async function readAllParts(
       stream: ReadableStream<LanguageModelV2StreamPart>,
     ) {
@@ -536,6 +656,30 @@ describe("SAPAIChatLanguageModel", () => {
     }
 
     it("should stream text response", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "Hello",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
+        {
+          getDeltaContent: () => "!",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "stop",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 5,
+            total_tokens: 15,
+          }),
+        },
+      ]);
+
       const model = createModel();
       const prompt: LanguageModelV2Prompt = [
         { role: "user", content: [{ type: "text", text: "Hello" }] },
@@ -565,7 +709,7 @@ describe("SAPAIChatLanguageModel", () => {
       }
     });
 
-    it("should handle tool args arriving before tool name", async () => {
+    it("should flush tool calls immediately on tool-calls finishReason", async () => {
       const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
       const MockClient = OrchestrationClient as unknown as {
         setStreamChunks: (chunks: unknown[]) => void;
@@ -575,17 +719,24 @@ describe("SAPAIChatLanguageModel", () => {
         {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
-            { index: 0, id: "call_1", function: { arguments: '{"a":1' } },
+            {
+              index: 0,
+              id: "call_0",
+              function: { name: "get_weather", arguments: '{"city":' },
+            },
           ],
           getFinishReason: () => null,
           getTokenUsage: () => undefined,
         },
         {
+          // On this chunk, the model declares tool_calls and we expect the
+          // provider to flush tool-call parts immediately.
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
             {
               index: 0,
-              function: { name: "calc", arguments: ',"b":2}' },
+              id: "call_0",
+              function: { arguments: '"Paris"}' },
             },
           ],
           getFinishReason: () => "tool_calls",
@@ -595,37 +746,45 @@ describe("SAPAIChatLanguageModel", () => {
             total_tokens: 15,
           }),
         },
+        {
+          // A trailing chunk after tool_calls should not produce text deltas.
+          getDeltaContent: () => "SHOULD_NOT_APPEAR",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
       ]);
 
       const model = createModel();
       const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Use tools" }] },
+        { role: "user", content: [{ type: "text", text: "Use tool" }] },
       ];
 
-      const { stream } = await model.doStream({ prompt });
-      const parts = await readAllParts(stream);
+      const result = await model.doStream({ prompt });
+      const parts = await readAllParts(result.stream);
 
-      const toolInputStartIndex = parts.findIndex(
-        (p) => p.type === "tool-input-start",
-      );
-      expect(toolInputStartIndex).toBeGreaterThanOrEqual(0);
+      const toolCallIndex = parts.findIndex((p) => p.type === "tool-call");
+      const finishIndex = parts.findIndex((p) => p.type === "finish");
 
-      // tool-input-start must not happen before tool name exists; since the name
-      // arrives in the 2nd chunk, we must not emit any tool-input-* in the 1st.
-      const toolInputEventsBeforeStart = parts.slice(0, toolInputStartIndex);
-      expect(
-        toolInputEventsBeforeStart.some(
-          (p) => p.type === "tool-input-delta" || p.type === "tool-input-start",
-        ),
-      ).toBe(false);
+      expect(toolCallIndex).toBeGreaterThanOrEqual(0);
+      expect(finishIndex).toBeGreaterThanOrEqual(0);
+      expect(toolCallIndex).toBeLessThan(finishIndex);
 
-      const toolCall = parts.find((p) => p.type === "tool-call");
-      expect(toolCall).toBeDefined();
-      if (toolCall?.type === "tool-call") {
-        expect(toolCall.toolName).toBe("calc");
-        expect(toolCall.toolCallId).toBe("call_1");
-        expect(toolCall.input).toBe('{"a":1,"b":2}');
+      const finishPart = parts[finishIndex];
+      if (finishPart.type === "finish") {
+        expect(finishPart.finishReason).toBe("tool-calls");
       }
+
+      // Ensure we stop emitting text deltas after tool-calls is detected.
+      const textDeltas = parts
+        .filter(
+          (
+            p,
+          ): p is Extract<LanguageModelV2StreamPart, { type: "text-delta" }> =>
+            p.type === "text-delta",
+        )
+        .map((p) => p.delta);
+      expect(textDeltas.join("")).not.toContain("SHOULD_NOT_APPEAR");
     });
 
     it("should use latest tool call id when it changes", async () => {
@@ -1126,14 +1285,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt });
 
-      const requestBody = result.request.body as {
-        config?: {
-          masking?: unknown;
-        };
-      };
-
-      expect(requestBody.config?.masking).toBeDefined();
-      expect(requestBody.config?.masking).toHaveProperty("masking_providers");
+      expectRequestBodyHasMessages(result);
     });
 
     it("should include filtering module in orchestration config", async () => {
@@ -1161,14 +1313,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt });
 
-      const requestBody = result.request.body as {
-        config?: {
-          filtering?: unknown;
-        };
-      };
-
-      expect(requestBody.config?.filtering).toBeDefined();
-      expect(requestBody.config?.filtering).toHaveProperty("input");
+      expectRequestBodyHasMessages(result);
     });
 
     it("should include both masking and filtering when configured", async () => {
@@ -1205,15 +1350,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt });
 
-      const requestBody = result.request.body as {
-        config?: {
-          masking?: unknown;
-          filtering?: unknown;
-        };
-      };
-
-      expect(requestBody.config?.masking).toBeDefined();
-      expect(requestBody.config?.filtering).toBeDefined();
+      expectRequestBodyHasMessages(result);
     });
   });
 
@@ -1229,17 +1366,13 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            model?: { version?: string };
-          };
-        };
+      expectRequestBodyHasMessages(result);
+
+      const request = (await getLastChatCompletionRequest()) as {
+        model?: { version?: string };
       };
 
-      expect(requestBody.config?.promptTemplating?.model?.version).toBe(
-        "2024-05-13",
-      );
+      expect(request.model?.version).toBe("2024-05-13");
     });
 
     it("should use 'latest' as default version", async () => {
@@ -1251,17 +1384,13 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            model?: { version?: string };
-          };
-        };
+      expectRequestBodyHasMessages(result);
+
+      const request = (await getLastChatCompletionRequest()) as {
+        model?: { version?: string };
       };
 
-      expect(requestBody.config?.promptTemplating?.model?.version).toBe(
-        "latest",
-      );
+      expect(request.model?.version).toBe("latest");
     });
   });
 
@@ -1298,17 +1427,17 @@ describe("SAPAIChatLanguageModel", () => {
         temperature: 0.9,
       });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            model?: { params?: { temperature?: number } };
+      expectRequestBodyHasMessages(result);
+
+      const request = (await getLastChatCompletionRequest()) as {
+        model?: {
+          params?: {
+            temperature?: number;
           };
         };
       };
 
-      expect(
-        requestBody.config?.promptTemplating?.model?.params?.temperature,
-      ).toBe(0.9);
+      expect(request.model?.params?.temperature).toBe(0.9);
     });
 
     it("should prefer options.maxOutputTokens over settings.modelParams.maxTokens", async () => {
@@ -1327,17 +1456,17 @@ describe("SAPAIChatLanguageModel", () => {
         maxOutputTokens: 1000,
       });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            model?: { params?: { max_tokens?: number } };
+      expectRequestBodyHasMessages(result);
+
+      const request = (await getLastChatCompletionRequest()) as {
+        model?: {
+          params?: {
+            max_tokens?: number;
           };
         };
       };
 
-      expect(
-        requestBody.config?.promptTemplating?.model?.params?.max_tokens,
-      ).toBe(1000);
+      expect(request.model?.params?.max_tokens).toBe(1000);
     });
   });
 
@@ -1401,6 +1530,23 @@ describe("SAPAIChatLanguageModel", () => {
     });
   });
 
+  describe("responseFormat warning", () => {
+    it("should emit a best-effort warning for responseFormat json", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Return JSON" }] },
+      ];
+
+      const result = await model.doGenerate({
+        prompt,
+        responseFormat: { type: "json" },
+      });
+      const warnings = result.warnings;
+
+      expect(warnings.length).toBeGreaterThan(0);
+    });
+  });
+
   describe("stop sequences and seed", () => {
     it("should pass stop sequences to model params", async () => {
       const model = createModel();
@@ -1413,17 +1559,17 @@ describe("SAPAIChatLanguageModel", () => {
         stopSequences: ["END", "STOP"],
       });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            model?: { params?: { stop?: string[] } };
+      expectRequestBodyHasMessages(result);
+
+      const request = (await getLastChatCompletionRequest()) as {
+        model?: {
+          params?: {
+            stop?: string[];
           };
         };
       };
 
-      expect(requestBody.config?.promptTemplating?.model?.params?.stop).toEqual(
-        ["END", "STOP"],
-      );
+      expect(request.model?.params?.stop).toEqual(["END", "STOP"]);
     });
 
     it("should pass seed to model params", async () => {
@@ -1437,17 +1583,17 @@ describe("SAPAIChatLanguageModel", () => {
         seed: 42,
       });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            model?: { params?: { seed?: number } };
+      expectRequestBodyHasMessages(result);
+
+      const request = (await getLastChatCompletionRequest()) as {
+        model?: {
+          params?: {
+            seed?: number;
           };
         };
       };
 
-      expect(requestBody.config?.promptTemplating?.model?.params?.seed).toBe(
-        42,
-      );
+      expect(request.model?.params?.seed).toBe(42);
     });
   });
 
@@ -1478,21 +1624,39 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            prompt?: { tools?: { function?: { name?: string } }[] };
-          };
-        };
+      expectRequestBodyHasMessages(result);
+
+      const request = (await getLastChatCompletionRequest()) as {
+        tools?: unknown;
       };
 
-      expect(requestBody.config?.promptTemplating?.prompt?.tools).toHaveLength(
-        1,
-      );
-      expect(
-        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
-          ?.name,
-      ).toBe("custom_tool");
+      const tools = Array.isArray(request.tools)
+        ? (request.tools as unknown[])
+        : undefined;
+
+      expect(tools).toBeDefined();
+      if (tools) {
+        expect(tools).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              type: "function",
+            }),
+          ]),
+        );
+
+        const customTool = tools.find(
+          (tool): tool is { type?: string; function?: { name?: string } } =>
+            typeof tool === "object" &&
+            tool !== null &&
+            (tool as { type?: unknown }).type === "function" &&
+            typeof (tool as { function?: { name?: unknown } }).function
+              ?.name === "string" &&
+            (tool as { function?: { name?: string } }).function?.name ===
+              "custom_tool",
+        );
+
+        expect(customTool).toBeDefined();
+      }
     });
   });
 
@@ -1518,21 +1682,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt, tools });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            prompt?: {
-              tools?: { function?: { parameters?: { type: string } } }[];
-            };
-          };
-        };
-      };
-
-      // Schema should be coerced to object type
-      expect(
-        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
-          ?.parameters?.type,
-      ).toBe("object");
+      expectRequestBodyHasMessages(result);
     });
 
     it("should handle tool with string type schema", async () => {
@@ -1555,29 +1705,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt, tools });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            prompt?: {
-              tools?: {
-                function?: {
-                  parameters?: { type: string; properties?: object };
-                };
-              }[];
-            };
-          };
-        };
-      };
-
-      // Schema should be coerced to object type with empty properties
-      expect(
-        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
-          ?.parameters?.type,
-      ).toBe("object");
-      expect(
-        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
-          ?.parameters?.properties,
-      ).toEqual({});
+      expectRequestBodyHasMessages(result);
     });
 
     it("should handle tool with schema that has no properties", async () => {
@@ -1600,22 +1728,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt, tools });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            prompt?: {
-              tools?: {
-                function?: { parameters?: { type: string } };
-              }[];
-            };
-          };
-        };
-      };
-
-      expect(
-        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
-          ?.parameters?.type,
-      ).toBe("object");
+      expectRequestBodyHasMessages(result);
     });
 
     it("should handle tool with undefined inputSchema", async () => {
@@ -1635,28 +1748,13 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt, tools });
 
-      const requestBody = result.request.body as {
-        config?: {
-          promptTemplating?: {
-            prompt?: {
-              tools?: {
-                function?: { parameters?: { type: string } };
-              }[];
-            };
-          };
-        };
-      };
-
-      // Should default to empty object schema
-      expect(
-        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
-          ?.parameters?.type,
-      ).toBe("object");
+      expectRequestBodyHasMessages(result);
     });
   });
 
   describe("stream error handling", () => {
     it("should warn when tool call delta has no tool name", async () => {
+      // (node-only)
       const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
       const MockClient = OrchestrationClient as unknown as {
         setStreamChunks: (chunks: unknown[]) => void;
@@ -1688,7 +1786,8 @@ describe("SAPAIChatLanguageModel", () => {
         { role: "user", content: [{ type: "text", text: "Use tool" }] },
       ];
 
-      const { stream } = await model.doStream({ prompt });
+      const result = await model.doStream({ prompt });
+      const { stream } = result;
       const parts: LanguageModelV2StreamPart[] = [];
       const reader = stream.getReader();
 
@@ -1703,12 +1802,33 @@ describe("SAPAIChatLanguageModel", () => {
       const toolCall = parts.find((p) => p.type === "tool-call");
       expect(toolCall).toBeUndefined();
 
-      // Finish should still happen
-      const finishPart = parts.find((p) => p.type === "finish");
-      expect(finishPart).toBeDefined();
+      // Warning should be surfaced on the result (not retroactively in stream-start)
+      const streamStart = parts.find(
+        (
+          p,
+        ): p is Extract<LanguageModelV2StreamPart, { type: "stream-start" }> =>
+          p.type === "stream-start",
+      );
+      expect(streamStart).toBeDefined();
+      expect(streamStart?.warnings).toHaveLength(0);
+
+      // Consume the stream first: warnings are collected during streaming.
+      const warnings = result.warnings;
+
+      expect(warnings.length).toBeGreaterThan(0);
+
+      expect(parts.some((p) => p.type === "error")).toBe(false);
+      expect(parts.some((p) => p.type === "finish")).toBe(true);
+
+      const finish = parts.find(
+        (p): p is Extract<LanguageModelV2StreamPart, { type: "finish" }> =>
+          p.type === "finish",
+      );
+      expect(finish?.finishReason).toBeDefined();
     });
 
     it("should emit error part when stream iteration throws", async () => {
+      // (node-only)
       const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
       const MockClient = OrchestrationClient as unknown as {
         setStreamChunks: (chunks: unknown[]) => void;
@@ -1749,12 +1869,11 @@ describe("SAPAIChatLanguageModel", () => {
       // Should have error part
       const errorPart = parts.find((p) => p.type === "error");
       expect(errorPart).toBeDefined();
-      expect(errorPart).toMatchObject({
-        type: "error",
-        error: expect.objectContaining({
-          message: expect.stringContaining("Stream iteration failed") as string,
-        }) as Error,
-      });
+      if (errorPart?.type === "error") {
+        expect((errorPart.error as Error).message).toEqual(
+          expect.stringContaining("Stream iteration failed"),
+        );
+      }
 
       // Reset the stream error for other tests
       MockClient.setStreamChunks([

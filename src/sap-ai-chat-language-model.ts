@@ -8,6 +8,7 @@ import {
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
 } from "@ai-sdk/provider";
+import type { JSONValue } from "@ai-sdk/provider";
 import {
   OrchestrationClient,
   OrchestrationModuleConfig,
@@ -21,8 +22,11 @@ import type {
   DeploymentIdConfig,
 } from "@sap-ai-sdk/ai-api/internal.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import type { ZodType } from "zod/v3";
+import type { ZodType } from "zod";
 import type { Template } from "@sap-ai-sdk/orchestration/dist/client/api/schema/template.js";
+
+type SapResponseFormat = Template["response_format"];
+
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
 import { convertToAISDKError } from "./sap-ai-error";
@@ -71,8 +75,6 @@ type SapModelParams = LlmModelParams & {
   seed?: number;
   parallel_tool_calls?: boolean;
 };
-
-type SapResponseFormat = Template["response_format"];
 
 type SapToolParameters = Record<string, unknown> & {
   type: "object";
@@ -230,10 +232,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    */
   get supportedUrls(): Record<string, RegExp[]> {
     return {
-      "image/*": [
-        /^https:\/\/.*\.(?:png|jpg|jpeg|gif|webp)$/i,
-        /^data:image\/.*$/,
-      ],
+      "image/*": [/^https:\/\/.+$/i, /^data:image\/.*$/],
     };
   }
 
@@ -259,30 +258,51 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     messages: ChatMessage[];
     warnings: LanguageModelV2CallWarning[];
   } {
+    const providerOptions =
+      (options.providerOptions as { sap?: Partial<SAPAISettings> } | undefined)
+        ?.sap ?? {};
     const warnings: LanguageModelV2CallWarning[] = [];
 
     // Convert AI SDK prompt to SAP messages
     const messages = convertToSAPMessages(options.prompt, {
-      includeReasoning: this.settings.includeReasoning ?? false,
+      includeReasoning:
+        providerOptions.includeReasoning ??
+        this.settings.includeReasoning ??
+        false,
     });
 
-    // Get tools
-    // - Prefer settings.tools if provided (already in SAP format with proper schemas)
-    // - Otherwise convert AI SDK tools from call options
-    // If both are provided, we pick settings.tools and warn to avoid silent surprises.
+    // Tools precedence (AI SDK convention): per-call options.tools override
+    // model/provider defaults.
     let tools: ChatCompletionTool[] | undefined;
 
-    const settingsTools = this.settings.tools;
+    const settingsTools = providerOptions.tools ?? this.settings.tools;
     const optionsTools = options.tools;
 
-    if (settingsTools && settingsTools.length > 0) {
-      // If both are provided, prefer settings.tools deterministically.
-      // No warning: this is a valid configuration choice (and avoids noisy logs).
+    const shouldUseSettingsTools =
+      settingsTools &&
+      settingsTools.length > 0 &&
+      (!optionsTools || optionsTools.length === 0);
 
+    const shouldUseOptionsTools = !!(optionsTools && optionsTools.length > 0);
+
+    if (
+      settingsTools &&
+      settingsTools.length > 0 &&
+      optionsTools &&
+      optionsTools.length > 0
+    ) {
+      warnings.push({
+        type: "other",
+        message:
+          "Both settings.tools and call options.tools were provided; preferring call options.tools.",
+      });
+    }
+
+    if (shouldUseSettingsTools) {
       tools = settingsTools;
     } else {
       // Extract tools from options and convert
-      const availableTools = optionsTools;
+      const availableTools = shouldUseOptionsTools ? optionsTools : undefined;
 
       tools = availableTools
         ?.map((tool): ChatCompletionTool | null => {
@@ -307,9 +327,12 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             ) {
               try {
                 // Convert Zod schema to JSON Schema
-                const jsonSchema = zodToJsonSchema(toolWithParams.parameters, {
-                  $refStrategy: "none",
-                });
+                const jsonSchema = zodToJsonSchema(
+                  toolWithParams.parameters as never,
+                  {
+                    $refStrategy: "none",
+                  },
+                );
                 const schemaRecord = jsonSchema as Record<string, unknown>;
                 // Remove $schema property as SAP doesn't need it
                 delete schemaRecord.$schema;
@@ -369,17 +392,32 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     // Options take precedence over settings as per LanguageModelV2 interface
     const modelParams: SapModelParams = {
       max_tokens:
-        options.maxOutputTokens ?? this.settings.modelParams?.maxTokens,
+        options.maxOutputTokens ??
+        providerOptions.modelParams?.maxTokens ??
+        this.settings.modelParams?.maxTokens,
       temperature:
-        options.temperature ?? this.settings.modelParams?.temperature,
-      top_p: options.topP ?? this.settings.modelParams?.topP,
+        options.temperature ??
+        providerOptions.modelParams?.temperature ??
+        this.settings.modelParams?.temperature,
+      top_p:
+        options.topP ??
+        providerOptions.modelParams?.topP ??
+        this.settings.modelParams?.topP,
       top_k: options.topK,
       frequency_penalty:
-        options.frequencyPenalty ?? this.settings.modelParams?.frequencyPenalty,
+        options.frequencyPenalty ??
+        providerOptions.modelParams?.frequencyPenalty ??
+        this.settings.modelParams?.frequencyPenalty,
       presence_penalty:
-        options.presencePenalty ?? this.settings.modelParams?.presencePenalty,
-      n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
-      parallel_tool_calls: this.settings.modelParams?.parallel_tool_calls,
+        options.presencePenalty ??
+        providerOptions.modelParams?.presencePenalty ??
+        this.settings.modelParams?.presencePenalty,
+      n: supportsN
+        ? (providerOptions.modelParams?.n ?? this.settings.modelParams?.n ?? 1)
+        : undefined,
+      parallel_tool_calls:
+        providerOptions.modelParams?.parallel_tool_calls ??
+        this.settings.modelParams?.parallel_tool_calls,
     };
 
     // Add stop sequences if provided
@@ -403,13 +441,12 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     }
 
     // Response format (Structured Outputs)
-    // SAP AI SDK forwards OpenAI-compatible response format instructions to the underlying model.
-    // Some models may ignore them or only partially comply; keep the warning best-effort.
+    // We pass these instructions through to the underlying model.
+    // Some models/deployments may ignore them or only partially comply.
     if (options.responseFormat?.type === "json") {
       warnings.push({
-        type: "unsupported-setting",
-        setting: "responseFormat",
-        details:
+        type: "other",
+        message:
           "responseFormat JSON mode is forwarded to the underlying model; support and schema adherence depend on the model/deployment.",
       });
     }
@@ -437,7 +474,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       promptTemplating: {
         model: {
           name: this.modelId,
-          version: this.settings.modelVersion ?? "latest",
+          version:
+            providerOptions.modelVersion ??
+            this.settings.modelVersion ??
+            "latest",
           params: modelParams,
         },
         prompt: {
@@ -447,10 +487,12 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         },
       },
       // Include masking module if provided
-      ...(this.settings.masking ? { masking: this.settings.masking } : {}),
+      ...((providerOptions.masking ?? this.settings.masking)
+        ? { masking: providerOptions.masking ?? this.settings.masking }
+        : {}),
       // Include filtering module if provided
-      ...(this.settings.filtering
-        ? { filtering: this.settings.filtering }
+      ...((providerOptions.filtering ?? this.settings.filtering)
+        ? { filtering: providerOptions.filtering ?? this.settings.filtering }
         : {}),
     };
 
@@ -500,16 +542,40 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * console.log(result.usage);   // Token usage
    * ```
    */
-  async doGenerate(options: LanguageModelV2CallOptions) {
+  async doGenerate(options: LanguageModelV2CallOptions): Promise<{
+    content: LanguageModelV2Content[];
+    finishReason: LanguageModelV2FinishReason;
+    usage: LanguageModelV2Usage;
+    providerMetadata?: Record<string, Record<string, JSONValue>>;
+    request: { body?: unknown };
+    response: {
+      timestamp: Date;
+      modelId: string;
+      headers?: Record<string, string>;
+      body?: unknown;
+    };
+    warnings: LanguageModelV2CallWarning[];
+  }> {
     try {
       const { orchestrationConfig, messages, warnings } =
         this.buildOrchestrationConfig(options);
 
       const client = this.createClient(orchestrationConfig);
 
-      const response = await client.chatCompletion({
+      const promptTemplating =
+        orchestrationConfig.promptTemplating as unknown as {
+          prompt: { tools?: unknown; response_format?: unknown };
+        };
+
+      const requestBody = {
         messages,
-      });
+        model: {
+          ...orchestrationConfig.promptTemplating.model,
+        },
+        tools: promptTemplating.prompt.tools,
+        response_format: promptTemplating.prompt.response_format,
+      };
+      const response = await client.chatCompletion(requestBody);
 
       const content: LanguageModelV2Content[] = [];
 
@@ -560,12 +626,12 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           totalTokens: tokenUsage.total_tokens,
         },
         providerMetadata: {
-          sap: {
+          "sap-ai": {
             finishReason: finishReasonRaw ?? "unknown",
           },
         },
         request: {
-          body: { config: orchestrationConfig, messages },
+          body: requestBody as unknown,
         },
         response: {
           timestamp: new Date(),
@@ -616,15 +682,34 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * }
    * ```
    */
-  async doStream(options: LanguageModelV2CallOptions) {
+  async doStream(options: LanguageModelV2CallOptions): Promise<{
+    stream: ReadableStream<LanguageModelV2StreamPart>;
+    request?: { body?: unknown };
+    response?: { headers?: Record<string, string> };
+    warnings: LanguageModelV2CallWarning[];
+  }> {
     try {
       const { orchestrationConfig, messages, warnings } =
         this.buildOrchestrationConfig(options);
 
       const client = this.createClient(orchestrationConfig);
 
+      const promptTemplating =
+        orchestrationConfig.promptTemplating as unknown as {
+          prompt: { tools?: unknown; response_format?: unknown };
+        };
+
+      const requestBody = {
+        messages,
+        model: {
+          ...orchestrationConfig.promptTemplating.model,
+        },
+        tools: promptTemplating.prompt.tools,
+        response_format: promptTemplating.prompt.response_format,
+      };
+
       const streamResponse = await client.stream(
-        { messages },
+        requestBody,
         options.abortSignal,
         { promptTemplating: { include_usage: true } },
       );
@@ -647,15 +732,27 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           toolName?: string;
           arguments: string;
           didEmitInputStart: boolean;
+          didEmitCall: boolean;
         }
       >();
 
       const sdkStream = streamResponse.stream;
       const modelId = this.modelId;
 
+      const warningsSnapshot = [...warnings];
+
+      // `doStream` may discover additional warnings while iterating the upstream
+      // stream (e.g. malformed tool-call deltas). Those warnings should be
+      // observable on the returned result after stream consumption, without
+      // mutating the `stream-start` warnings payload.
+      const warningsOut: LanguageModelV2CallWarning[] = [...warningsSnapshot];
+
       const transformedStream = new ReadableStream<LanguageModelV2StreamPart>({
         async start(controller) {
-          controller.enqueue({ type: "stream-start", warnings });
+          controller.enqueue({
+            type: "stream-start",
+            warnings: warningsSnapshot,
+          });
 
           try {
             for await (const chunk of sdkStream) {
@@ -663,7 +760,6 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 isFirstChunk = false;
                 controller.enqueue({
                   type: "response-metadata",
-                  id: undefined,
                   modelId,
                   timestamp: new Date(),
                 });
@@ -671,7 +767,11 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
               // Get delta content
               const deltaContent = chunk.getDeltaContent();
-              if (typeof deltaContent === "string" && deltaContent.length > 0) {
+              if (
+                typeof deltaContent === "string" &&
+                deltaContent.length > 0 &&
+                finishReason !== "tool-calls"
+              ) {
                 if (!activeText) {
                   controller.enqueue({ type: "text-start", id: "0" });
                   activeText = true;
@@ -699,6 +799,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                       toolName: toolCallChunk.function?.name,
                       arguments: "",
                       didEmitInputStart: false,
+                      didEmitCall: false,
                     });
                   }
 
@@ -752,6 +853,41 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               const chunkFinishReason = chunk.getFinishReason();
               if (chunkFinishReason) {
                 finishReason = mapFinishReason(chunkFinishReason);
+
+                // If the model indicates tool calls, flush them immediately so
+                // downstream consumers can start executing tools before the
+                // stream ends.
+                if (finishReason === "tool-calls") {
+                  const toolCalls = Array.from(toolCallsInProgress.values());
+                  for (const tc of toolCalls) {
+                    if (tc.didEmitCall) {
+                      continue;
+                    }
+                    if (!tc.didEmitInputStart || !tc.toolName) {
+                      warningsOut.push({
+                        type: "other",
+                        message:
+                          "Received tool-call delta without a tool name. Dropping tool-call output.",
+                      });
+                      tc.didEmitCall = true;
+                      continue;
+                    }
+
+                    tc.didEmitCall = true;
+                    controller.enqueue({ type: "tool-input-end", id: tc.id });
+                    controller.enqueue({
+                      type: "tool-call",
+                      toolCallId: tc.id,
+                      toolName: tc.toolName,
+                      input: tc.arguments,
+                    });
+                  }
+
+                  if (activeText) {
+                    controller.enqueue({ type: "text-end", id: "0" });
+                    activeText = false;
+                  }
+                }
               }
 
               // Get usage from chunk
@@ -765,26 +901,24 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
             // Emit completed tool calls
             const toolCalls = Array.from(toolCallsInProgress.values());
+            let didEmitAnyToolCalls = false;
+
             for (const tc of toolCalls) {
+              if (tc.didEmitCall) {
+                continue;
+              }
               if (!tc.didEmitInputStart || !tc.toolName) {
-                warnings.push({
-                  type: "unsupported-tool",
-                  tool: {
-                    type: "function",
-                    name: tc.toolName ?? "unknown",
-                    description: "",
-                    inputSchema: {
-                      type: "object",
-                      properties: {},
-                      required: [],
-                    },
-                  },
-                  details:
-                    "Received tool call delta without a tool name. Dropping tool-call output.",
+                warningsOut.push({
+                  type: "other",
+                  message:
+                    "Received tool-call delta without a tool name. Dropping tool-call output.",
                 });
+                tc.didEmitCall = true;
                 continue;
               }
 
+              didEmitAnyToolCalls = true;
+              tc.didEmitCall = true;
               controller.enqueue({ type: "tool-input-end", id: tc.id });
               controller.enqueue({
                 type: "tool-call",
@@ -794,8 +928,14 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               });
             }
 
+            // If we emitted tool calls, close any active text block.
             if (activeText) {
               controller.enqueue({ type: "text-end", id: "0" });
+            }
+
+            // Prefer a tool-calls finish reason if tool calls were emitted.
+            if (didEmitAnyToolCalls) {
+              finishReason = "tool-calls";
             }
 
             // Try to get final usage from stream response
@@ -806,9 +946,11 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               usage.totalTokens = finalUsage.total_tokens;
             }
 
-            // Get final finish reason
+            // Get final finish reason.
+            // If tool calls were already emitted, keep finishReason as tool-calls
+            // even if the stream response reports a different final reason.
             const finalFinishReason = streamResponse.getFinishReason();
-            if (finalFinishReason) {
+            if (finalFinishReason && finishReason !== "tool-calls") {
               finishReason = mapFinishReason(finalFinishReason);
             }
 
@@ -837,8 +979,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       return {
         stream: transformedStream,
         request: {
-          body: { config: orchestrationConfig, messages },
+          body: requestBody as unknown,
         },
+        warnings: warningsOut,
       };
     } catch (error) {
       throw convertToAISDKError(error, {
