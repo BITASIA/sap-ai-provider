@@ -7,6 +7,52 @@ import type {
 
 /**
  * Settings for configuring SAP AI Core model behavior.
+ *
+ * These settings control model parameters, data masking, content filtering,
+ * and tool usage. Settings can be provided at provider-level (defaults) or
+ * per-model call (overrides).
+ *
+ * @example
+ * **Basic usage with model parameters**
+ * ```typescript
+ * const model = provider('gpt-4o', {
+ *   modelParams: {
+ *     temperature: 0.7,
+ *     maxTokens: 2000
+ *   }
+ * });
+ * ```
+ *
+ * @example
+ * **With data masking (DPI)**
+ * ```typescript
+ * import { buildDpiMaskingProvider } from '@mymediset/sap-ai-provider';
+ *
+ * const model = provider('gpt-4o', {
+ *   masking: {
+ *     masking_providers: [
+ *       buildDpiMaskingProvider({
+ *         method: 'anonymization',
+ *         entities: ['profile-email', 'profile-person']
+ *       })
+ *     ]
+ *   }
+ * });
+ * ```
+ *
+ * @example
+ * **With content filtering**
+ * ```typescript
+ * import { buildAzureContentSafetyFilter } from '@mymediset/sap-ai-provider';
+ *
+ * const model = provider('gpt-4o', {
+ *   filtering: {
+ *     input: {
+ *       filters: [buildAzureContentSafetyFilter('input', { hate: 'ALLOW_SAFE' })]
+ *     }
+ *   }
+ * });
+ * ```
  */
 export interface SAPAISettings {
   /**

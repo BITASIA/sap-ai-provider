@@ -11,7 +11,7 @@ import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
  * SAP AI Provider interface.
  *
  * This is the main interface for creating and configuring SAP AI Core models.
- * It extends the standard Vercel AI SDK ProviderV2 interface with SAP-specific functionality.
+ * It extends the standard AI SDK ProviderV2 interface with SAP-specific functionality.
  *
  * @example
  * ```typescript
@@ -148,9 +148,9 @@ export interface SAPAIProviderSettings {
 export type DeploymentConfig = ResourceGroupConfig | DeploymentIdConfig;
 
 /**
- * Creates a SAP AI Core provider instance for use with Vercel AI SDK.
+ * Creates a SAP AI Core provider instance for use with the AI SDK.
  *
- * This is the main entry point for integrating SAP AI Core with the Vercel AI SDK.
+ * This is the main entry point for integrating SAP AI Core with the AI SDK.
  * It uses the official SAP AI SDK (@sap-ai-sdk/orchestration) under the hood,
  * which handles authentication and API communication automatically.
  *

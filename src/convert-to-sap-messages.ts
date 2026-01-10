@@ -26,10 +26,10 @@ interface UserContentItem {
 }
 
 /**
- * Converts Vercel AI SDK prompt format to SAP AI SDK ChatMessage format.
+ * Converts AI SDK prompt format to SAP AI SDK ChatMessage format.
  *
  * This function transforms the standardized LanguageModelV2Prompt format
- * used by the Vercel AI SDK into the ChatMessage format expected
+ * used by the AI SDK into the ChatMessage format expected
  * by SAP AI SDK's OrchestrationClient.
  *
  * **Supported Features:**
@@ -47,7 +47,7 @@ interface UserContentItem {
  * **Behavior:**
  * - Reasoning parts are dropped by default; when enabled via `includeReasoning`, they are preserved inline as `<reasoning>...</reasoning>` markers
  *
- * @param prompt - The Vercel AI SDK prompt to convert
+ * @param prompt - The AI SDK prompt to convert
  * @param options - Optional conversion settings
  * @returns Array of SAP AI SDK compatible ChatMessage objects
  *

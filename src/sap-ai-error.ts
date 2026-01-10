@@ -26,7 +26,7 @@ function getStatusCodeFromSAPError(code?: number): number {
 
 /**
  * Determines if an error should be retryable based on status code.
- * Following the Vercel AI SDK pattern: 429 (rate limit) and 5xx (server errors) are retryable.
+ * Following the AI SDK pattern: 429 (rate limit) and 5xx (server errors) are retryable.
  *
  * @param statusCode - HTTP status code
  * @returns True if error should be retried
@@ -37,14 +37,14 @@ function isRetryable(statusCode: number): boolean {
 }
 
 /**
- * Converts SAP AI SDK OrchestrationErrorResponse to Vercel AI SDK APICallError.
+ * Converts SAP AI SDK OrchestrationErrorResponse to AI SDK APICallError.
  *
- * This ensures standardized error handling compatible with the Vercel AI SDK
+ * This ensures standardized error handling compatible with the AI SDK
  * error classification system (retryable vs non-retryable errors).
  *
  * @param errorResponse - The error response from SAP AI SDK
  * @param context - Optional context about where the error occurred
- * @returns APICallError compatible with Vercel AI SDK
+ * @returns APICallError compatible with AI SDK
  *
  * @example
  * **Basic Usage**
@@ -228,7 +228,7 @@ function getAxiosResponseHeaders(
 }
 
 /**
- * Converts a generic error to an appropriate Vercel AI SDK error.
+ * Converts a generic error to an appropriate AI SDK error.
  *
  * @param error - The error to convert
  * @param context - Optional context about where the error occurred

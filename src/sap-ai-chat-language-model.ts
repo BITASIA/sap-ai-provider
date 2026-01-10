@@ -261,7 +261,7 @@ interface SAPAIConfig {
 /**
  * SAP AI Chat Language Model implementation.
  *
- * This class implements the Vercel AI SDK's `LanguageModelV2` interface,
+ * This class implements the AI SDK's `LanguageModelV2` interface,
  * providing a bridge between the AI SDK and SAP AI Core's Orchestration API
  * using the official SAP AI SDK (@sap-ai-sdk/orchestration).
  *
