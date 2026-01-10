@@ -1038,11 +1038,14 @@ function mapFinishReason(
     case "stop":
     case "end_turn":
     case "stop_sequence":
+    case "eos":
       return "stop";
     case "length":
     case "max_tokens":
+    case "max_tokens_reached":
       return "length";
     case "tool_calls":
+    case "tool_call":
     case "function_call":
       return "tool-calls";
     case "content_filter":

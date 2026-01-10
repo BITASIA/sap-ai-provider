@@ -904,6 +904,40 @@ describe("SAPAIChatLanguageModel", () => {
       }
     });
 
+    it("should handle stream with 'max_tokens_reached' finish reason as 'length'", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "Reached limit",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "max_tokens_reached",
+          getTokenUsage: () => ({
+            prompt_tokens: 1,
+            completion_tokens: 2,
+            total_tokens: 3,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("length");
+      }
+    });
+
     it("should handle stream with 'length' finish reason", async () => {
       const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
       const MockClient = OrchestrationClient as unknown as {
@@ -944,6 +978,40 @@ describe("SAPAIChatLanguageModel", () => {
       expect(finishPart).toBeDefined();
       if (finishPart?.type === "finish") {
         expect(finishPart.finishReason).toBe("length");
+      }
+    });
+
+    it("should handle stream with 'eos' finish reason", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "Ok",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "eos",
+          getTokenUsage: () => ({
+            prompt_tokens: 1,
+            completion_tokens: 1,
+            total_tokens: 2,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("stop");
       }
     });
 
@@ -1240,6 +1308,49 @@ describe("SAPAIChatLanguageModel", () => {
       expect(finishPart).toBeDefined();
       if (finishPart?.type === "finish") {
         expect(finishPart.finishReason).toBe("length");
+      }
+    });
+
+    it("should handle 'tool_call' finish reason as 'tool-calls'", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => null,
+          getDeltaToolCalls: () => [
+            {
+              index: 0,
+              id: "toolcall-0",
+              function: {
+                name: "myTool",
+                arguments: '{"x":1}',
+              },
+            },
+          ],
+          getFinishReason: () => "tool_call",
+          getTokenUsage: () => ({
+            prompt_tokens: 1,
+            completion_tokens: 1,
+            total_tokens: 2,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("tool-calls");
       }
     });
 
