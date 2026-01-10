@@ -16,6 +16,14 @@ export interface SAPAISettings {
   modelVersion?: string;
 
   /**
+   * Whether to include assistant reasoning parts in the SAP prompt conversion.
+   *
+   * Reasoning parts may contain chain-of-thought. Best practice is to keep this
+   * disabled (default false) unless you have an explicit need to persist them.
+   */
+  includeReasoning?: boolean;
+
+  /**
    * Model generation parameters that control the output.
    */
   modelParams?: {

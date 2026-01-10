@@ -113,6 +113,19 @@ function isZodSchema(obj: unknown): obj is ZodType {
 function buildSapToolParameters(
   schema: Record<string, unknown>,
 ): SapToolParameters {
+  const schemaType = schema.type;
+
+  // SAP AI Core expects object schemas for tool parameters.
+  // If we get something else, coerce to an empty object schema rather than
+  // producing an invalid payload.
+  if (schemaType !== undefined && schemaType !== "object") {
+    return {
+      type: "object",
+      properties: {},
+      required: [],
+    };
+  }
+
   return {
     type: "object",
     properties: {},
@@ -249,18 +262,27 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     const warnings: LanguageModelV2CallWarning[] = [];
 
     // Convert AI SDK prompt to SAP messages
-    const messages = convertToSAPMessages(options.prompt);
+    const messages = convertToSAPMessages(options.prompt, {
+      includeReasoning: this.settings.includeReasoning ?? false,
+    });
 
-    // Get tools - prefer settings.tools if provided (proper JSON Schema),
-    // otherwise try to convert from AI SDK tools
+    // Get tools
+    // - Prefer settings.tools if provided (already in SAP format with proper schemas)
+    // - Otherwise convert AI SDK tools from call options
+    // If both are provided, we pick settings.tools and warn to avoid silent surprises.
     let tools: ChatCompletionTool[] | undefined;
 
-    if (this.settings.tools && this.settings.tools.length > 0) {
-      // Use tools from settings (already in SAP format with proper schemas)
-      tools = this.settings.tools;
+    const settingsTools = this.settings.tools;
+    const optionsTools = options.tools;
+
+    if (settingsTools && settingsTools.length > 0) {
+      // If both are provided, prefer settings.tools deterministically.
+      // No warning: this is a valid configuration choice (and avoids noisy logs).
+
+      tools = settingsTools;
     } else {
       // Extract tools from options and convert
-      const availableTools = options.tools;
+      const availableTools = optionsTools;
 
       tools = availableTools
         ?.map((tool): ChatCompletionTool | null => {
@@ -381,13 +403,14 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     }
 
     // Response format (Structured Outputs)
-    // SAP AI SDK supports OpenAI-compatible response formats, but schema adherence depends on the underlying model.
+    // SAP AI SDK forwards OpenAI-compatible response format instructions to the underlying model.
+    // Some models may ignore them or only partially comply; keep the warning best-effort.
     if (options.responseFormat?.type === "json") {
       warnings.push({
         type: "unsupported-setting",
         setting: "responseFormat",
         details:
-          "SAP AI SDK forwards JSON mode/Structured Outputs to the underlying model. Schema adherence depends on model support.",
+          "responseFormat JSON mode is forwarded to the underlying model; support and schema adherence depend on the model/deployment.",
       });
     }
 

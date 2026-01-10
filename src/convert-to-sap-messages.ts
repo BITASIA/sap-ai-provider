@@ -76,10 +76,22 @@ interface UserContentItem {
  * const sapMessages = convertToSAPMessages(prompt);
  * ```
  */
+export interface ConvertToSAPMessagesOptions {
+  /**
+   * Include assistant reasoning parts in the serialized SAP messages.
+   *
+   * Reasoning parts can contain chain-of-thought. Default is false to avoid
+   * leaking it into downstream systems.
+   */
+  includeReasoning?: boolean;
+}
+
 export function convertToSAPMessages(
   prompt: LanguageModelV2Prompt,
+  options: ConvertToSAPMessagesOptions = {},
 ): ChatMessage[] {
   const messages: ChatMessage[] = [];
+  const includeReasoning = options.includeReasoning ?? false;
 
   for (const message of prompt) {
     switch (message.role) {
@@ -167,8 +179,9 @@ export function convertToSAPMessages(
             }
             case "reasoning": {
               // SAP AI SDK doesn't support reasoning parts natively.
-              // Preserve it as an XML marker so downstream consumers can strip it.
-              if (part.text) {
+              // By default, drop them to avoid leaking chain-of-thought.
+              // If explicitly enabled, preserve it as an XML marker.
+              if (includeReasoning && part.text) {
                 text += `<reasoning>${part.text}</reasoning>`;
               }
               break;

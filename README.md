@@ -34,6 +34,7 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 
 - 🔐 **Automatic Authentication** - Uses SAP AI SDK's built-in credential handling
 - 🎯 **Tool Calling Support** - Full function calling capabilities
+- 🧠 **Reasoning-Safe by Default** - Assistant reasoning parts are not forwarded unless enabled
 - 🖼️ **Multi-modal Input** - Support for text and image inputs
 - 📡 **Streaming Support** - Real-time text generation
 - 🔒 **Data Masking** - Built-in SAP DPI integration for privacy
@@ -125,6 +126,8 @@ console.log(result.text);
 
 ### Chat Conversations
 
+Note: assistant `reasoning` parts are dropped by default. Set `includeReasoning: true` on the model settings if you explicitly want to forward them.
+
 ```typescript
 import { generateText } from "ai";
 
@@ -159,6 +162,9 @@ for await (const delta of result.textStream) {
 
 ```typescript
 const model = provider("gpt-4o", {
+  // Optional: include assistant reasoning parts (chain-of-thought).
+  // Best practice is to keep this disabled.
+  includeReasoning: false,
   modelParams: {
     temperature: 0.3,
     maxTokens: 2000,

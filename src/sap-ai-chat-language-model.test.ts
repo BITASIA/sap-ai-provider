@@ -379,6 +379,57 @@ describe("SAPAIChatLanguageModel", () => {
       expect(result.warnings[0].type).toBe("unsupported-tool");
     });
 
+    it("should prefer settings.tools over call options.tools", async () => {
+      const model = createModel("gpt-4o", {
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "settings_tool",
+              description: "From settings",
+              parameters: {
+                type: "object",
+                properties: {},
+                required: [],
+              },
+            },
+          },
+        ],
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const tools: LanguageModelV2FunctionTool[] = [
+        {
+          type: "function",
+          name: "call_tool",
+          description: "From call options",
+          inputSchema: {
+            type: "object",
+            properties: {},
+            required: [],
+          },
+        },
+      ];
+
+      const result = await model.doGenerate({ prompt, tools });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            prompt?: { tools?: { function?: { name?: string } }[] };
+          };
+        };
+      };
+
+      expect(
+        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
+          ?.name,
+      ).toBe("settings_tool");
+    });
+
     it("should warn when tool Zod schema conversion fails", async () => {
       // In ESM, spying on `zod-to-json-schema` exports is not reliable.
       // Instead, we provide a Zod-like object that passes our `isZodSchema`

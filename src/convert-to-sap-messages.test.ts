@@ -79,7 +79,7 @@ describe("convertToSAPMessages", () => {
     });
   });
 
-  it("should wrap assistant reasoning in XML marker", () => {
+  it("should drop assistant reasoning by default", () => {
     const prompt: LanguageModelV2Prompt = [
       {
         role: "assistant",
@@ -91,6 +91,27 @@ describe("convertToSAPMessages", () => {
     ];
 
     const result = convertToSAPMessages(prompt);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      role: "assistant",
+      content: "Final answer",
+      tool_calls: undefined,
+    });
+  });
+
+  it("should include assistant reasoning when enabled", () => {
+    const prompt: LanguageModelV2Prompt = [
+      {
+        role: "assistant",
+        content: [
+          { type: "reasoning", text: "Hidden chain of thought" },
+          { type: "text", text: "Final answer" },
+        ],
+      },
+    ];
+
+    const result = convertToSAPMessages(prompt, { includeReasoning: true });
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
@@ -411,7 +432,7 @@ describe("convertToSAPMessages", () => {
     });
   });
 
-  it("should handle reasoning-only assistant message", () => {
+  it("should handle reasoning-only assistant message by dropping content", () => {
     const prompt: LanguageModelV2Prompt = [
       {
         role: "assistant",
@@ -424,7 +445,7 @@ describe("convertToSAPMessages", () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
       role: "assistant",
-      content: "<reasoning>Thinking about this...</reasoning>",
+      content: "",
       tool_calls: undefined,
     });
   });

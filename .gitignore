@@ -49,3 +49,6 @@ coverage/
 
 # ESLint cache
 .eslintcache
+
+# Local agent metadata
+.serena/
