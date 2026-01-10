@@ -324,8 +324,6 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    *
    * @param options - Call options from the AI SDK
    * @returns Object containing orchestration config and warnings
-   *
-   * @internal
    */
   private buildOrchestrationConfig(options: LanguageModelV2CallOptions): {
     orchestrationConfig: OrchestrationModuleConfig;
@@ -584,8 +582,6 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    *
    * @param config - Orchestration module configuration
    * @returns OrchestrationClient instance
-   *
-   * @internal
    */
   private createClient(config: OrchestrationModuleConfig): OrchestrationClient {
     return new OrchestrationClient(
