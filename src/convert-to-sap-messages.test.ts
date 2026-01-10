@@ -2,11 +2,17 @@ import { describe, it, expect } from "vitest";
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import type { LanguageModelV2Prompt } from "@ai-sdk/provider";
 
+const createUserPrompt = (text: string): LanguageModelV2Prompt => [
+  { role: "user", content: [{ type: "text", text }] },
+];
+
+const createSystemPrompt = (content: string): LanguageModelV2Prompt => [
+  { role: "system", content },
+];
+
 describe("convertToSAPMessages", () => {
   it("should convert system message", () => {
-    const prompt: LanguageModelV2Prompt = [
-      { role: "system", content: "You are a helpful assistant." },
-    ];
+    const prompt = createSystemPrompt("You are a helpful assistant.");
 
     const result = convertToSAPMessages(prompt);
 
@@ -18,9 +24,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should convert simple user message", () => {
-    const prompt: LanguageModelV2Prompt = [
-      { role: "user", content: [{ type: "text", text: "Hello!" }] },
-    ];
+    const prompt = createUserPrompt("Hello!");
 
     const result = convertToSAPMessages(prompt);
 

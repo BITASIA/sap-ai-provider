@@ -234,6 +234,10 @@ describe("SAPAIChatLanguageModel", () => {
     );
   };
 
+  const createPrompt = (text: string): LanguageModelV2Prompt => [
+    { role: "user", content: [{ type: "text", text }] },
+  ];
+
   const expectRequestBodyHasMessages = (result: {
     request: { body?: unknown };
   }) => {
@@ -396,9 +400,7 @@ describe("SAPAIChatLanguageModel", () => {
   describe("doGenerate", () => {
     it("should generate text response", async () => {
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      const prompt = createPrompt("Hello");
 
       const result = await model.doGenerate({ prompt });
 
@@ -442,9 +444,7 @@ describe("SAPAIChatLanguageModel", () => {
         MockClient.setChatCompletionError(axiosError);
 
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         await expect(model.doGenerate({ prompt })).rejects.toMatchObject({
           responseHeaders: {
@@ -493,9 +493,7 @@ describe("SAPAIChatLanguageModel", () => {
 
     it("should pass tools to orchestration config", async () => {
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "What is 2+2?" }] },
-      ];
+      const prompt = createPrompt("What is 2+2?");
 
       const tools: LanguageModelV2FunctionTool[] = [
         {
@@ -524,9 +522,7 @@ describe("SAPAIChatLanguageModel", () => {
         },
       });
 
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hi" }] },
-      ];
+      const prompt = createPrompt("Hi");
 
       const result = await model.doGenerate({ prompt });
 
@@ -542,9 +538,7 @@ describe("SAPAIChatLanguageModel", () => {
         },
       });
 
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hi" }] },
-      ];
+      const prompt = createPrompt("Hi");
 
       const result = await model.doGenerate({
         prompt,
@@ -565,9 +559,7 @@ describe("SAPAIChatLanguageModel", () => {
     it("should map responseFormat json without schema to json_object", async () => {
       const model = createModel();
 
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Return JSON" }] },
-      ];
+      const prompt = createPrompt("Return JSON");
 
       const result = await model.doGenerate({
         prompt,
@@ -584,9 +576,7 @@ describe("SAPAIChatLanguageModel", () => {
     it("should map responseFormat json with schema to json_schema", async () => {
       const model = createModel();
 
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Return JSON" }] },
-      ];
+      const prompt = createPrompt("Return JSON");
 
       const schema = {
         type: "object" as const,
@@ -624,9 +614,7 @@ describe("SAPAIChatLanguageModel", () => {
 
     it("should warn about unsupported tool types", async () => {
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      const prompt = createPrompt("Hello");
 
       const tools = [
         {
@@ -663,9 +651,7 @@ describe("SAPAIChatLanguageModel", () => {
         ],
       });
 
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      const prompt = createPrompt("Hello");
 
       const tools: LanguageModelV2FunctionTool[] = [
         {
@@ -720,9 +706,7 @@ describe("SAPAIChatLanguageModel", () => {
       // Instead, we provide a Zod-like object that passes our `isZodSchema`
       // check but throws when stringified during conversion.
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Use a tool" }] },
-      ];
+      const prompt = createPrompt("Use a tool");
 
       const zodLikeThatThrows = {
         _def: {},
@@ -776,12 +760,7 @@ describe("SAPAIChatLanguageModel", () => {
       });
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        {
-          role: "user",
-          content: [{ type: "text", text: "What's the weather?" }],
-        },
-      ];
+      const prompt = createPrompt("What's the weather?");
 
       const result = await model.doGenerate({ prompt });
 
@@ -818,9 +797,7 @@ describe("SAPAIChatLanguageModel", () => {
       });
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Test" }] },
-      ];
+      const prompt = createPrompt("Test");
 
       const result = await model.doGenerate({ prompt });
 
@@ -854,9 +831,7 @@ describe("SAPAIChatLanguageModel", () => {
       });
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Test" }] },
-      ];
+      const prompt = createPrompt("Test");
 
       const result = await model.doGenerate({ prompt });
 
@@ -890,9 +865,7 @@ describe("SAPAIChatLanguageModel", () => {
       });
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Test" }] },
-      ];
+      const prompt = createPrompt("Test");
 
       const result = await model.doGenerate({ prompt });
 
@@ -924,9 +897,7 @@ describe("SAPAIChatLanguageModel", () => {
       });
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Test" }] },
-      ];
+      const prompt = createPrompt("Test");
 
       const result = await model.doGenerate({ prompt });
 
@@ -959,9 +930,7 @@ describe("SAPAIChatLanguageModel", () => {
       });
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Test" }] },
-      ];
+      const prompt = createPrompt("Test");
 
       const result = await model.doGenerate({ prompt });
 
@@ -972,9 +941,7 @@ describe("SAPAIChatLanguageModel", () => {
 
     it("should include response body in doGenerate result", async () => {
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      const prompt = createPrompt("Hello");
 
       const result = await model.doGenerate({ prompt });
 
@@ -988,9 +955,7 @@ describe("SAPAIChatLanguageModel", () => {
   describe("doStream", () => {
     it("should stream basic text (edge-runtime compatible)", async () => {
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      const prompt = createPrompt("Hello");
 
       const { stream } = await model.doStream({ prompt });
       const reader = stream.getReader();
@@ -1037,9 +1002,7 @@ describe("SAPAIChatLanguageModel", () => {
       ]);
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      const prompt = createPrompt("Hello");
 
       const result = await model.doStream({ prompt });
 
@@ -1096,9 +1059,7 @@ describe("SAPAIChatLanguageModel", () => {
       ]);
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      const prompt = createPrompt("Hello");
 
       const { stream } = await model.doStream({ prompt });
       const parts = await readAllParts(stream);
@@ -1166,9 +1127,7 @@ describe("SAPAIChatLanguageModel", () => {
       ]);
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Use tool" }] },
-      ];
+      const prompt = createPrompt("Use tool");
 
       const result = await model.doStream({ prompt });
       const parts = await readAllParts(result.stream);
@@ -1230,9 +1189,7 @@ describe("SAPAIChatLanguageModel", () => {
       ]);
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Use tools" }] },
-      ];
+      const prompt = createPrompt("Use tools");
 
       const { stream } = await model.doStream({ prompt });
       const parts = await readAllParts(stream);
@@ -1319,9 +1276,7 @@ describe("SAPAIChatLanguageModel", () => {
         ]);
 
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const { stream } = await model.doStream({ prompt });
         const parts = await readAllParts(stream);
@@ -1336,9 +1291,7 @@ describe("SAPAIChatLanguageModel", () => {
 
     it("should omit tools and response_format when not provided", async () => {
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      const prompt = createPrompt("Hello");
 
       const result = await model.doGenerate({ prompt });
       expectRequestBodyHasMessages(result);
@@ -1374,9 +1327,7 @@ describe("SAPAIChatLanguageModel", () => {
       ]);
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      const prompt = createPrompt("Hello");
 
       const { stream } = await model.doStream({ prompt });
       const parts = await readAllParts(stream);
@@ -1411,9 +1362,7 @@ describe("SAPAIChatLanguageModel", () => {
       ]);
 
       const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
+      const prompt = createPrompt("Hello");
 
       const { stream } = await model.doStream({ prompt });
       const parts = await readAllParts(stream);
@@ -1448,9 +1397,7 @@ describe("SAPAIChatLanguageModel", () => {
         ]);
 
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Use tool" }] },
-        ];
+        const prompt = createPrompt("Use tool");
 
         const result = await model.doStream({ prompt });
         const { stream } = result;
@@ -1529,9 +1476,7 @@ describe("SAPAIChatLanguageModel", () => {
         MockClient.setStreamError(axiosError as unknown as Error);
 
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const { stream } = await model.doStream({ prompt });
         const parts: LanguageModelV2StreamPart[] = [];
@@ -1610,9 +1555,7 @@ describe("SAPAIChatLanguageModel", () => {
         ]);
 
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const { stream } = await model.doStream({ prompt });
         const parts: LanguageModelV2StreamPart[] = [];
@@ -1659,9 +1602,7 @@ describe("SAPAIChatLanguageModel", () => {
         ]);
 
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Test" }] },
-        ];
+        const prompt = createPrompt("Test");
 
         const { stream } = await model.doStream({ prompt });
         const parts: LanguageModelV2StreamPart[] = [];
@@ -1711,9 +1652,7 @@ describe("SAPAIChatLanguageModel", () => {
         ]);
 
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const { stream } = await model.doStream({ prompt });
         const parts: LanguageModelV2StreamPart[] = [];
@@ -1768,9 +1707,7 @@ describe("SAPAIChatLanguageModel", () => {
         ]);
 
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Test" }] },
-        ];
+        const prompt = createPrompt("Test");
 
         const { stream } = await model.doStream({ prompt });
         const parts: LanguageModelV2StreamPart[] = [];
@@ -1802,9 +1739,7 @@ describe("SAPAIChatLanguageModel", () => {
         MockClient.setStreamSetupError(setupError);
 
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         await expect(model.doStream({ prompt })).rejects.toThrow(
           "Stream setup failed",
@@ -1820,9 +1755,7 @@ describe("SAPAIChatLanguageModel", () => {
           masking: {},
         });
 
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({ prompt });
 
@@ -1837,9 +1770,7 @@ describe("SAPAIChatLanguageModel", () => {
           filtering: {},
         });
 
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({ prompt });
 
@@ -1864,12 +1795,7 @@ describe("SAPAIChatLanguageModel", () => {
           masking,
         });
 
-        const prompt: LanguageModelV2Prompt = [
-          {
-            role: "user",
-            content: [{ type: "text", text: "My email is test@example.com" }],
-          },
-        ];
+        const prompt = createPrompt("My email is test@example.com");
 
         const result = await model.doGenerate({ prompt });
 
@@ -1901,9 +1827,7 @@ describe("SAPAIChatLanguageModel", () => {
           filtering,
         });
 
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({ prompt });
 
@@ -1946,9 +1870,7 @@ describe("SAPAIChatLanguageModel", () => {
           filtering,
         });
 
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({ prompt });
 
@@ -1968,9 +1890,7 @@ describe("SAPAIChatLanguageModel", () => {
           modelVersion: "2024-05-13",
         });
 
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({ prompt });
 
@@ -1984,9 +1904,7 @@ describe("SAPAIChatLanguageModel", () => {
       it("should use 'latest' as default version", async () => {
         const model = createModel("gpt-4o");
 
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({ prompt });
 
@@ -2006,9 +1924,7 @@ describe("SAPAIChatLanguageModel", () => {
           },
         });
 
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({
           prompt,
@@ -2029,9 +1945,7 @@ describe("SAPAIChatLanguageModel", () => {
           },
         });
 
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({
           prompt,
@@ -2047,9 +1961,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should pass topP from options to model params", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({
           prompt,
@@ -2065,9 +1977,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should pass topK from options to model params", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({
           prompt,
@@ -2083,9 +1993,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should pass frequencyPenalty from options to model params", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({
           prompt,
@@ -2101,9 +2009,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should pass presencePenalty from options to model params", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({
           prompt,
@@ -2119,9 +2025,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should pass stop sequences to model params", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({
           prompt,
@@ -2137,9 +2041,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should pass seed to model params", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({
           prompt,
@@ -2159,9 +2061,7 @@ describe("SAPAIChatLanguageModel", () => {
         const model = createModel("amazon--nova-pro", {
           modelParams: { n: 2 },
         });
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({ prompt });
         expectRequestBodyHasMessages(result);
@@ -2175,9 +2075,7 @@ describe("SAPAIChatLanguageModel", () => {
         const model = createModel("anthropic--claude-3.5-sonnet", {
           modelParams: { n: 2 },
         });
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const result = await model.doGenerate({ prompt });
         expectRequestBodyHasMessages(result);
@@ -2191,9 +2089,7 @@ describe("SAPAIChatLanguageModel", () => {
     describe("warnings", () => {
       it("should warn when toolChoice is not 'auto'", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const tools: LanguageModelV2FunctionTool[] = [
           {
@@ -2220,9 +2116,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should not warn when toolChoice is 'auto'", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Hello" }] },
-        ];
+        const prompt = createPrompt("Hello");
 
         const tools: LanguageModelV2FunctionTool[] = [
           {
@@ -2249,9 +2143,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should emit a best-effort warning for responseFormat json", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Return JSON" }] },
-        ];
+        const prompt = createPrompt("Return JSON");
 
         const result = await model.doGenerate({
           prompt,
@@ -2284,9 +2176,7 @@ describe("SAPAIChatLanguageModel", () => {
           ],
         });
 
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Use a tool" }] },
-        ];
+        const prompt = createPrompt("Use a tool");
 
         const result = await model.doGenerate({ prompt });
 
@@ -2325,9 +2215,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should coerce non-object schema type to object", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Use tool" }] },
-        ];
+        const prompt = createPrompt("Use tool");
 
         // Tool with "array" type schema - should be coerced to object
         const tools: LanguageModelV2FunctionTool[] = [
@@ -2349,9 +2237,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should handle tool with string type schema", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Use tool" }] },
-        ];
+        const prompt = createPrompt("Use tool");
 
         // Tool with "string" type schema - should be coerced to object
         const tools: LanguageModelV2FunctionTool[] = [
@@ -2372,9 +2258,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should handle tool with schema that has no properties", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Use tool" }] },
-        ];
+        const prompt = createPrompt("Use tool");
 
         const tools: LanguageModelV2FunctionTool[] = [
           {
@@ -2395,9 +2279,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       it("should handle tool with undefined inputSchema", async () => {
         const model = createModel();
-        const prompt: LanguageModelV2Prompt = [
-          { role: "user", content: [{ type: "text", text: "Use tool" }] },
-        ];
+        const prompt = createPrompt("Use tool");
 
         const tools: LanguageModelV2FunctionTool[] = [
           {
