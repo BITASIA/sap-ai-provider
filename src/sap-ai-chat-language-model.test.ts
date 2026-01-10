@@ -1891,7 +1891,18 @@ describe("SAPAIChatLanguageModel", () => {
           getTokenUsage: () => undefined,
         },
       ]);
-      MockClient.setStreamError(new Error("Stream iteration failed"));
+      const axiosError = new Error("Stream iteration failed") as unknown as {
+        isAxiosError: boolean;
+        response: { headers: Record<string, string> };
+      };
+      axiosError.isAxiosError = true;
+      axiosError.response = {
+        headers: {
+          "x-request-id": "stream-axios-123",
+        },
+      };
+
+      MockClient.setStreamError(axiosError as unknown as Error);
 
       const model = createModel();
       const prompt: LanguageModelV2Prompt = [
@@ -1920,6 +1931,11 @@ describe("SAPAIChatLanguageModel", () => {
         expect((errorPart.error as Error).message).toEqual(
           expect.stringContaining("Stream iteration failed"),
         );
+        expect(
+          (errorPart.error as { responseHeaders?: unknown }).responseHeaders,
+        ).toMatchObject({
+          "x-request-id": "stream-axios-123",
+        });
       }
 
       // Reset the stream error for other tests
