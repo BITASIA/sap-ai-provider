@@ -13,6 +13,8 @@ import { Buffer } from "node:buffer";
 
 /**
  * User chat message content item for multi-modal messages.
+ * Maps to SAP AI SDK format for user message content.
+ *
  * @internal
  */
 interface UserContentItem {
@@ -44,6 +46,7 @@ interface UserContentItem {
  * - Reasoning parts are included in assistant text as `<reasoning>...</reasoning>` markers
  *
  * @param prompt - The Vercel AI SDK prompt to convert
+ * @param options - Optional conversion settings
  * @returns Array of SAP AI SDK compatible ChatMessage objects
  *
  * @throws {UnsupportedFunctionalityError} When unsupported message types are encountered
@@ -77,6 +80,9 @@ interface UserContentItem {
  *
  * const sapMessages = convertToSAPMessages(prompt);
  * ```
+ */
+/**
+ * Options for converting AI SDK prompts to SAP messages.
  */
 export interface ConvertToSAPMessagesOptions {
   /**

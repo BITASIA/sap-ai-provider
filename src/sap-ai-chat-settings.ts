@@ -18,8 +18,10 @@ export interface SAPAISettings {
   /**
    * Whether to include assistant reasoning parts in the SAP prompt conversion.
    *
-   * Reasoning parts may contain chain-of-thought. Best practice is to keep this
-   * disabled (default false) unless you have an explicit need to persist them.
+   * Reasoning parts may contain chain-of-thought with internal model reasoning
+   * that should not be persisted or shown to users for security/privacy reasons.
+   * Best practice is to keep this disabled (default false) unless you have an
+   * explicit need to persist them.
    */
   includeReasoning?: boolean;
 

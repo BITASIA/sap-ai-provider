@@ -70,7 +70,9 @@ function createAISDKRequestBodySummary(options: LanguageModelV2CallOptions): {
 }
 
 /**
- * Extended SAP model parameters including additional OpenAI-compatible options.
+ * Extended SAP model parameters including additional OpenAI-compatible options
+ * beyond the base LlmModelParams from SAP AI SDK.
+ *
  * @internal
  */
 type SAPModelParams = LlmModelParams & {
@@ -82,6 +84,7 @@ type SAPModelParams = LlmModelParams & {
 
 /**
  * SAP tool parameters with required object type.
+ *
  * @internal
  */
 type SAPToolParameters = Record<string, unknown> & {
@@ -91,6 +94,7 @@ type SAPToolParameters = Record<string, unknown> & {
 /**
  * Extended function tool type that includes the raw parameters field
  * which may contain a Zod schema in some AI SDK versions.
+ *
  * @internal
  */
 interface FunctionToolWithParameters extends LanguageModelV2FunctionTool {
@@ -99,6 +103,9 @@ interface FunctionToolWithParameters extends LanguageModelV2FunctionTool {
 
 /**
  * Type guard helper to check if an object has a callable 'parse' property.
+ *
+ * @param obj - Object to check
+ * @returns True if object has callable parse method
  * @internal
  */
 function hasCallableParse(
@@ -109,6 +116,10 @@ function hasCallableParse(
 
 /**
  * Type guard to check if an object is a Zod schema.
+ * Used internally to detect Zod schemas passed via tool parameters.
+ *
+ * @param obj - Object to check
+ * @returns True if object is a Zod schema
  * @internal
  */
 function isZodSchema(obj: unknown): obj is ZodType {
@@ -122,6 +133,9 @@ function isZodSchema(obj: unknown): obj is ZodType {
 /**
  * Build a SAPToolParameters object from a schema.
  * Ensures type: "object" is always present as required by SAP AI Core.
+ *
+ * @param schema - Input schema to convert
+ * @returns SAPToolParameters with type: "object"
  * @internal
  */
 function buildSAPToolParameters(
@@ -268,7 +282,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * Model Capabilities
    *
    * All capabilities default to `true` assuming modern model behavior.
-   * This avoids maintaining a list of models that becomes outdated.
+   * This avoids maintaining a per-model capability list that becomes outdated.
    * If a specific model doesn't support a capability, the API will return
    * an appropriate error at runtime.
    */
@@ -323,7 +337,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * Builds orchestration module config for SAP AI SDK.
    *
    * @param options - Call options from the AI SDK
-   * @returns Object containing orchestration config and warnings
+   * @returns Object containing orchestration config, messages, and warnings
+   * @internal
    */
   private buildOrchestrationConfig(options: LanguageModelV2CallOptions): {
     orchestrationConfig: OrchestrationModuleConfig;
@@ -582,6 +597,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    *
    * @param config - Orchestration module configuration
    * @returns OrchestrationClient instance
+   * @internal
    */
   private createClient(config: OrchestrationModuleConfig): OrchestrationClient {
     return new OrchestrationClient(
@@ -667,6 +683,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       };
 
       // SAP AI SDK limitation: chatCompletion() does not accept AbortSignal directly.
+      // Note: This is a current SDK limitation; may be supported in future versions.
       // Implement cancellation support via Promise.race() when AbortSignal is provided
       const response = await (async () => {
         const completionPromise = client.chatCompletion(requestBody);
@@ -1155,6 +1172,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
 /**
  * Maps SAP AI finish reason to Vercel AI SDK finish reason.
+ *
+ * @param reason - SAP AI finish reason string
+ * @returns Mapped AI SDK finish reason
  * @internal
  */
 function mapFinishReason(

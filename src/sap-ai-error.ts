@@ -7,6 +7,10 @@ import { isErrorWithCause } from "@sap-cloud-sdk/util";
  *
  * Validates that codes are in standard HTTP range (100-599) and falls back
  * to 500 for custom SAP error codes outside this range.
+ *
+ * @param code - SAP error code
+ * @returns HTTP status code (100-599)
+ * @internal
  */
 function getStatusCodeFromSAPError(code?: number): number {
   if (!code) return 500;
@@ -23,6 +27,10 @@ function getStatusCodeFromSAPError(code?: number): number {
 /**
  * Determines if an error should be retryable based on status code.
  * Following the Vercel AI SDK pattern: 429 (rate limit) and 5xx (server errors) are retryable.
+ *
+ * @param statusCode - HTTP status code
+ * @returns True if error should be retried
+ * @internal
  */
 function isRetryable(statusCode: number): boolean {
   return statusCode === 429 || (statusCode >= 500 && statusCode < 600);
@@ -120,6 +128,10 @@ export function convertSAPErrorToAPICallError(
 
 /**
  * Type guard to check if an error is an OrchestrationErrorResponse.
+ *
+ * @param error - Error to check
+ * @returns True if error is OrchestrationErrorResponse
+ * @internal
  */
 function isOrchestrationErrorResponse(
   error: unknown,
@@ -151,6 +163,13 @@ function isOrchestrationErrorResponse(
   );
 }
 
+/**
+ * Normalizes various header formats to Record<string, string>.
+ *
+ * @param headers - Raw headers object
+ * @returns Normalized headers or undefined
+ * @internal
+ */
 function normalizeHeaders(
   headers: unknown,
 ): Record<string, string> | undefined {
@@ -177,6 +196,13 @@ function normalizeHeaders(
   return Object.fromEntries(entries) as Record<string, string>;
 }
 
+/**
+ * Extracts response headers from Axios errors.
+ *
+ * @param error - Error object
+ * @returns Response headers or undefined
+ * @internal
+ */
 function getAxiosResponseHeaders(
   error: unknown,
 ): Record<string, string> | undefined {
