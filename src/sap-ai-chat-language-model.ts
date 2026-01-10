@@ -25,7 +25,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import type { ZodType } from "zod";
 import type { Template } from "@sap-ai-sdk/orchestration/dist/client/api/schema/template.js";
 
-type SapResponseFormat = Template["response_format"];
+type SAPResponseFormat = Template["response_format"];
 
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
@@ -65,14 +65,14 @@ function createAISDKRequestBodySummary(options: LanguageModelV2CallOptions): {
   };
 }
 
-type SapModelParams = LlmModelParams & {
+type SAPModelParams = LlmModelParams & {
   top_k?: number;
   stop?: string[];
   seed?: number;
   parallel_tool_calls?: boolean;
 };
 
-type SapToolParameters = Record<string, unknown> & {
+type SAPToolParameters = Record<string, unknown> & {
   type: "object";
 };
 
@@ -108,13 +108,13 @@ function isZodSchema(obj: unknown): obj is ZodType {
 }
 
 /**
- * Build a SapToolParameters object from a schema.
+ * Build a SAPToolParameters object from a schema.
  * Ensures type: "object" is always present as required by SAP AI Core.
  * @internal
  */
-function buildSapToolParameters(
+function buildSAPToolParameters(
   schema: Record<string, unknown>,
-): SapToolParameters {
+): SAPToolParameters {
   const schemaType = schema.type;
 
   if (schemaType !== undefined && schemaType !== "object") {
@@ -318,7 +318,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             // AI SDK may pass Zod schemas in 'parameters' field (internal detail)
             const toolWithParams = tool as FunctionToolWithParameters;
 
-            let parameters: SapToolParameters;
+            let parameters: SAPToolParameters;
 
             if (
               toolWithParams.parameters &&
@@ -333,7 +333,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 );
                 const schemaRecord = jsonSchema as Record<string, unknown>;
                 delete schemaRecord.$schema;
-                parameters = buildSapToolParameters(schemaRecord);
+                parameters = buildSAPToolParameters(schemaRecord);
               } catch {
                 warnings.push({
                   type: "unsupported-tool",
@@ -341,7 +341,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                   details:
                     "Failed to convert tool Zod schema to JSON Schema. Falling back to empty object schema.",
                 });
-                parameters = buildSapToolParameters({});
+                parameters = buildSAPToolParameters({});
               }
             } else if (inputSchema && Object.keys(inputSchema).length > 0) {
               const hasProperties =
@@ -350,12 +350,12 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 Object.keys(inputSchema.properties).length > 0;
 
               if (hasProperties) {
-                parameters = buildSapToolParameters(inputSchema);
+                parameters = buildSAPToolParameters(inputSchema);
               } else {
-                parameters = buildSapToolParameters({});
+                parameters = buildSAPToolParameters({});
               }
             } else {
-              parameters = buildSapToolParameters({});
+              parameters = buildSAPToolParameters({});
             }
 
             return {
@@ -381,7 +381,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       !this.modelId.startsWith("amazon--") &&
       !this.modelId.startsWith("anthropic--");
 
-    const modelParams: SapModelParams = {
+    const modelParams: SAPModelParams = {
       max_tokens:
         options.maxOutputTokens ??
         providerOptions.modelParams?.maxTokens ??
@@ -437,7 +437,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       });
     }
 
-    const responseFormat: SapResponseFormat | undefined =
+    const responseFormat: SAPResponseFormat | undefined =
       options.responseFormat?.type === "json"
         ? options.responseFormat.schema
           ? {
