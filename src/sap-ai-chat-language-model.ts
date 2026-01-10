@@ -659,6 +659,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     } catch (error) {
       throw convertToAISDKError(error, {
         operation: "doGenerate",
+        url: "sap-ai:orchestration",
         requestBody: createAISDKRequestBodySummary(options),
       });
     }
@@ -995,6 +996,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           } catch (error) {
             const aiError = convertToAISDKError(error, {
               operation: "doStream",
+              url: "sap-ai:orchestration",
               requestBody: createAISDKRequestBodySummary(options),
             });
             controller.enqueue({
@@ -1017,6 +1019,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     } catch (error) {
       throw convertToAISDKError(error, {
         operation: "doStream",
+        url: "sap-ai:orchestration",
         requestBody: createAISDKRequestBodySummary(options),
       });
     }

@@ -166,6 +166,28 @@ describe("convertSAPErrorToAPICallError", () => {
     expect(result.url).toBe("https://api.sap.com/v1/chat");
   });
 
+  it("should preserve response headers when provided", () => {
+    const errorResponse: OrchestrationErrorResponse = {
+      error: {
+        message: "Test error",
+        code: 500,
+        location: "Module",
+        request_id: "headers-test-123",
+      },
+    };
+
+    const result = convertSAPErrorToAPICallError(errorResponse, {
+      url: "https://api.sap.com/v1/chat",
+      responseHeaders: {
+        "x-request-id": "headers-test-123",
+      },
+    });
+
+    expect(result.responseHeaders).toEqual({
+      "x-request-id": "headers-test-123",
+    });
+  });
+
   it("should include request body in context", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: {

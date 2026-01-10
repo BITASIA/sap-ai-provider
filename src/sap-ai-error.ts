@@ -38,7 +38,11 @@ function isRetryable(statusCode: number): boolean {
  */
 export function convertSAPErrorToAPICallError(
   errorResponse: OrchestrationErrorResponse,
-  context?: { url?: string; requestBody?: unknown },
+  context?: {
+    url?: string;
+    requestBody?: unknown;
+    responseHeaders?: Record<string, string>;
+  },
 ): APICallError {
   const error = errorResponse.error;
 
@@ -100,7 +104,7 @@ export function convertSAPErrorToAPICallError(
     url: context?.url ?? "",
     requestBodyValues: context?.requestBody,
     statusCode,
-    responseHeaders: undefined,
+    responseHeaders: context?.responseHeaders,
     responseBody,
     isRetryable: isRetryable(statusCode),
   });
@@ -156,7 +160,12 @@ function isOrchestrationErrorResponse(
  */
 export function convertToAISDKError(
   error: unknown,
-  context?: { operation?: string; url?: string; requestBody?: unknown },
+  context?: {
+    operation?: string;
+    url?: string;
+    requestBody?: unknown;
+    responseHeaders?: Record<string, string>;
+  },
 ): APICallError | LoadAPIKeyError {
   // If it's already a Vercel AI SDK error, return as-is
   if (error instanceof APICallError || error instanceof LoadAPIKeyError) {
