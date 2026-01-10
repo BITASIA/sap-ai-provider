@@ -413,6 +413,31 @@ describe("convertToAISDKError", () => {
     expect(result.requestBodyValues).toEqual({ test: "data" });
   });
 
+  it("should preserve response headers from context", () => {
+    const axiosError = new Error("Request failed") as unknown as {
+      isAxiosError: boolean;
+      response: { headers: Record<string, string> };
+    };
+    axiosError.isAxiosError = true;
+    axiosError.response = {
+      headers: {
+        "x-request-id": "axios-123",
+      },
+    };
+
+    const result = convertToAISDKError(axiosError, {
+      url: "sap-ai:orchestration",
+      operation: "doGenerate",
+      responseHeaders: {
+        "x-request-id": "axios-123",
+      },
+    }) as APICallError;
+
+    expect(result.responseHeaders).toEqual({
+      "x-request-id": "axios-123",
+    });
+  });
+
   it("should handle error with null value", () => {
     const result = convertToAISDKError(null);
 

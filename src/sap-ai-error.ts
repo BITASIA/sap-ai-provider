@@ -1,5 +1,6 @@
 import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
 import type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
+import { isErrorWithCause } from "@sap-cloud-sdk/util";
 
 /**
  * Maps SAP AI Core error codes to HTTP status codes for retry logic.
@@ -144,6 +145,47 @@ function isOrchestrationErrorResponse(
   );
 }
 
+function normalizeHeaders(
+  headers: unknown,
+): Record<string, string> | undefined {
+  if (!headers || typeof headers !== "object") return undefined;
+
+  const record = headers as Record<string, unknown>;
+  const entries = Object.entries(record).flatMap(([key, value]) => {
+    if (typeof value === "string") return [[key, value]];
+    if (Array.isArray(value)) {
+      const strings = value
+        .filter((item): item is string => typeof item === "string")
+        .join(",");
+      return strings.length > 0 ? [[key, strings]] : [];
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return [[key, String(value)]];
+    }
+    return [];
+  });
+
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
+function getAxiosResponseHeaders(
+  error: unknown,
+): Record<string, string> | undefined {
+  if (!(error instanceof Error)) return undefined;
+
+  const rootCause = isErrorWithCause(error) ? error.rootCause : error;
+  if (typeof rootCause !== "object") return undefined;
+
+  const maybeAxios = rootCause as {
+    isAxiosError?: boolean;
+    response?: { headers?: unknown };
+  };
+
+  if (maybeAxios.isAxiosError !== true) return undefined;
+  return normalizeHeaders(maybeAxios.response?.headers);
+}
+
 /**
  * Converts a generic error to an appropriate Vercel AI SDK error.
  *
@@ -174,8 +216,15 @@ export function convertToAISDKError(
 
   // Handle SAP AI SDK OrchestrationErrorResponse
   if (isOrchestrationErrorResponse(error)) {
-    return convertSAPErrorToAPICallError(error, context);
+    return convertSAPErrorToAPICallError(error, {
+      ...context,
+      responseHeaders:
+        context?.responseHeaders ?? getAxiosResponseHeaders(error),
+    });
   }
+
+  const responseHeaders =
+    context?.responseHeaders ?? getAxiosResponseHeaders(error);
 
   // Handle authentication errors
   if (error instanceof Error) {
@@ -204,6 +253,7 @@ export function convertToAISDKError(
         requestBodyValues: context?.requestBody,
         statusCode: 503,
         isRetryable: true,
+        responseHeaders,
         cause: error,
       });
     }
@@ -227,6 +277,7 @@ export function convertToAISDKError(
     requestBodyValues: context?.requestBody,
     statusCode: 500,
     isRetryable: false,
+    responseHeaders,
     cause: error,
   });
 }
