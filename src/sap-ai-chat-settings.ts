@@ -22,6 +22,8 @@ export interface SAPAISettings {
     /**
      * Maximum number of tokens to generate.
      * Higher values allow for longer responses but increase latency and cost.
+     *
+     * Note: The Vercel AI SDK call option is `maxOutputTokens`.
      */
     maxTokens?: number;
 
@@ -64,6 +66,8 @@ export interface SAPAISettings {
     /**
      * Whether to enable parallel tool calls.
      * When enabled, the model can call multiple tools in parallel.
+     *
+     * Note: This uses the SAP/OpenAI-style key `parallel_tool_calls`.
      */
     parallel_tool_calls?: boolean;
   };
