@@ -47,7 +47,7 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
                 function?: { name?: string; arguments?: string };
               }[]
             | undefined;
-          getFinishReason: () => string | null;
+          getFinishReason: () => string | null | undefined;
           getTokenUsage: () =>
             | {
                 prompt_tokens: number;
@@ -57,6 +57,8 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
             | undefined;
         }[]
       | undefined;
+
+    static streamError: Error | undefined;
 
     static setStreamChunks(
       chunks: {
@@ -68,7 +70,7 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
               function?: { name?: string; arguments?: string };
             }[]
           | undefined;
-        getFinishReason: () => string | null;
+        getFinishReason: () => string | null | undefined;
         getTokenUsage: () =>
           | {
               prompt_tokens: number;
@@ -79,6 +81,11 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
       }[],
     ) {
       MockOrchestrationClient.streamChunks = chunks;
+      MockOrchestrationClient.streamError = undefined;
+    }
+
+    static setStreamError(error: Error) {
+      MockOrchestrationClient.streamError = error;
     }
 
     stream = vi.fn().mockImplementation(() => {
@@ -103,20 +110,49 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
           },
         ] as const);
 
+      // Find the last non-null finish reason from chunks
+      let lastFinishReason: string | null | undefined;
+      let lastTokenUsage:
+        | {
+            prompt_tokens: number;
+            completion_tokens: number;
+            total_tokens: number;
+          }
+        | undefined;
+
+      for (const chunk of chunks) {
+        const fr = chunk.getFinishReason();
+        if (fr !== null && fr !== undefined) {
+          lastFinishReason = fr;
+        }
+        const tu = chunk.getTokenUsage();
+        if (tu) {
+          lastTokenUsage = tu;
+        }
+      }
+
+      const errorToThrow = MockOrchestrationClient.streamError;
+
       return {
         stream: {
-          *[Symbol.asyncIterator]() {
+          // eslint-disable-next-line @typescript-eslint/require-await
+          async *[Symbol.asyncIterator]() {
             for (const chunk of chunks) {
               yield chunk;
             }
+            // Throw error after yielding chunks if configured
+            if (errorToThrow) {
+              throw errorToThrow;
+            }
           },
         },
-        getTokenUsage: () => ({
-          prompt_tokens: 10,
-          completion_tokens: 5,
-          total_tokens: 15,
-        }),
-        getFinishReason: () => "stop",
+        getTokenUsage: () =>
+          lastTokenUsage ?? {
+            prompt_tokens: 10,
+            completion_tokens: 5,
+            total_tokens: 15,
+          },
+        getFinishReason: () => lastFinishReason,
       };
     });
   }
@@ -656,6 +692,388 @@ describe("SAPAIChatLanguageModel", () => {
         expect(toolInputEnd.id).toBe("call_new");
       }
     });
+
+    it("should handle stream with 'length' finish reason", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "This response was truncated due to",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
+        {
+          getDeltaContent: () => " max_tokens limit",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "length",
+          getTokenUsage: () => ({
+            prompt_tokens: 100,
+            completion_tokens: 4096,
+            total_tokens: 4196,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        {
+          role: "user",
+          content: [{ type: "text", text: "Write a long essay" }],
+        },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("length");
+      }
+    });
+
+    it("should handle stream with 'content_filter' finish reason", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "content_filter",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 0,
+            total_tokens: 10,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Blocked content" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("content-filter");
+      }
+    });
+
+    it("should handle stream with 'error' finish reason", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "Partial response before",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
+        {
+          getDeltaContent: () => null,
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "error",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 3,
+            total_tokens: 13,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("error");
+      }
+    });
+
+    it("should handle stream with unknown finish reason as 'other'", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "Response",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "some_new_unknown_reason",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 1,
+            total_tokens: 11,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("other");
+      }
+    });
+
+    it("should handle stream chunks with null content", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => null,
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
+        {
+          getDeltaContent: () => "Hello",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
+        {
+          getDeltaContent: () => null,
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "stop",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 1,
+            total_tokens: 11,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      // Should only have one text-delta for "Hello", not for null chunks
+      const textDeltas = parts.filter((p) => p.type === "text-delta");
+      expect(textDeltas).toHaveLength(1);
+      expect((textDeltas[0] as { delta: string }).delta).toBe("Hello");
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+    });
+
+    it("should handle stream with empty string content", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
+        {
+          getDeltaContent: () => "Response",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "stop",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 1,
+            total_tokens: 11,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      // Empty string deltas should still be emitted
+      const textDeltas = parts.filter((p) => p.type === "text-delta");
+      expect(textDeltas.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("should handle 'end_turn' finish reason as 'stop'", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "Response",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "end_turn",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 1,
+            total_tokens: 11,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("stop");
+      }
+    });
+
+    it("should handle 'max_tokens' finish reason as 'length'", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "Truncated",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "max_tokens",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 100,
+            total_tokens: 110,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("length");
+      }
+    });
+
+    it("should handle 'function_call' finish reason as 'tool-calls'", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => null,
+          getDeltaToolCalls: () => [
+            {
+              index: 0,
+              id: "call_123",
+              function: { name: "get_weather", arguments: '{"city":"Paris"}' },
+            },
+          ],
+          getFinishReason: () => "function_call",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 5,
+            total_tokens: 15,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        {
+          role: "user",
+          content: [{ type: "text", text: "Weather in Paris?" }],
+        },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("tool-calls");
+      }
+    });
+
+    it("should handle stream with no finish reason as 'unknown'", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "Hello",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => undefined,
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 1,
+            total_tokens: 11,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toBe("unknown");
+      }
+    });
   });
 
   describe("model-specific behavior", () => {
@@ -1127,6 +1545,282 @@ describe("SAPAIChatLanguageModel", () => {
         requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
           ?.name,
       ).toBe("custom_tool");
+    });
+  });
+
+  describe("tool schema edge cases", () => {
+    it("should coerce non-object schema type to object", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Use tool" }] },
+      ];
+
+      // Tool with "array" type schema - should be coerced to object
+      const tools: LanguageModelV2FunctionTool[] = [
+        {
+          type: "function",
+          name: "array_tool",
+          description: "Tool with array schema",
+          inputSchema: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+      ];
+
+      const result = await model.doGenerate({ prompt, tools });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            prompt?: {
+              tools?: { function?: { parameters?: { type: string } } }[];
+            };
+          };
+        };
+      };
+
+      // Schema should be coerced to object type
+      expect(
+        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
+          ?.parameters?.type,
+      ).toBe("object");
+    });
+
+    it("should handle tool with string type schema", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Use tool" }] },
+      ];
+
+      // Tool with "string" type schema - should be coerced to object
+      const tools: LanguageModelV2FunctionTool[] = [
+        {
+          type: "function",
+          name: "string_tool",
+          description: "Tool with string schema",
+          inputSchema: {
+            type: "string",
+          },
+        },
+      ];
+
+      const result = await model.doGenerate({ prompt, tools });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            prompt?: {
+              tools?: {
+                function?: {
+                  parameters?: { type: string; properties?: object };
+                };
+              }[];
+            };
+          };
+        };
+      };
+
+      // Schema should be coerced to object type with empty properties
+      expect(
+        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
+          ?.parameters?.type,
+      ).toBe("object");
+      expect(
+        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
+          ?.parameters?.properties,
+      ).toEqual({});
+    });
+
+    it("should handle tool with schema that has no properties", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Use tool" }] },
+      ];
+
+      const tools: LanguageModelV2FunctionTool[] = [
+        {
+          type: "function",
+          name: "empty_props_tool",
+          description: "Tool with empty properties",
+          inputSchema: {
+            type: "object",
+            properties: {},
+          },
+        },
+      ];
+
+      const result = await model.doGenerate({ prompt, tools });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            prompt?: {
+              tools?: {
+                function?: { parameters?: { type: string } };
+              }[];
+            };
+          };
+        };
+      };
+
+      expect(
+        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
+          ?.parameters?.type,
+      ).toBe("object");
+    });
+
+    it("should handle tool with undefined inputSchema", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Use tool" }] },
+      ];
+
+      const tools: LanguageModelV2FunctionTool[] = [
+        {
+          type: "function",
+          name: "no_schema_tool",
+          description: "Tool without schema",
+          inputSchema: undefined as unknown as Record<string, unknown>,
+        },
+      ];
+
+      const result = await model.doGenerate({ prompt, tools });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            prompt?: {
+              tools?: {
+                function?: { parameters?: { type: string } };
+              }[];
+            };
+          };
+        };
+      };
+
+      // Should default to empty object schema
+      expect(
+        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
+          ?.parameters?.type,
+      ).toBe("object");
+    });
+  });
+
+  describe("stream error handling", () => {
+    it("should warn when tool call delta has no tool name", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      // Simulate tool call without a name (never receives name in any chunk)
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => null,
+          getDeltaToolCalls: () => [
+            {
+              index: 0,
+              id: "call_nameless",
+              function: { arguments: '{"x":1}' },
+              // Note: No "name" property
+            },
+          ],
+          getFinishReason: () => "tool_calls",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 5,
+            total_tokens: 15,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Use tool" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts: LanguageModelV2StreamPart[] = [];
+      const reader = stream.getReader();
+
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        parts.push(value);
+      }
+
+      // Should not have a tool-call part (it was dropped)
+      const toolCall = parts.find((p) => p.type === "tool-call");
+      expect(toolCall).toBeUndefined();
+
+      // Finish should still happen
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+    });
+
+    it("should emit error part when stream iteration throws", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+        setStreamError: (error: Error) => void;
+      };
+
+      // Set up chunks that complete normally, but error is thrown after
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "Hello",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
+      ]);
+      MockClient.setStreamError(new Error("Stream iteration failed"));
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const { stream } = await model.doStream({ prompt });
+      const parts: LanguageModelV2StreamPart[] = [];
+      const reader = stream.getReader();
+
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        parts.push(value);
+      }
+
+      // Should have text delta before error
+      const textDelta = parts.find((p) => p.type === "text-delta");
+      expect(textDelta).toBeDefined();
+
+      // Should have error part
+      const errorPart = parts.find((p) => p.type === "error");
+      expect(errorPart).toBeDefined();
+      expect(errorPart).toMatchObject({
+        type: "error",
+        error: expect.objectContaining({
+          message: expect.stringContaining("Stream iteration failed") as string,
+        }) as Error,
+      });
+
+      // Reset the stream error for other tests
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "reset",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "stop",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 5,
+            total_tokens: 15,
+          }),
+        },
+      ]);
     });
   });
 });

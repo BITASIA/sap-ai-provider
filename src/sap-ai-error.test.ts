@@ -240,6 +240,51 @@ describe("convertToAISDKError", () => {
     expect((result as APICallError).statusCode).toBe(500);
   });
 
+  it("should not treat error array with non-object entries as orchestration errors", () => {
+    const malformedErrorArray = {
+      error: ["not an object", "also not an object"],
+    };
+
+    const result = convertToAISDKError(malformedErrorArray);
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect((result as APICallError).statusCode).toBe(500);
+    expect(result.message).toContain("Unknown error occurred");
+  });
+
+  it("should not treat error array with null entries as orchestration errors", () => {
+    const malformedErrorArray = {
+      error: [null, { message: "valid" }],
+    };
+
+    const result = convertToAISDKError(malformedErrorArray);
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect((result as APICallError).statusCode).toBe(500);
+  });
+
+  it("should not treat error array with entries missing message as orchestration errors", () => {
+    const malformedErrorArray = {
+      error: [{ code: 400, location: "Module" }],
+    };
+
+    const result = convertToAISDKError(malformedErrorArray);
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect((result as APICallError).statusCode).toBe(500);
+  });
+
+  it("should not treat error array with non-string message as orchestration errors", () => {
+    const malformedErrorArray = {
+      error: [{ message: { nested: "object" } }],
+    };
+
+    const result = convertToAISDKError(malformedErrorArray);
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect((result as APICallError).statusCode).toBe(500);
+  });
+
   it("should convert authentication errors to LoadAPIKeyError", () => {
     const authError = new Error("Authentication failed for AICORE_SERVICE_KEY");
 
@@ -335,5 +380,158 @@ describe("convertToAISDKError", () => {
 
     expect(result.url).toBe("https://api.sap.com");
     expect(result.requestBodyValues).toEqual({ test: "data" });
+  });
+
+  it("should handle error with null value", () => {
+    const result = convertToAISDKError(null);
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.message).toContain("Unknown error occurred");
+  });
+
+  it("should handle error with undefined value", () => {
+    const result = convertToAISDKError(undefined);
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.message).toContain("Unknown error occurred");
+  });
+
+  it("should handle error with number value", () => {
+    const result = convertToAISDKError(42);
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.message).toContain("Unknown error occurred");
+  });
+
+  it("should detect invalid credentials error", () => {
+    const error = new Error("Invalid credentials provided");
+
+    const result = convertToAISDKError(error);
+
+    expect(result).toBeInstanceOf(LoadAPIKeyError);
+  });
+
+  it("should handle network error with mixed case", () => {
+    const error = new Error("NETWORK connection failed");
+
+    const result = convertToAISDKError(error);
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect((result as APICallError).isRetryable).toBe(true);
+    expect((result as APICallError).statusCode).toBe(503);
+  });
+
+  it("should handle error without operation context", () => {
+    const error = new Error("Simple error");
+
+    const result = convertToAISDKError(error);
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.message).toContain("SAP AI Core error:");
+    expect(result.message).not.toContain("undefined");
+  });
+
+  it("should handle 403 forbidden errors as non-retryable with auth hint", () => {
+    const errorResponse: OrchestrationErrorResponse = {
+      error: {
+        message: "Forbidden",
+        code: 403,
+        location: "Auth",
+        request_id: "forbidden-123",
+      },
+    };
+
+    const result = convertSAPErrorToAPICallError(errorResponse);
+
+    expect(result.statusCode).toBe(403);
+    expect(result.isRetryable).toBe(false);
+    expect(result.message).toContain("Authentication failed");
+  });
+
+  it("should handle error without code (defaults to 500)", () => {
+    // Cast to unknown first to simulate malformed API response
+    const errorResponse = {
+      error: {
+        message: "Unknown error",
+        location: "Unknown",
+        request_id: "unknown-123",
+      },
+    } as unknown as OrchestrationErrorResponse;
+
+    const result = convertSAPErrorToAPICallError(errorResponse);
+
+    expect(result.statusCode).toBe(500);
+    expect(result.isRetryable).toBe(true);
+  });
+
+  it("should handle error without location", () => {
+    // Cast to unknown first to simulate malformed API response
+    const errorResponse = {
+      error: {
+        message: "Error without location",
+        code: 400,
+        request_id: "no-loc-123",
+      },
+    } as unknown as OrchestrationErrorResponse;
+
+    const result = convertSAPErrorToAPICallError(errorResponse);
+
+    expect(result.statusCode).toBe(400);
+    expect(result.message).not.toContain("Error location:");
+  });
+
+  it("should handle error without request_id", () => {
+    // Cast to unknown first to simulate malformed API response
+    const errorResponse = {
+      error: {
+        message: "Error without request ID",
+        code: 400,
+        location: "Module",
+      },
+    } as unknown as OrchestrationErrorResponse;
+
+    const result = convertSAPErrorToAPICallError(errorResponse);
+
+    expect(result.statusCode).toBe(400);
+    expect(result.message).not.toContain("Request ID:");
+  });
+
+  it("should include location in error message for 4xx errors", () => {
+    const errorResponse: OrchestrationErrorResponse = {
+      error: {
+        message: "Bad request",
+        code: 400,
+        location: "Input Validation",
+        request_id: "validation-123",
+      },
+    };
+
+    const result = convertSAPErrorToAPICallError(errorResponse);
+
+    expect(result.message).toContain("Error location: Input Validation");
+  });
+
+  it("should handle error list with multiple entries (uses first)", () => {
+    const errorResponse: OrchestrationErrorResponse = {
+      error: [
+        {
+          message: "First error in list",
+          code: 400,
+          location: "First Module",
+          request_id: "first-123",
+        },
+        {
+          message: "Second error in list",
+          code: 500,
+          location: "Second Module",
+          request_id: "second-456",
+        },
+      ],
+    };
+
+    const result = convertSAPErrorToAPICallError(errorResponse);
+
+    expect(result.message).toContain("First error in list");
+    expect(result.statusCode).toBe(400);
   });
 });

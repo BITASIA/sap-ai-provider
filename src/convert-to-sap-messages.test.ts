@@ -470,4 +470,218 @@ describe("convertToSAPMessages", () => {
       tool_calls: undefined,
     });
   });
+
+  it("should handle empty user content array as array format", () => {
+    const prompt: LanguageModelV2Prompt = [
+      {
+        role: "user",
+        content: [],
+      },
+    ];
+
+    const result = convertToSAPMessages(prompt);
+
+    expect(result).toHaveLength(1);
+    // Empty content array stays as array (not simplified to string)
+    expect(result[0]).toEqual({
+      role: "user",
+      content: [],
+    });
+  });
+
+  it("should handle empty assistant content array", () => {
+    const prompt: LanguageModelV2Prompt = [
+      {
+        role: "assistant",
+        content: [],
+      },
+    ];
+
+    const result = convertToSAPMessages(prompt);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      role: "assistant",
+      content: "",
+      tool_calls: undefined,
+    });
+  });
+
+  it("should handle empty tool content array", () => {
+    const prompt: LanguageModelV2Prompt = [
+      {
+        role: "tool",
+        content: [],
+      },
+    ];
+
+    const result = convertToSAPMessages(prompt);
+
+    expect(result).toHaveLength(0);
+  });
+
+  it("should handle system message with empty string", () => {
+    const prompt: LanguageModelV2Prompt = [{ role: "system", content: "" }];
+
+    const result = convertToSAPMessages(prompt);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      role: "system",
+      content: "",
+    });
+  });
+
+  it("should handle multiple images in user message", () => {
+    const prompt: LanguageModelV2Prompt = [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Compare these images" },
+          {
+            type: "file",
+            mediaType: "image/png",
+            data: "base64data1",
+          },
+          {
+            type: "file",
+            mediaType: "image/jpeg",
+            data: "base64data2",
+          },
+        ],
+      },
+    ];
+
+    const result = convertToSAPMessages(prompt);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      role: "user",
+      content: [
+        { type: "text", text: "Compare these images" },
+        {
+          type: "image_url",
+          image_url: { url: "data:image/png;base64,base64data1" },
+        },
+        {
+          type: "image_url",
+          image_url: { url: "data:image/jpeg;base64,base64data2" },
+        },
+      ],
+    });
+  });
+
+  it("should handle reasoning with includeReasoning but empty text", () => {
+    const prompt: LanguageModelV2Prompt = [
+      {
+        role: "assistant",
+        content: [
+          { type: "reasoning", text: "" },
+          { type: "text", text: "Final" },
+        ],
+      },
+    ];
+
+    const result = convertToSAPMessages(prompt, { includeReasoning: true });
+
+    expect(result).toHaveLength(1);
+    // Empty reasoning should not produce <reasoning></reasoning> tags
+    expect(result[0]).toEqual({
+      role: "assistant",
+      content: "Final",
+      tool_calls: undefined,
+    });
+  });
+
+  it("should handle tool-call with object input containing special characters", () => {
+    const prompt: LanguageModelV2Prompt = [
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool-call",
+            toolCallId: "call_special",
+            toolName: "search",
+            input: { query: 'test "quotes" and \\ backslash' },
+          },
+        ],
+      },
+    ];
+
+    const result = convertToSAPMessages(prompt);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      role: "assistant",
+      content: "",
+      tool_calls: [
+        {
+          id: "call_special",
+          type: "function",
+          function: {
+            name: "search",
+            arguments: '{"query":"test \\"quotes\\" and \\\\ backslash"}',
+          },
+        },
+      ],
+    });
+  });
+
+  it("should handle tool result with complex nested output", () => {
+    const prompt: LanguageModelV2Prompt = [
+      {
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: "call_nested",
+            toolName: "get_data",
+            output: {
+              type: "json" as const,
+              value: {
+                nested: {
+                  array: [1, 2, { deep: true }],
+                  null_value: null,
+                },
+              },
+            },
+          },
+        ],
+      },
+    ];
+
+    const result = convertToSAPMessages(prompt);
+
+    expect(result).toHaveLength(1);
+    const content = (result[0] as { content: string }).content;
+    const parsed = JSON.parse(content) as unknown;
+    expect(parsed).toEqual({
+      type: "json",
+      value: {
+        nested: {
+          array: [1, 2, { deep: true }],
+          null_value: null,
+        },
+      },
+    });
+  });
+
+  it("should throw UnsupportedFunctionalityError for unknown user content type", () => {
+    // Force an unknown content type to trigger the default case
+    const prompt = [
+      {
+        role: "user",
+        content: [
+          { type: "unknown_type", data: "some data" } as unknown as {
+            type: "text";
+            text: string;
+          },
+        ],
+      },
+    ] as LanguageModelV2Prompt;
+
+    expect(() => convertToSAPMessages(prompt)).toThrow(
+      "Content type unknown_type",
+    );
+  });
 });
