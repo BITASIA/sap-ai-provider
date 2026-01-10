@@ -62,19 +62,28 @@ describe("convertSAPErrorToAPICallError", () => {
   });
 
   it("should mark 5xx errors as retryable", () => {
-    const errorResponse: OrchestrationErrorResponse = {
-      error: {
-        message: "Bad gateway",
-        code: 502,
-        location: "Gateway",
-        request_id: "gateway-error-123",
-      },
-    };
+    const serverErrorCodes = [500, 502, 503, 504];
 
-    const result = convertSAPErrorToAPICallError(errorResponse);
+    for (const code of serverErrorCodes) {
+      const errorResponse: OrchestrationErrorResponse = {
+        error: {
+          message: `Server error ${String(code)}`,
+          code,
+          location: "Gateway",
+          request_id: `error-${String(code)}`,
+        },
+      };
 
-    expect(result.statusCode).toBe(502);
-    expect(result.isRetryable).toBe(true);
+      const result = convertSAPErrorToAPICallError(errorResponse);
+
+      expect(
+        result.statusCode,
+        `${String(code)} should have correct status`,
+      ).toBe(code);
+      expect(result.isRetryable, `${String(code)} should be retryable`).toBe(
+        true,
+      );
+    }
   });
 
   it("should NOT mark 401 errors as retryable", () => {

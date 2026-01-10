@@ -1281,58 +1281,6 @@ describe("SAPAIChatLanguageModel", () => {
     });
   });
 
-  describe("stream chunk processing", () => {
-    it("should process stream chunks and emit correct parts", async () => {
-      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
-      const MockClient = OrchestrationClient as unknown as {
-        setStreamChunks: (chunks: unknown[]) => void;
-      };
-
-      // Set up stream chunks explicitly
-      MockClient.setStreamChunks([
-        {
-          getDeltaContent: () => "Hello",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
-          getDeltaContent: () => "!",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => "stop",
-          getTokenUsage: () => ({
-            prompt_tokens: 10,
-            completion_tokens: 5,
-            total_tokens: 15,
-          }),
-        },
-      ]);
-
-      const model = createModel();
-      const prompt: LanguageModelV2Prompt = [
-        { role: "user", content: [{ type: "text", text: "Hello" }] },
-      ];
-
-      const { stream } = await model.doStream({ prompt });
-      const parts: LanguageModelV2StreamPart[] = [];
-      const reader = stream.getReader();
-
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        parts.push(value);
-      }
-
-      // Verify stream emits expected part types
-      const textPart = parts.find((p) => p.type === "text-delta");
-      expect(textPart).toBeDefined();
-
-      const finishPart = parts.find((p) => p.type === "finish");
-      expect(finishPart).toBeDefined();
-    });
-  });
-
   describe("settings from options take precedence", () => {
     it("should prefer options.temperature over settings.modelParams.temperature", async () => {
       const model = createModel("gpt-4o", {

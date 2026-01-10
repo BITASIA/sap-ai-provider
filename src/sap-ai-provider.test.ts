@@ -20,12 +20,18 @@ describe("createSAPAIProvider", () => {
     expect(model.provider).toBe("sap-ai");
   });
 
-  it("should create model via chat method", () => {
+  it("should create model via chat method with optional settings", () => {
     const provider = createSAPAIProvider();
     const model = provider.chat("gpt-4o");
     expect(model).toBeDefined();
     expect(model.modelId).toBe("gpt-4o");
     expect(model.provider).toBe("sap-ai");
+
+    // Also works with settings
+    const modelWithSettings = provider.chat("gpt-4o", {
+      modelParams: { temperature: 0.8 },
+    });
+    expect(modelWithSettings).toBeDefined();
   });
 
   it("should accept resource group configuration", () => {
@@ -77,7 +83,7 @@ describe("createSAPAIProvider", () => {
     expect(provider("gpt-4o")).toBeDefined();
   });
 
-  it("should use deploymentId over resourceGroup when both are provided", () => {
+  it("should accept both deploymentId and resourceGroup", () => {
     const provider = createSAPAIProvider({
       deploymentId: "d65d81e7c077e583",
       resourceGroup: "production",
@@ -110,18 +116,6 @@ describe("createSAPAIProvider", () => {
       // @ts-expect-error - Testing runtime behavior
       new provider("gpt-4o");
     }).toThrow("cannot be called with the new keyword");
-  });
-
-  it("should create model via chat method with settings", () => {
-    const provider = createSAPAIProvider();
-
-    expect(
-      provider.chat("gpt-4o", {
-        modelParams: {
-          temperature: 0.8,
-        },
-      }),
-    ).toBeDefined();
   });
 });
 
