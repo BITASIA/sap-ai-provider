@@ -86,10 +86,10 @@ interface UserContentItem {
  */
 export interface ConvertToSAPMessagesOptions {
   /**
-   * Include assistant reasoning parts in the serialized SAP messages.
+   * Include assistant reasoning parts in the converted messages.
    *
-   * Reasoning parts can contain chain-of-thought. Default is false to avoid
-   * leaking it into downstream systems.
+   * When false (default), reasoning content is dropped to prevent chain-of-thought
+   * leakage. When true, reasoning is preserved as `<reasoning>` XML markers.
    */
   includeReasoning?: boolean;
 }
@@ -125,7 +125,7 @@ export function convertToSAPMessages(
               break;
             }
             case "file": {
-              // SAP AI Core only supports image files
+              // Only image files are supported for multi-modal inputs in SAP AI Core
               if (!part.mediaType.startsWith("image/")) {
                 throw new UnsupportedFunctionalityError({
                   functionality: "Only image files are supported",
@@ -218,9 +218,9 @@ export function convertToSAPMessages(
               break;
             }
             case "reasoning": {
-              // SAP AI SDK doesn't support reasoning parts natively.
-              // By default (when includeReasoning is false), drop them to avoid leaking chain-of-thought.
-              // If explicitly enabled, preserve it as an XML marker.
+              // SAP AI SDK doesn't support reasoning parts natively
+              // By default (when includeReasoning is false), drop them to avoid leaking chain-of-thought
+              // If explicitly enabled, preserve it as an XML marker
               if (includeReasoning && part.text) {
                 text += `<reasoning>${part.text}</reasoning>`;
               }

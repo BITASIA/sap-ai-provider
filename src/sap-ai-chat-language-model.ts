@@ -32,8 +32,11 @@ import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
 import { convertToAISDKError } from "./sap-ai-error";
 
 /**
- * Validates model parameters against expected ranges.
- * Logs warnings for out-of-range values but doesn't throw to allow API-side validation.
+ * Validates model parameters against expected ranges and adds warnings to the array.
+ *
+ * Does not throw errors to allow API-side validation to be authoritative.
+ * Warnings help developers catch configuration issues early during development.
+ *
  * @internal
  */
 function validateModelParameters(
@@ -772,9 +775,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         })(),
       };
 
-      // SAP AI SDK limitation: chatCompletion() does not accept AbortSignal directly.
-      // Note: This is a current SDK limitation; may be supported in future versions.
-      // Implement cancellation support via Promise.race() when AbortSignal is provided
+      // SAP AI SDK's chatCompletion() doesn't accept AbortSignal directly
+      // Implement cancellation via Promise.race() when AbortSignal is provided
       const response = await (async () => {
         const completionPromise = client.chatCompletion(requestBody);
 
@@ -981,7 +983,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       );
 
       // Encapsulate stream state to prevent race conditions with mutable variables
-      // finishReason and usage are updated atomically from final stream values
+      // Using an object ensures atomic updates and prevents timing issues where
+      // finishReason and usage might be read before being fully updated
       const streamState = {
         finishReason: "unknown" as LanguageModelV2FinishReason,
         usage: {
@@ -1012,7 +1015,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       // `doStream` may discover additional warnings while iterating the upstream
       // stream (e.g. malformed tool-call deltas). Those warnings should be
       // observable on the returned result after stream consumption, without
-      // mutating the `stream-start` warnings payload.
+      // mutating the `stream-start` warnings payload
       const warningsOut: LanguageModelV2CallWarning[] = [...warningsSnapshot];
 
       const transformedStream = new ReadableStream<LanguageModelV2StreamPart>({
@@ -1196,7 +1199,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             }
 
             // Determine final finish reason with server priority
-            // Server's final finish reason is authoritative; local detection is fallback
+            // 1. Server's finish reason is authoritative (if provided)
+            // 2. Fall back to client-side detection (tool calls emitted)
+            // 3. Default to 'unknown' if neither is available
             const finalFinishReason = streamResponse.getFinishReason();
             if (finalFinishReason) {
               streamState.finishReason = mapFinishReason(finalFinishReason);
@@ -1204,8 +1209,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               streamState.finishReason = "tool-calls";
             }
 
-            // Get final token usage from streamResponse
-            // SAP AI SDK aggregates usage; use this final value instead of accumulating chunks
+            // Get final token usage from SAP AI SDK's aggregated response
+            // The SDK accumulates usage across all chunks; use this authoritative
+            // value instead of manually summing individual chunk usage
             const finalUsage = streamResponse.getTokenUsage();
             if (finalUsage) {
               streamState.usage.inputTokens = finalUsage.prompt_tokens;

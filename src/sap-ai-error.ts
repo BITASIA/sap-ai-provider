@@ -3,7 +3,7 @@ import type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
 import { isErrorWithCause } from "@sap-cloud-sdk/util";
 
 /**
- * Maps SAP AI Core error codes to HTTP status codes for retry logic.
+ * Maps SAP AI Core error codes to HTTP status codes for standardized error handling.
  *
  * Validates that codes are in standard HTTP range (100-599) and falls back
  * to 500 for custom SAP error codes outside this range.
@@ -39,8 +39,8 @@ function isRetryable(statusCode: number): boolean {
 /**
  * Converts SAP AI SDK OrchestrationErrorResponse to Vercel AI SDK APICallError.
  *
- * This ensures compatibility with OpenCode's error handling system which expects
- * APICallError from the Vercel AI SDK.
+ * This ensures standardized error handling compatible with the Vercel AI SDK
+ * error classification system (retryable vs non-retryable errors).
  *
  * @param errorResponse - The error response from SAP AI SDK
  * @param context - Optional context about where the error occurred
