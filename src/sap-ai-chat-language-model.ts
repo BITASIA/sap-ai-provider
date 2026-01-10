@@ -445,7 +445,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     }
 
     // Amazon Bedrock and Anthropic models don't support the 'n' parameter
-    // (multiple completions in a single request)
+    // Only set n when explicitly provided to avoid overriding API defaults
     const supportsN =
       !this.modelId.startsWith("amazon--") &&
       !this.modelId.startsWith("anthropic--");
@@ -671,7 +671,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       };
 
       // SAP AI SDK limitation: chatCompletion() does not accept AbortSignal directly.
-      // We implement cancellation support via Promise.race() when AbortSignal is provided.
+      // Implement cancellation support via Promise.race() when AbortSignal is provided
       const response = await (async () => {
         const completionPromise = client.chatCompletion(requestBody);
 
@@ -877,7 +877,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         { promptTemplating: { include_usage: true } },
       );
 
-      // Stream state encapsulated to avoid race conditions
+      // Encapsulate stream state to prevent race conditions with mutable variables
+      // finishReason and usage are updated atomically from final stream values
       const streamState = {
         finishReason: "unknown" as LanguageModelV2FinishReason,
         usage: {
@@ -1091,10 +1092,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               controller.enqueue({ type: "text-end", id: "0" });
             }
 
-            // Determine final finish reason with clear priority
-            // Priority 1: Server's final finish reason (source of truth)
-            // Priority 2: Locally detected tool calls (if no server finish reason)
-            // Priority 3: Last chunk finish reason or "unknown"
+            // Determine final finish reason with server priority
+            // Server's final finish reason is authoritative; local detection is fallback
             const finalFinishReason = streamResponse.getFinishReason();
             if (finalFinishReason) {
               streamState.finishReason = mapFinishReason(finalFinishReason);
@@ -1102,8 +1101,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               streamState.finishReason = "tool-calls";
             }
 
-            // Get final token usage from streamResponse (source of truth)
-            // The SAP AI SDK aggregates usage across all chunks
+            // Get final token usage from streamResponse
+            // SAP AI SDK aggregates usage; use this final value instead of accumulating chunks
             const finalUsage = streamResponse.getTokenUsage();
             if (finalUsage) {
               streamState.usage.inputTokens = finalUsage.prompt_tokens;
@@ -1133,8 +1132,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           }
         },
         cancel(reason) {
-          // Stream cancellation handler for proper cleanup
-          // The SAP AI SDK stream auto-closes, but we log for debugging
+          // Stream cancellation handler for proper resource cleanup
+          // SAP AI SDK stream auto-closes; log cancellation for debugging
           if (reason) {
             console.debug("SAP AI stream cancelled:", reason);
           }

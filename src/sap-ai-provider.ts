@@ -229,8 +229,8 @@ export function createSAPAIProvider(
     : { resourceGroup };
 
   const createModel = (modelId: SAPAIModelId, settings: SAPAISettings = {}) => {
-    // Deep merge modelParams, but use override semantics for complex objects
-    // (masking, filtering, tools) to maintain predictable behavior
+    // Settings merge strategy: deep merge modelParams, override complex objects
+    // Complex objects (masking, filtering, tools) use override to avoid unexpected behavior
     const mergedSettings: SAPAISettings = {
       ...options.defaultSettings,
       ...settings,

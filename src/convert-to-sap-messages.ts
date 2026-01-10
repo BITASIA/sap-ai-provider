@@ -141,26 +141,23 @@ export function convertToSAPMessages(
                 );
               }
 
-              // Handle various image data formats
+              // Convert image data to data URL format supporting multiple input types
               let imageUrl: string;
 
               if (part.data instanceof URL) {
                 imageUrl = part.data.toString();
               } else if (typeof part.data === "string") {
-                // Assume already base64 encoded
                 imageUrl = `data:${part.mediaType};base64,${part.data}`;
               } else if (part.data instanceof Uint8Array) {
-                // Convert Uint8Array to base64
                 const base64Data = Buffer.from(part.data).toString("base64");
                 imageUrl = `data:${part.mediaType};base64,${base64Data}`;
               } else if (Buffer.isBuffer(part.data)) {
-                // Convert Buffer to base64
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
                 const base64Data = part.data.toString("base64");
                 // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
                 imageUrl = `data:${part.mediaType};base64,${base64Data}`;
               } else {
-                // Fallback: try to convert to string
+                // Fallback for unknown data types
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
                 const base64Data = part.data.toString("base64");
                 // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
@@ -224,8 +221,8 @@ export function convertToSAPMessages(
               break;
             }
             case "tool-call": {
-              // AI SDK tool-call input can be either a JSON string or an object.
-              // SAP expects arguments as a valid JSON string.
+              // Normalize tool call input: validate and convert to JSON string
+              // AI SDK provides either JSON strings or objects; SAP expects valid JSON
               let argumentsJson: string;
 
               if (typeof part.input === "string") {
