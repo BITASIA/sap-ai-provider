@@ -78,14 +78,47 @@ type SapToolParameters = Record<string, unknown> & {
   type: "object";
 };
 
+/**
+ * Extended function tool type that includes the raw parameters field
+ * which may contain a Zod schema in some AI SDK versions.
+ * @internal
+ */
+interface FunctionToolWithParameters extends LanguageModelV2FunctionTool {
+  parameters?: unknown;
+}
+
+/**
+ * Type guard helper to check if an object has a callable 'parse' property.
+ * @internal
+ */
+function hasCallableParse(
+  obj: Record<string, unknown>,
+): obj is Record<string, unknown> & { parse: (...args: unknown[]) => unknown } {
+  return typeof obj.parse === "function";
+}
+
 function isZodSchema(obj: unknown): obj is ZodSchema {
-  return (
-    obj !== null &&
-    typeof obj === "object" &&
-    "_def" in obj &&
-    "parse" in obj &&
-    typeof (obj as { parse: unknown }).parse === "function"
-  );
+  if (obj === null || typeof obj !== "object") {
+    return false;
+  }
+  const record = obj as Record<string, unknown>;
+  return "_def" in record && "parse" in record && hasCallableParse(record);
+}
+
+/**
+ * Build a SapToolParameters object from a schema.
+ * Ensures type: "object" is always present as required by SAP AI Core.
+ * @internal
+ */
+function buildSapToolParameters(
+  schema: Record<string, unknown>,
+): SapToolParameters {
+  return {
+    type: "object",
+    properties: {},
+    required: [],
+    ...schema,
+  };
 }
 
 /**
@@ -239,9 +272,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               | undefined;
 
             // Also check for raw Zod schema in 'parameters' field (AI SDK internal)
-            const toolWithParams = tool as LanguageModelV2FunctionTool & {
-              parameters?: unknown;
-            };
+            const toolWithParams = tool as FunctionToolWithParameters;
 
             // Build parameters ensuring type: "object" is always present
             // SAP AI Core requires explicit type: "object" in the schema
@@ -256,13 +287,11 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 // Convert Zod schema to JSON Schema
                 const jsonSchema = zodToJsonSchema(toolWithParams.parameters, {
                   $refStrategy: "none",
-                }) as Record<string, unknown>;
+                });
+                const schemaRecord = jsonSchema as Record<string, unknown>;
                 // Remove $schema property as SAP doesn't need it
-                delete jsonSchema.$schema;
-                parameters = {
-                  type: "object",
-                  ...jsonSchema,
-                } as SapToolParameters;
+                delete schemaRecord.$schema;
+                parameters = buildSapToolParameters(schemaRecord);
               } catch {
                 warnings.push({
                   type: "unsupported-tool",
@@ -270,11 +299,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                   details:
                     "Failed to convert tool Zod schema to JSON Schema. Falling back to empty object schema.",
                 });
-                parameters = {
-                  type: "object",
-                  properties: {},
-                  required: [],
-                };
+                parameters = buildSapToolParameters({});
               }
             } else if (inputSchema && Object.keys(inputSchema).length > 0) {
               // Check if schema has properties (it's a proper object schema)
@@ -284,25 +309,14 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 Object.keys(inputSchema.properties).length > 0;
 
               if (hasProperties) {
-                parameters = {
-                  type: "object",
-                  ...inputSchema,
-                } as SapToolParameters;
+                parameters = buildSapToolParameters(inputSchema);
               } else {
                 // Schema exists but has no properties - use default empty schema
-                parameters = {
-                  type: "object",
-                  properties: {},
-                  required: [],
-                } as SapToolParameters;
+                parameters = buildSapToolParameters({});
               }
             } else {
               // No schema provided - use default empty schema
-              parameters = {
-                type: "object",
-                properties: {},
-                required: [],
-              } as SapToolParameters;
+              parameters = buildSapToolParameters({});
             }
 
             return {
@@ -506,6 +520,14 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
       const finishReasonRaw = response.getFinishReason();
       const finishReason = mapFinishReason(finishReasonRaw);
 
+      // Build the raw response body for debugging
+      const rawResponseBody = {
+        content: textContent,
+        toolCalls,
+        tokenUsage,
+        finishReason: finishReasonRaw,
+      };
+
       return {
         content,
         finishReason,
@@ -525,6 +547,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         response: {
           timestamp: new Date(),
           modelId: this.modelId,
+          body: rawResponseBody,
         },
         warnings,
       };

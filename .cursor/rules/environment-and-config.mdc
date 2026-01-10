@@ -5,27 +5,51 @@ description: Environment variables, credentials, and configuration guidance
 
 ## Credentials
 
-- Preferred: Provide an SAP AI Core service key JSON to `createSAPAIProvider({ serviceKey })` (see [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)).
-- Alternative: Provide an OAuth token via `createSAPAIProviderSync({ token })` or set `SAP_AI_TOKEN`.
+The SAP AI SDK (`@sap-ai-sdk/orchestration`) handles authentication automatically:
+
+1. **On SAP BTP**: Uses service binding from `VCAP_SERVICES`
+2. **Locally**: Uses `AICORE_SERVICE_KEY` environment variable containing the full JSON service key
+
+## Provider Configuration
+
+Configure the provider using `createSAPAIProvider(options)`:
+
+```typescript
+import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
+
+// Default configuration (auto-detects authentication)
+const provider = createSAPAIProvider();
+
+// With specific resource group
+const provider = createSAPAIProvider({
+  resourceGroup: 'production'
+});
+
+// With specific deployment ID
+const provider = createSAPAIProvider({
+  deploymentId: 'd65d81e7c077e583'
+});
+
+// With custom destination
+const provider = createSAPAIProvider({
+  destination: {
+    url: 'https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com'
+  }
+});
+```
 
 ## Environment Variables
 
-See details in [README.md](mdc:README.md).
-
-- `SAP_AI_SERVICE_KEY` — full JSON string of your service key.
-- `SAP_AI_TOKEN` — direct OAuth token (used by default instance `sapai`).
-- `SAP_AI_BASE_URL` — override base URL if needed.
+- `AICORE_SERVICE_KEY` — Full JSON string of your SAP AI Core service key (used by SAP AI SDK)
 
 Do not commit secrets. Prefer local `.env` and CI secrets. `dotenv` is available for local development.
 
 ## Deployment and Resource Group
 
-- Default `deploymentId`: `d65d81e7c077e583`
-- Default `resourceGroup`: `default`
+- Default `resourceGroup`: `'default'`
 
-Both can be overridden in provider settings or via environment variables in your host app.
+Both `resourceGroup` and `deploymentId` can be configured in provider settings.
 
-## SAP BTP (xsenv)
+## SAP BTP (VCAP_SERVICES)
 
-For BTP environments, consider loading credentials from `VCAP_SERVICES` via `@sap/xsenv` as shown in [README.md](mdc:README.md).
-
+For BTP environments, the SAP AI SDK automatically reads credentials from `VCAP_SERVICES` when the application is bound to an AI Core service instance.

@@ -10,9 +10,8 @@ This repository provides an SAP AI Core provider compatible with the Vercel AI S
 - Main package entry: [src/index.ts](mdc:src/index.ts)
   - Re-exports provider factory and types.
 - Provider factory and default instance: [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)
-  - `createSAPAIProvider(options)` returns a function for model creation (async; handles OAuth when given a service key).
-  - `createSAPAIProviderSync(options)` for token-based sync usage.
-  - `sapai` default instance reads `SAP_AI_TOKEN` at call time.
+  - `createSAPAIProvider(options)` returns a provider function for model creation.
+  - `sapai` default instance uses default configuration (auto-detects service binding or AICORE_SERVICE_KEY env var).
 - Chat LLM implementation: [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)
   - Implements Vercel AI SDK `LanguageModelV2` contract.
   - Supports text, tool calls, streaming, structured outputs (varies by model family).
@@ -26,7 +25,7 @@ This repository provides an SAP AI Core provider compatible with the Vercel AI S
 - TypeScript config: [tsconfig.json](mdc:tsconfig.json)
 - Build config (CJS+ESM+DTS): [tsup.config.ts](mdc:tsup.config.ts)
 - ESLint config: [eslint.config.mjs](mdc:eslint.config.mjs)
-- Output: [dist/](mdc:dist/) produces `index.js`, `index.mjs`, `index.d.ts` with sourcemaps.
+- Output: [dist/](mdc:dist/) produces `index.js`, `index.cjs`, `index.d.ts` with sourcemaps.
 - `package.json` exports are aligned for Node and ESM: [package.json](mdc:package.json)
 
 ## Testing
@@ -42,9 +41,12 @@ This repository provides an SAP AI Core provider compatible with the Vercel AI S
   - Tool calling: [examples/example-chat-completion-tool.ts](mdc:examples/example-chat-completion-tool.ts)
   - Image recognition: [examples/example-image-recognition.ts](mdc:examples/example-image-recognition.ts)
   - Text generation: [examples/example-generate-text.ts](mdc:examples/example-generate-text.ts)
+  - Data masking: [examples/example-data-masking.ts](mdc:examples/example-data-masking.ts)
+  - Streaming: [examples/example-streaming-chat.ts](mdc:examples/example-streaming-chat.ts)
 
 ## Runtime Requirements
 
 - Node.js >= 18 (see `engines` in [package.json](mdc:package.json)).
-- Environment variables are used for credentials when no service key is provided.
-
+- Authentication is handled automatically by SAP AI SDK:
+  - On SAP BTP: Uses service binding (VCAP_SERVICES)
+  - Locally: Uses AICORE_SERVICE_KEY environment variable

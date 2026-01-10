@@ -59,6 +59,7 @@
     "test:node": "vitest --config vitest.node.config.js --run",
     "test:edge": "vitest --config vitest.edge.config.js --run",
     "test:node:watch": "vitest --config vitest.node.config.js",
+    "test:coverage": "vitest run --coverage",
     "prepare": "npm run build",
     "prepublishOnly": "npm run type-check && npm run test && npm run build",
     "check-build": "ls -la dist/ && test -f dist/index.js && test -f dist/index.cjs && test -f dist/index.d.ts"
@@ -81,7 +82,8 @@
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.51.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.16",
+    "@vitest/coverage-v8": "^4.0.16"
   },
   "peerDependencies": {
     "ai": "^6.0.0"

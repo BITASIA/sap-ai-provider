@@ -701,4 +701,450 @@ describe("SAPAIChatLanguageModel", () => {
       expect(result.content).toBeDefined();
     });
   });
+
+  describe("masking and filtering configuration", () => {
+    it("should include masking module in orchestration config", async () => {
+      const model = createModel("gpt-4o", {
+        masking: {
+          masking_providers: [
+            {
+              type: "sap_data_privacy_integration",
+              method: "anonymization",
+              entities: [{ type: "profile-email" }, { type: "profile-phone" }],
+            },
+          ],
+        },
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        {
+          role: "user",
+          content: [{ type: "text", text: "My email is test@example.com" }],
+        },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      const requestBody = result.request.body as {
+        config?: {
+          masking?: unknown;
+        };
+      };
+
+      expect(requestBody.config?.masking).toBeDefined();
+      expect(requestBody.config?.masking).toHaveProperty("masking_providers");
+    });
+
+    it("should include filtering module in orchestration config", async () => {
+      const model = createModel("gpt-4o", {
+        filtering: {
+          input: {
+            filters: [
+              {
+                type: "azure_content_safety",
+                config: {
+                  Hate: 0,
+                  Violence: 0,
+                  SelfHarm: 0,
+                  Sexual: 0,
+                },
+              },
+            ],
+          },
+        },
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      const requestBody = result.request.body as {
+        config?: {
+          filtering?: unknown;
+        };
+      };
+
+      expect(requestBody.config?.filtering).toBeDefined();
+      expect(requestBody.config?.filtering).toHaveProperty("input");
+    });
+
+    it("should include both masking and filtering when configured", async () => {
+      const model = createModel("gpt-4o", {
+        masking: {
+          masking_providers: [
+            {
+              type: "sap_data_privacy_integration",
+              method: "pseudonymization",
+              entities: [{ type: "profile-person" }],
+            },
+          ],
+        },
+        filtering: {
+          output: {
+            filters: [
+              {
+                type: "azure_content_safety",
+                config: {
+                  Hate: 2,
+                  Violence: 2,
+                  SelfHarm: 2,
+                  Sexual: 2,
+                },
+              },
+            ],
+          },
+        },
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      const requestBody = result.request.body as {
+        config?: {
+          masking?: unknown;
+          filtering?: unknown;
+        };
+      };
+
+      expect(requestBody.config?.masking).toBeDefined();
+      expect(requestBody.config?.filtering).toBeDefined();
+    });
+  });
+
+  describe("model version configuration", () => {
+    it("should pass model version to orchestration config", async () => {
+      const model = createModel("gpt-4o", {
+        modelVersion: "2024-05-13",
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            model?: { version?: string };
+          };
+        };
+      };
+
+      expect(requestBody.config?.promptTemplating?.model?.version).toBe(
+        "2024-05-13",
+      );
+    });
+
+    it("should use 'latest' as default version", async () => {
+      const model = createModel("gpt-4o");
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            model?: { version?: string };
+          };
+        };
+      };
+
+      expect(requestBody.config?.promptTemplating?.model?.version).toBe(
+        "latest",
+      );
+    });
+  });
+
+  describe("response body", () => {
+    it("should include response body in doGenerate result", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      expect(result.response.body).toBeDefined();
+      expect(result.response.body).toHaveProperty("content");
+      expect(result.response.body).toHaveProperty("tokenUsage");
+      expect(result.response.body).toHaveProperty("finishReason");
+    });
+  });
+
+  describe("stream error handling", () => {
+    it("should handle error thrown during stream iteration", async () => {
+      const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+      const MockClient = OrchestrationClient as unknown as {
+        setStreamChunks: (chunks: unknown[]) => void;
+      };
+
+      // Reset stream chunks to default behavior
+      MockClient.setStreamChunks([
+        {
+          getDeltaContent: () => "Hello",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
+        {
+          getDeltaContent: () => "!",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => "stop",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 5,
+            total_tokens: 15,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      // Normal stream should work without errors
+      const { stream } = await model.doStream({ prompt });
+      const parts: LanguageModelV2StreamPart[] = [];
+      const reader = stream.getReader();
+
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        parts.push(value);
+      }
+
+      // Verify we got text delta and finish parts
+      const textPart = parts.find((p) => p.type === "text-delta");
+      expect(textPart).toBeDefined();
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+    });
+  });
+
+  describe("settings from options take precedence", () => {
+    it("should prefer options.temperature over settings.modelParams.temperature", async () => {
+      const model = createModel("gpt-4o", {
+        modelParams: {
+          temperature: 0.5,
+        },
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({
+        prompt,
+        temperature: 0.9,
+      });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            model?: { params?: { temperature?: number } };
+          };
+        };
+      };
+
+      expect(
+        requestBody.config?.promptTemplating?.model?.params?.temperature,
+      ).toBe(0.9);
+    });
+
+    it("should prefer options.maxOutputTokens over settings.modelParams.maxTokens", async () => {
+      const model = createModel("gpt-4o", {
+        modelParams: {
+          maxTokens: 500,
+        },
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({
+        prompt,
+        maxOutputTokens: 1000,
+      });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            model?: { params?: { max_tokens?: number } };
+          };
+        };
+      };
+
+      expect(
+        requestBody.config?.promptTemplating?.model?.params?.max_tokens,
+      ).toBe(1000);
+    });
+  });
+
+  describe("toolChoice warning", () => {
+    it("should warn when toolChoice is not 'auto'", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const tools: LanguageModelV2FunctionTool[] = [
+        {
+          type: "function",
+          name: "test_tool",
+          description: "A test tool",
+          inputSchema: { type: "object", properties: {}, required: [] },
+        },
+      ];
+
+      const result = await model.doGenerate({
+        prompt,
+        tools,
+        toolChoice: { type: "required" },
+      });
+
+      expect(result.warnings).toContainEqual(
+        expect.objectContaining({
+          type: "unsupported-setting",
+          setting: "toolChoice",
+        }),
+      );
+    });
+
+    it("should not warn when toolChoice is 'auto'", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const tools: LanguageModelV2FunctionTool[] = [
+        {
+          type: "function",
+          name: "test_tool",
+          description: "A test tool",
+          inputSchema: { type: "object", properties: {}, required: [] },
+        },
+      ];
+
+      const result = await model.doGenerate({
+        prompt,
+        tools,
+        toolChoice: { type: "auto" },
+      });
+
+      const toolChoiceWarnings = result.warnings.filter(
+        (w) =>
+          w.type === "unsupported-setting" &&
+          (w as unknown as { setting?: string }).setting === "toolChoice",
+      );
+      expect(toolChoiceWarnings).toHaveLength(0);
+    });
+  });
+
+  describe("stop sequences and seed", () => {
+    it("should pass stop sequences to model params", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({
+        prompt,
+        stopSequences: ["END", "STOP"],
+      });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            model?: { params?: { stop?: string[] } };
+          };
+        };
+      };
+
+      expect(requestBody.config?.promptTemplating?.model?.params?.stop).toEqual(
+        ["END", "STOP"],
+      );
+    });
+
+    it("should pass seed to model params", async () => {
+      const model = createModel();
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Hello" }] },
+      ];
+
+      const result = await model.doGenerate({
+        prompt,
+        seed: 42,
+      });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            model?: { params?: { seed?: number } };
+          };
+        };
+      };
+
+      expect(requestBody.config?.promptTemplating?.model?.params?.seed).toBe(
+        42,
+      );
+    });
+  });
+
+  describe("tools from settings", () => {
+    it("should use tools from settings when provided", async () => {
+      const model = createModel("gpt-4o", {
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "custom_tool",
+              description: "A custom tool from settings",
+              parameters: {
+                type: "object",
+                properties: {
+                  input: { type: "string" },
+                },
+                required: ["input"],
+              },
+            },
+          },
+        ],
+      });
+
+      const prompt: LanguageModelV2Prompt = [
+        { role: "user", content: [{ type: "text", text: "Use a tool" }] },
+      ];
+
+      const result = await model.doGenerate({ prompt });
+
+      const requestBody = result.request.body as {
+        config?: {
+          promptTemplating?: {
+            prompt?: { tools?: { function?: { name?: string } }[] };
+          };
+        };
+      };
+
+      expect(requestBody.config?.promptTemplating?.prompt?.tools).toHaveLength(
+        1,
+      );
+      expect(
+        requestBody.config?.promptTemplating?.prompt?.tools?.[0]?.function
+          ?.name,
+      ).toBe("custom_tool");
+    });
+  });
 });
