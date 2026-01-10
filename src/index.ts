@@ -19,8 +19,7 @@ export {
   buildTranslationConfig,
 } from "./sap-ai-chat-settings";
 
-// Error handling - re-export type only for backwards compatibility
-// Note: SAPAIError class has been removed in favor of Vercel AI SDK standard errors
+// Error handling - re-export SAP AI SDK error type for convenience
 export type { OrchestrationErrorResponse } from "./sap-ai-error";
 
 // Re-export useful types from SAP AI SDK for advanced usage

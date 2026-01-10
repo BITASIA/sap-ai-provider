@@ -272,5 +272,4 @@ export function convertToAISDKError(
   });
 }
 
-// Re-export types for backwards compatibility
 export type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
