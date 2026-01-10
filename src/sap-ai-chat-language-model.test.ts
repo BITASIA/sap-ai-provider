@@ -952,6 +952,57 @@ describe("SAPAIChatLanguageModel", () => {
       return parts;
     }
 
+    it("should not emit text deltas after tool-call deltas", async () => {
+      await setStreamChunks([
+        {
+          getDeltaContent: () => "Hello",
+          getDeltaToolCalls: () => undefined,
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
+        {
+          // Tool call deltas appear before a finish reason is reported.
+          // Any text content after this point must not be emitted.
+          getDeltaContent: () => " SHOULD_NOT_APPEAR",
+          getDeltaToolCalls: () => [
+            {
+              index: 0,
+              id: "call_0",
+              function: { name: "calc", arguments: '{"x":' },
+            },
+          ],
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
+        {
+          getDeltaContent: () => " ALSO_SHOULD_NOT_APPEAR",
+          getDeltaToolCalls: () => [
+            {
+              index: 0,
+              id: "call_0",
+              function: { arguments: "1}" },
+            },
+          ],
+          getFinishReason: () => "tool_calls",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 5,
+            total_tokens: 15,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const textDeltas = parts.filter((p) => p.type === "text-delta");
+      expect(textDeltas).toHaveLength(1);
+      expect((textDeltas[0] as { delta: string }).delta).toBe("Hello");
+    });
+
     it("should stream text response", async () => {
       await setStreamChunks([
         {
@@ -1070,6 +1121,72 @@ describe("SAPAIChatLanguageModel", () => {
         )
         .map((p) => p.delta);
       expect(textDeltas.join("")).not.toContain("SHOULD_NOT_APPEAR");
+    });
+
+    it("should handle interleaved tool call deltas across multiple indices", async () => {
+      await setStreamChunks([
+        {
+          getDeltaContent: () => null,
+          getDeltaToolCalls: () => [
+            {
+              index: 0,
+              id: "call_0",
+              function: { name: "first", arguments: '{"a":' },
+            },
+            {
+              index: 1,
+              id: "call_1",
+              function: { name: "second", arguments: '{"b":' },
+            },
+          ],
+          getFinishReason: () => null,
+          getTokenUsage: () => undefined,
+        },
+        {
+          getDeltaContent: () => null,
+          getDeltaToolCalls: () => [
+            {
+              index: 0,
+              id: "call_0",
+              function: { arguments: "1}" },
+            },
+            {
+              index: 1,
+              id: "call_1",
+              function: { arguments: "2}" },
+            },
+          ],
+          getFinishReason: () => "tool_calls",
+          getTokenUsage: () => ({
+            prompt_tokens: 10,
+            completion_tokens: 5,
+            total_tokens: 15,
+          }),
+        },
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Use tools");
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const toolCalls = parts.filter((p) => p.type === "tool-call");
+      expect(toolCalls).toHaveLength(2);
+
+      const firstCall = toolCalls.find((call) => call.toolName === "first");
+      expect(firstCall).toMatchObject({
+        type: "tool-call",
+        toolName: "first",
+        input: '{"a":1}',
+      });
+
+      const secondCall = toolCalls.find((call) => call.toolName === "second");
+      expect(secondCall).toMatchObject({
+        type: "tool-call",
+        toolName: "second",
+        input: '{"b":2}',
+      });
     });
 
     it("should use latest tool call id when it changes", async () => {

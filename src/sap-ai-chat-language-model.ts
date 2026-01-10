@@ -1036,6 +1036,14 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 });
               }
 
+              const deltaToolCalls = chunk.getDeltaToolCalls();
+              if (Array.isArray(deltaToolCalls) && deltaToolCalls.length > 0) {
+                // Once tool call deltas appear, avoid emitting further text deltas.
+                // Many upstream providers treat tool calls as mutually exclusive
+                // with assistant text.
+                streamState.finishReason = "tool-calls";
+              }
+
               const deltaContent = chunk.getDeltaContent();
               if (
                 typeof deltaContent === "string" &&
@@ -1053,7 +1061,6 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 });
               }
 
-              const deltaToolCalls = chunk.getDeltaToolCalls();
               if (Array.isArray(deltaToolCalls) && deltaToolCalls.length > 0) {
                 for (const toolCallChunk of deltaToolCalls) {
                   const index = toolCallChunk.index;

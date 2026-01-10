@@ -158,16 +158,30 @@ export function convertToSAPMessages(
                 const base64Data = Buffer.from(part.data).toString("base64");
                 imageUrl = `data:${part.mediaType};base64,${base64Data}`;
               } else if (Buffer.isBuffer(part.data)) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-                const base64Data = part.data.toString("base64");
-                // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+                const base64Data = Buffer.from(part.data).toString("base64");
                 imageUrl = `data:${part.mediaType};base64,${base64Data}`;
               } else {
                 // Fallback for unknown data types
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-                const base64Data = part.data.toString("base64");
-                // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-                imageUrl = `data:${part.mediaType};base64,${base64Data}`;
+                // AI SDK file parts should be URL | string | Uint8Array, but keep a defensive fallback.
+                const maybeBufferLike = part.data as unknown;
+
+                if (
+                  maybeBufferLike !== null &&
+                  typeof maybeBufferLike === "object" &&
+                  "toString" in (maybeBufferLike as Record<string, unknown>)
+                ) {
+                  const base64Data = (
+                    maybeBufferLike as {
+                      toString: (encoding?: string) => string;
+                    }
+                  ).toString("base64");
+                  imageUrl = `data:${part.mediaType};base64,${base64Data}`;
+                } else {
+                  throw new UnsupportedFunctionalityError({
+                    functionality:
+                      "Unsupported file data type for image. Expected URL, base64 string, or Uint8Array.",
+                  });
+                }
               }
 
               contentParts.push({
