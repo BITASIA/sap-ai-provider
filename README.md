@@ -89,21 +89,20 @@ pnpm add @mymediset/sap-ai-provider ai
 
 ## Authentication
 
-Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERVICE_KEY` environment variable (local development) or `VCAP_SERVICES` service binding (SAP BTP).
+Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERVICE_KEY` environment variable.
 
 **Quick Setup:**
 
 ```bash
 # Set environment variable with your SAP AI Core service key
-export AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"..."},"clientid":"...","clientsecret":"...","url":"..."}'
+export AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"..."},...}'
 ```
 
 ```typescript
-// Authentication is automatic
-const provider = createSAPAIProvider();
+const provider = createSAPAIProvider(); // Authentication is automatic
 ```
 
-For complete setup instructions, authentication methods, troubleshooting, and security best practices, see the **[Environment Setup Guide](./ENVIRONMENT_SETUP.md)**.
+**For complete setup instructions, authentication methods, troubleshooting, and security best practices, see the [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
 
 ## Basic Usage
 

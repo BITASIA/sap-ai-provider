@@ -1,44 +1,31 @@
 # SAP AI Core API - Manual curl Testing Guide
 
-This guide demonstrates how to make direct API calls to SAP AI Core using curl for testing and debugging purposes. In application code, authentication is handled automatically by the SAP AI SDK via `AICORE_SERVICE_KEY` or `VCAP_SERVICES`. Use this curl guide for low-level diagnostics and when you need to inspect raw requests/responses.
+This guide shows how to make direct API calls to SAP AI Core using curl for testing and debugging. For production code, use the SAP AI SDK with `AICORE_SERVICE_KEY`.
 
 ---
 
 ## Overview
 
-This example shows the complete flow of:
-
-1. **OAuth2 authentication** using service key credentials
-2. **API call** to SAP AI Core's Orchestration v2 endpoint
-3. **Function calling** with multiple tools (model-dependent)
+Complete OAuth2 authentication → API call → Tool calling flow.
 
 ---
 
 ## Prerequisites
 
-- SAP AI Core instance with deployment
-- Service key from SAP BTP cockpit
-- `curl` command-line tool
-- `base64` encoding utility
+- SAP AI Core instance + service key (from BTP cockpit)
+- `curl` and `base64` utilities
 
 ---
 
 ## Step-by-Step Guide
 
-### Step 1: Prepare Your Credentials
+### Step 1: Prepare Credentials
 
-From your SAP BTP cockpit, obtain your service key which contains:
+Service key contains: `clientid`, `clientsecret`, `url` (auth server), `serviceurls.AI_API_URL`
 
-- `clientid` - OAuth2 client ID
-- `clientsecret` - OAuth2 client secret
-- `url` - Authentication server URL
-- `serviceurls.AI_API_URL` - SAP AI Core API base URL
-
-⚠️ **Security Note**: Never commit credentials to version control. Use environment variables or secure vaults.
+⚠️ Never commit credentials. Use environment variables.
 
 ### Step 2: Get OAuth Token
-
-SAP AI Core uses OAuth2 client credentials flow for authentication.
 
 ```bash
 #!/bin/bash
@@ -72,26 +59,13 @@ fi
 echo "✅ OAuth token obtained"
 ```
 
-**Key Points:**
-
-- Use `printf` instead of `echo -n` for proper special character handling (e.g., `|`, `$`, `!` in client IDs)
-- The token is a JWT containing tenant information (`subaccountid`, `zid`)
-- Tokens typically expire after 12 hours
+**Key Points:** Use `printf` (not `echo`) for special characters. Tokens expire after 12h.
 
 ### Step 3: Call SAP AI Core API
 
-#### Endpoint Structure
+**Endpoint:** `https://{AI_API_URL}/v2/inference/deployments/{DEPLOYMENT_ID}/v2/completion`
 
-```
-https://{AI_API_URL}/v2/inference/deployments/{DEPLOYMENT_ID}/v2/completion
-                      ^^                                      ^^
-                      |                                       |
-                  Base path                           Orchestration v2
-```
-
-⚠️ **Important**: Note the `/v2` appears **twice** - once as base path and once for the completion endpoint.
-
-#### Example API Call
+⚠️ Note the `/v2` appears **twice** (base path + completion endpoint).
 
 ```bash
 # Configuration
@@ -157,80 +131,27 @@ curl --request POST \
 }
 ```
 
-### Prompt Configuration
+### Request Structure
 
-```json
-"prompt": {
-  "template": [
-    {
-      "role": "system" | "user" | "assistant" | "tool",
-      "content": "message text"
-    }
-  ],
-  "tools": [ /* Optional: function definitions */ ],
-  "response_format": { /* Optional: structured output */ }
-}
-```
+The SAP AI Core v2 API uses a modular configuration structure with `prompt` (messages, tools, response_format) and `model` (name, version, params) sections. See complete working examples below for the full structure.
 
-### Model Configuration
-
-```json
-"model": {
-  "name": "gpt-4o",           // Model ID
-  "version": "latest",         // Model version
-  "params": {                  // Optional parameters
-    "temperature": 0.7,
-    "max_tokens": 1000,
-    "top_p": 1.0,
-    "parallel_tool_calls": true
-  }
-}
-```
+> 💡 For detailed parameter documentation, see [API_REFERENCE.md](API_REFERENCE.md#modelparams)
 
 ---
 
-## Function Calling Example
-
-### Defining Tools
-
-```json
-"tools": [
-  {
-    "type": "function",
-    "function": {
-      "name": "calculate_price",
-      "description": "Calculate total price for products",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "price_per_unit": {
-            "type": "number",
-            "description": "Price per unit in dollars"
-          },
-          "quantity": {
-            "type": "number",
-            "description": "Number of units"
-          }
-        },
-        "required": ["price_per_unit", "quantity"],
-        "additionalProperties": false
-      }
-    }
-  }
-]
-```
+## Tool Calling Example
 
 ### ⚠️ Model-Specific Limitations
 
-| Model                | Multiple Tools Support | Notes                                    |
-| -------------------- | ---------------------- | ---------------------------------------- |
-| **gpt-4o**           | ✅ Yes                 | Full support for multiple function tools |
-| **gpt-4.1-mini**     | ✅ Yes                 | Full support for multiple function tools |
-| **gemini-2.0-flash** | ⚠️ Limited             | Only 1 function tool per request         |
-| **gemini-1.5-pro**   | ⚠️ Limited             | Only 1 function tool per request         |
-| **claude-3-sonnet**  | ✅ Yes                 | Multiple tools, sequential execution     |
+| Model                | Multiple Tools Support | Notes                                |
+| -------------------- | ---------------------- | ------------------------------------ |
+| **gpt-4o**           | ✅ Yes                 | Full support for multiple tools      |
+| **gpt-4.1-mini**     | ✅ Yes                 | Full support for multiple tools      |
+| **gemini-2.0-flash** | ⚠️ Limited             | Only 1 tool per request              |
+| **gemini-1.5-pro**   | ⚠️ Limited             | Only 1 tool per request              |
+| **claude-3-sonnet**  | ✅ Yes                 | Multiple tools, sequential execution |
 
-**Gemini Limitation**: Multiple tools will be supported in the future. For now, only one tool per request is supported.
+**Gemini Note**: Multiple tools supported in future. Currently: 1 tool per request.
 
 ---
 
@@ -397,92 +318,34 @@ echo "✅ Request completed"
 
 ---
 
-## Common Issues and Solutions
+## Common Issues
 
-### 1. "Missing Tenant Id" Error
-
-**Problem**: HTTP 400 with "Missing Tenant Id"
-
-**Causes**:
-
-- Token expired or invalid
-- Wrong endpoint URL (missing `/v2` in path)
-- Token not generated from service key (lacks tenant context)
-
-**Solution**:
-
-- Generate fresh OAuth token using service key
-- Verify endpoint URL includes both `/v2` paths
-- Use `printf` for credential encoding (not `echo`)
-
-### 2. "Bad Credentials" Error
-
-**Problem**: OAuth token request fails with 401
-
-**Causes**:
-
-- Incorrect client ID or secret
-- Special characters not properly encoded
-- Wrong authentication URL
-
-**Solution**:
-
-- Double-check credentials from service key
-- Use `printf '%s:%s' "$ID" "$SECRET"` for encoding
-- Verify authentication URL matches your region
-
-### 3. "Multiple Tools Not Supported"
-
-**Problem**: HTTP 400 - "Multiple tools are supported only when they are all search tools"
-
-**Causes**:
-
-- Using Gemini model with multiple function tools
-- Vertex AI limitation
-
-**Solution**:
-
-- Use only 1 tool per request for Gemini models
-- Or switch to OpenAI models (gpt-4o, gpt-4.1-mini)
-- Or combine multiple tools into one
+| Error                | Cause                                                   | Solution                                       |
+| -------------------- | ------------------------------------------------------- | ---------------------------------------------- |
+| Missing Tenant Id    | Expired token, wrong endpoint, invalid token            | Regenerate token, verify `/v2` paths           |
+| Bad Credentials      | Wrong client ID/secret, bad Base64 encoding             | Check credentials, use `printf` not `echo`     |
+| Deployment Not Found | Wrong deployment ID, wrong region, wrong resource group | Verify deployment exists, check resource group |
+| Multiple Tools Error | Gemini model with >1 tool                               | Use 1 tool OR switch to OpenAI/Claude models   |
 
 ---
 
 ## Debugging Tips
 
-### Enable Verbose Output
+**Verbose output:**
 
 ```bash
-curl --verbose \
-  --fail-with-body \
-  --show-error \
-  ...
+curl --verbose --fail-with-body --show-error ...
 ```
 
-This shows:
-
-- Full request headers
-- Response headers
-- Connection details
-- HTTP status codes
-
-### Check Token Validity
-
-Decode JWT token (without verification):
+**Decode JWT token:**
 
 ```bash
 echo "$ACCESS_TOKEN" | cut -d. -f2 | base64 -d | jq .
 ```
 
-Look for:
+Check: `exp` (expiration), `subaccountid`, `scope`
 
-- `exp` - Expiration timestamp
-- `subaccountid` - Tenant information
-- `scope` - Permissions
-
-### Test with Minimal Request
-
-Start with simplest possible request:
+**Minimal test request:**
 
 ```json
 {
@@ -492,10 +355,7 @@ Start with simplest possible request:
         "prompt": {
           "template": [{ "role": "user", "content": "Hello" }]
         },
-        "model": {
-          "name": "gpt-4o",
-          "version": "latest"
-        }
+        "model": { "name": "gpt-4o", "version": "latest" }
       }
     }
   }
@@ -506,27 +366,11 @@ Start with simplest possible request:
 
 ## Security Best Practices
 
-1. **Never commit credentials**
-   - Use `.gitignore` for scripts with credentials
-   - Use environment variables: `CLIENT_ID="${CLIENT_ID}"`
-   - Use secret management tools in production
-
-2. **Rotate credentials regularly**
-   - Generate new service keys periodically
-   - Revoke old service keys
-
-3. **Use HTTPS only**
-   - All endpoints use HTTPS
-   - Verify SSL certificates (curl does this by default)
-
-4. **Store tokens securely**
-   - Tokens are sensitive (12-hour validity)
-   - Don't log full tokens
-   - Clear tokens after use
-
-5. **Limit token scope**
-   - Use dedicated service keys per application
-   - Apply principle of least privilege
+1. Never commit credentials (use `.gitignore` + env vars)
+2. Rotate credentials regularly
+3. Use HTTPS only (curl verifies SSL by default)
+4. Store tokens securely (12h validity, don't log)
+5. Limit token scope (dedicated keys per app)
 
 ---
 
@@ -534,35 +378,14 @@ Start with simplest possible request:
 
 - [SAP AI Core Documentation](https://help.sap.com/docs/sap-ai-core)
 - [Orchestration Service API Reference](https://help.sap.com/docs/sap-ai-core/orchestration)
-- [Function Calling Guide](https://help.sap.com/docs/sap-ai-core/function-calling)
+- [Tool Calling Guide](https://help.sap.com/docs/sap-ai-core/function-calling)
 
 ---
 
 ## TypeScript Examples
 
-For production-ready code examples using the SAP AI Provider package, see the TypeScript examples in the `examples/` directory:
-
-- `example-generate-text.ts` - Basic text generation
-- `example-simple-chat-completion.ts` - Simple chat completion
-- `example-streaming-chat.ts` - Streaming responses
-- `example-chat-completion-tool.ts` - Function calling / tool usage
-- `example-image-recognition.ts` - Vision model usage
-- `example-data-masking.ts` - DPI data masking
-
-For more examples, see the [README](./README.md#basic-usage).
+See `examples/` directory: `example-generate-text.ts`, `example-streaming-chat.ts`, `example-chat-completion-tool.ts`, `example-image-recognition.ts`, `example-data-masking.ts`. More in [README](./README.md#basic-usage).
 
 ---
 
-## Summary
-
-This guide covers:
-
-- ✅ OAuth2 authentication flow
-- ✅ Proper credential encoding
-- ✅ Orchestration v2 API structure
-- ✅ Function calling setup
-- ✅ Model-specific limitations
-- ✅ Error handling and debugging
-- ✅ Security best practices
-
-For production use, consider using the TypeScript provider package instead of manual curl calls for better error handling and type safety.
+For production, use the TypeScript provider package for better error handling and type safety.

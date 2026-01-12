@@ -221,21 +221,7 @@ SAP BTP service key structure.
 | `appname`         | `string`                 | No       | Application name in SAP BTP                     |
 | `credential-type` | `string`                 | No       | Type of credential (typically "binding-secret") |
 
-**Example:**
-
-```typescript
-const serviceKey: SAPAIServiceKey = {
-  serviceurls: {
-    AI_API_URL: "https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com",
-  },
-  clientid: "sb-...",
-  clientsecret: "...",
-  url: "https://....authentication.eu10.hana.ondemand.com",
-  identityzone: "...",
-  appname: "my-app",
-  "credential-type": "binding-secret",
-};
-```
+**For setup instructions and examples, see [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
 
 ---
 
@@ -520,33 +506,14 @@ try {
 
 #### Common Error Scenarios
 
-**401/403 - Authentication Failed**
+| Status Code | Error Type      | Retryable | Quick Fix                    |
+| ----------- | --------------- | --------- | ---------------------------- |
+| 401/403     | LoadAPIKeyError | No        | Check `AICORE_SERVICE_KEY`   |
+| 404         | APICallError    | No        | Verify model/deployment ID   |
+| 429         | APICallError    | Yes       | Automatic retry with backoff |
+| 500-504     | APICallError    | Yes       | Automatic retry with backoff |
 
-```typescript
-// Error includes setup instructions
-// Check AICORE_SERVICE_KEY environment variable
-```
-
-**404 - Resource Not Found**
-
-```typescript
-// Model or deployment doesn't exist
-// Verify deployment ID and model name
-```
-
-**429 - Rate Limit**
-
-```typescript
-// isRetryable = true
-// Automatic retry with exponential backoff
-```
-
-**500-504 - Server Errors**
-
-```typescript
-// isRetryable = true
-// Automatic retry with exponential backoff
-```
+**For detailed troubleshooting of each error type, see [Troubleshooting Guide](./TROUBLESHOOTING.md).**
 
 ---
 

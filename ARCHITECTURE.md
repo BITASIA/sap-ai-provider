@@ -575,7 +575,7 @@ modules: {
 
 ````
 
-### Tool Calling Flow (Function Calling)
+### Tool Calling Flow
 
 ```mermaid
 sequenceDiagram
