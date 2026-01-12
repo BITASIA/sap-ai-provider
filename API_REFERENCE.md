@@ -16,29 +16,88 @@ Complete API documentation for the SAP AI Core Provider.
 
 ### `createSAPAIProvider(options?)`
 
-Creates an SAP AI Core provider instance.
+Creates an SAP AI Core provider instance with automatic OAuth2 authentication.
 
 **Signature:**
 
 ```typescript
-function createSAPAIProvider(options?: SAPAIProviderSettings): SAPAIProvider;
+async function createSAPAIProvider(
+  options?: SAPAIProviderSettings,
+): Promise<SAPAIProvider>;
 ```
 
 **Parameters:**
 
 - `options` (optional): `SAPAIProviderSettings` - Configuration options
 
-**Returns:** `SAPAIProvider` - Configured provider instance
+**Returns:** `Promise<SAPAIProvider>` - Configured provider instance
 
 **Example:**
 
 ```typescript
-const provider = createSAPAIProvider({
-  resourceGroup: "default",
+const provider = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
   deploymentId: "d65d81e7c077e583",
+  resourceGroup: "default",
 });
 
 const model = provider("gpt-4o");
+```
+
+---
+
+### `createSAPAIProviderSync(options)`
+
+Creates an SAP AI Core provider instance synchronously using a pre-acquired token.
+
+**Signature:**
+
+```typescript
+function createSAPAIProviderSync(
+  options: Omit<SAPAIProviderSettings, "serviceKey"> & { token: string },
+): SAPAIProvider;
+```
+
+**Parameters:**
+
+- `options.token` (required): `string` - Pre-acquired OAuth2 access token
+- `options.baseURL` (optional): `string` - Custom API base URL
+- `options.deploymentId` (optional): `string` - SAP AI Core deployment ID
+- `options.resourceGroup` (optional): `string` - Resource group name
+- `options.completionPath` (optional): `string` - Custom completion endpoint path
+- `options.headers` (optional): `Record<string, string>` - Custom HTTP headers
+- `options.fetch` (optional): `typeof fetch` - Custom fetch implementation
+- `options.defaultSettings` (optional): `SAPAISettings` - Default model settings
+
+**Returns:** `SAPAIProvider` - Configured provider instance
+
+**Use Case:** When you manage OAuth2 tokens yourself or need synchronous initialization.
+
+**Example:**
+
+```typescript
+const token = await getMyOAuthToken();
+const provider = createSAPAIProviderSync({
+  token,
+  deploymentId: "my-deployment",
+});
+```
+
+---
+
+### `sapai`
+
+Default provider instance that uses the `SAP_AI_TOKEN` environment variable.
+
+**Type:** `SAPAIProvider`
+
+**Usage:**
+
+```typescript
+import { sapai } from "@mymediset/sap-ai-provider";
+
+// Requires SAP_AI_TOKEN environment variable
+const model = sapai("gpt-4o");
 ```
 
 ---
@@ -99,23 +158,31 @@ Configuration options for the SAP AI Provider.
 
 **Properties:**
 
-| Property          | Type                            | Default       | Description                                  |
-| ----------------- | ------------------------------- | ------------- | -------------------------------------------- |
-| `resourceGroup`   | `string`                        | `'default'`   | SAP AI Core resource group                   |
-| `deploymentId`    | `string`                        | Auto-resolved | SAP AI Core deployment ID                    |
-| `destination`     | `HttpDestinationOrFetchOptions` | -             | Custom destination configuration             |
-| `defaultSettings` | `SAPAISettings`                 | -             | Default model settings applied to all models |
+| Property          | Type                        | Default                                     | Description                                  |
+| ----------------- | --------------------------- | ------------------------------------------- | -------------------------------------------- |
+| `serviceKey`      | `string \| SAPAIServiceKey` | -                                           | SAP AI Core service key (JSON or object)     |
+| `token`           | `string`                    | -                                           | Direct OAuth2 access token                   |
+| `deploymentId`    | `string`                    | `'d65d81e7c077e583'`                        | SAP AI Core deployment ID                    |
+| `resourceGroup`   | `string`                    | `'default'`                                 | Resource group for isolation                 |
+| `baseURL`         | `string`                    | Auto-detected                               | Custom API base URL                          |
+| `completionPath`  | `string`                    | `/inference/deployments/{id}/v2/completion` | Completion endpoint path                     |
+| `headers`         | `Record<string, string>`    | `{}`                                        | Custom HTTP headers                          |
+| `fetch`           | `typeof fetch`              | `globalThis.fetch`                          | Custom fetch implementation                  |
+| `defaultSettings` | `SAPAISettings`             | -                                           | Default model settings applied to all models |
 
 **Example:**
 
 ```typescript
 const settings: SAPAIProviderSettings = {
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
+  deploymentId: "custom-deployment",
   resourceGroup: "production",
-  deploymentId: "d65d81e7c077e583",
+  headers: {
+    "X-App-Version": "1.0.0",
+  },
   defaultSettings: {
     modelParams: {
       temperature: 0.7,
-      maxTokens: 2000,
     },
   },
 };
@@ -129,14 +196,14 @@ Model-specific configuration options.
 
 **Properties:**
 
-| Property         | Type                   | Default    | Description                           |
-| ---------------- | ---------------------- | ---------- | ------------------------------------- |
-| `modelVersion`   | `string`               | `'latest'` | Specific model version                |
-| `modelParams`    | `ModelParams`          | -          | Model generation parameters           |
-| `masking`        | `MaskingModule`        | -          | Data masking configuration (DPI)      |
-| `filtering`      | `FilteringModule`      | -          | Content filtering configuration       |
-| `responseFormat` | `ResponseFormatConfig` | -          | Response format specification         |
-| `tools`          | `ChatCompletionTool[]` | -          | Tool definitions in SAP AI SDK format |
+| Property            | Type                   | Default    | Description                                            |
+| ------------------- | ---------------------- | ---------- | ------------------------------------------------------ |
+| `modelVersion`      | `string`               | `'latest'` | Specific model version                                 |
+| `modelParams`       | `ModelParams`          | -          | Model generation parameters                            |
+| `safePrompt`        | `boolean`              | -          | Not implemented in v2 (reserved; no effect)            |
+| `structuredOutputs` | `boolean`              | -          | Not implemented in v2 (reserved; use `responseFormat`) |
+| `masking`           | `MaskingModuleConfig`  | -          | Data masking configuration (DPI)                       |
+| `responseFormat`    | `ResponseFormatConfig` | -          | Response format specification                          |
 
 **Example:**
 
@@ -152,18 +219,8 @@ const settings: SAPAISettings = {
     n: 1,
     parallel_tool_calls: true,
   },
-  tools: [
-    {
-      type: "function",
-      function: {
-        name: "calculator",
-        description: "Perform calculations",
-        parameters: {
-          /* JSON Schema */
-        },
-      },
-    },
-  ],
+  // safePrompt/structuredOutputs are currently reserved (no effect)
+  responseFormat: { type: "json_object" },
 };
 ```
 
@@ -172,8 +229,6 @@ const settings: SAPAISettings = {
 ### `ModelParams`
 
 Fine-grained model behavior parameters.
-
-Note: Many parameters are model/provider-specific. Some models may ignore or only partially support certain options (e.g., Gemini tool calls limitations, Amazon models not supporting `n`). Always consult the model’s upstream documentation.
 
 **Properties:**
 
@@ -192,8 +247,6 @@ Note: Many parameters are model/provider-specific. Some models may ignore or onl
 ### `SAPAIServiceKey`
 
 SAP BTP service key structure.
-
-**Note:** In v2.0+, the service key is provided via the `AICORE_SERVICE_KEY` environment variable (as a JSON string), not as a parameter to `createSAPAIProvider()`.
 
 **Properties:**
 
@@ -287,8 +340,6 @@ const masking: MaskingModuleConfig = {
 ### `SAPAIModelId`
 
 Supported model identifiers.
-
-**Note:** The models listed below are representative examples. Actual model availability depends on your SAP AI Core tenant configuration, region, and subscription. Refer to your SAP AI Core configuration or the [SAP AI Core documentation](https://help.sap.com/docs/ai-core) for the definitive list of models available in your environment.
 
 **Type:**
 
@@ -394,7 +445,8 @@ async doGenerate(
   content: LanguageModelV2Content[];
   finishReason: LanguageModelV2FinishReason;
   usage: LanguageModelV2Usage;
-  rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
+  request: { body: unknown };
+  response: { timestamp: Date; modelId: string };
   warnings: LanguageModelV2CallWarning[];
 }>
 ```
@@ -418,7 +470,7 @@ async doStream(
   options: LanguageModelV2CallOptions
 ): Promise<{
   stream: ReadableStream<LanguageModelV2StreamPart>;
-  rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
+  request: { body: unknown };
 }>
 ```
 
@@ -434,33 +486,27 @@ const { stream } = await model.doStream({
 
 ---
 
-### `SAPAIError`
+### Error Types
 
-Custom error class for SAP AI Core errors.
+This provider throws standard Vercel AI SDK errors.
 
-**Properties:**
-
-| Property              | Type              | Description                    |
-| --------------------- | ----------------- | ------------------------------ |
-| `code`                | `number?`         | HTTP status or error code      |
-| `location`            | `string?`         | Where the error occurred       |
-| `requestId`           | `string?`         | Request ID for tracking        |
-| `details`             | `string?`         | Additional error context       |
-| `intermediateResults` | `unknown?`        | Intermediate results (v2 only) |
-| `data`                | `SAPAIErrorData?` | Raw error data from API        |
-| `response`            | `Response?`       | Original HTTP response         |
+- Use `LoadAPIKeyError` for authentication/setup issues.
+- Use `APICallError` for HTTP/API errors; SAP-specific details are preserved in `responseBody`.
 
 **Example:**
 
 ```typescript
+import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
+
 try {
   await generateText({ model, prompt: "Hello" });
 } catch (error) {
-  if (error instanceof SAPAIError) {
-    console.error("Error Code:", error.code);
-    console.error("Request ID:", error.requestId);
-    console.error("Location:", error.location);
-    console.error("Details:", error.details);
+  if (error instanceof LoadAPIKeyError) {
+    console.error("Credentials error:", error.message);
+  } else if (error instanceof APICallError) {
+    console.error("Status:", error.statusCode);
+    console.error("Retryable:", error.isRetryable);
+    console.error("SAP responseBody:", error.responseBody);
   }
 }
 ```
@@ -509,230 +555,6 @@ const sapMessages = convertToSAPMessages(prompt);
 
 ---
 
-### `buildDpiMaskingProvider(config)`
-
-Creates a DPI (Data Privacy Integration) masking provider configuration for anonymizing or pseudonymizing sensitive data.
-
-**Signature:**
-
-```typescript
-function buildDpiMaskingProvider(
-  config: DpiMaskingConfig,
-): DpiMaskingProviderConfig;
-```
-
-**Parameters:**
-
-- `config.method`: Masking method - `"anonymization"` or `"pseudonymization"`
-- `config.entities`: Array of entity types to mask (strings or objects with replacement strategies)
-
-**Returns:** DPI masking provider configuration object
-
-**Example:**
-
-```typescript
-import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
-
-const dpiMasking = buildDpiMaskingProvider({
-  method: "anonymization",
-  entities: [
-    "profile-email",
-    "profile-person",
-    {
-      type: "profile-phone",
-      replacement_strategy: { method: "constant", value: "REDACTED" },
-    },
-  ],
-});
-
-const provider = createSAPAIProvider({
-  defaultSettings: {
-    masking: {
-      masking_providers: [dpiMasking],
-    },
-  },
-});
-```
-
----
-
-### `buildAzureContentSafetyFilter(type, config?)`
-
-Creates an Azure Content Safety filter configuration for input or output content filtering.
-
-**Signature:**
-
-```typescript
-function buildAzureContentSafetyFilter(
-  type: "input" | "output",
-  config?: AzureContentSafetyFilterParameters,
-): AzureContentSafetyFilterReturnType;
-```
-
-**Parameters:**
-
-- `type`: Filter type - `"input"` (before model) or `"output"` (after model)
-- `config`: Optional safety levels for each category (default: `ALLOW_SAFE_LOW` for all)
-  - `hate`: Hate speech filter level
-  - `violence`: Violence content filter level
-  - `selfHarm`: Self-harm content filter level
-  - `sexual`: Sexual content filter level
-
-**Filter Levels:** `ALLOW_SAFE`, `ALLOW_SAFE_LOW`, `ALLOW_SAFE_LOW_MEDIUM`, or block all
-
-**Returns:** Azure Content Safety filter configuration
-
-**Example:**
-
-```typescript
-import { buildAzureContentSafetyFilter } from "@mymediset/sap-ai-provider";
-
-const provider = createSAPAIProvider({
-  defaultSettings: {
-    filtering: {
-      input: {
-        filters: [
-          buildAzureContentSafetyFilter("input", {
-            hate: "ALLOW_SAFE",
-            violence: "ALLOW_SAFE_LOW_MEDIUM",
-            selfHarm: "ALLOW_SAFE",
-            sexual: "ALLOW_SAFE",
-          }),
-        ],
-      },
-    },
-  },
-});
-```
-
----
-
-### `buildLlamaGuard38BFilter(type, categories)`
-
-Creates a Llama Guard 3 8B filter configuration for content safety filtering.
-
-**Signature:**
-
-```typescript
-function buildLlamaGuard38BFilter(
-  type: "input" | "output",
-  categories: [LlamaGuard38BCategory, ...LlamaGuard38BCategory[]],
-): LlamaGuard38BFilterReturnType;
-```
-
-**Parameters:**
-
-- `type`: Filter type - `"input"` or `"output"`
-- `categories`: Array of at least one category to filter (e.g., `"hate"`, `"violence"`, `"elections"`)
-
-**Returns:** Llama Guard 3 8B filter configuration
-
-**Example:**
-
-```typescript
-import { buildLlamaGuard38BFilter } from "@mymediset/sap-ai-provider";
-
-const provider = createSAPAIProvider({
-  defaultSettings: {
-    filtering: {
-      input: {
-        filters: [buildLlamaGuard38BFilter("input", ["hate", "violence"])],
-      },
-    },
-  },
-});
-```
-
----
-
-### `buildDocumentGroundingConfig(config)`
-
-Creates a document grounding configuration for retrieval-augmented generation (RAG).
-
-**Signature:**
-
-```typescript
-function buildDocumentGroundingConfig(
-  config: DocumentGroundingServiceConfig,
-): GroundingModule;
-```
-
-**Parameters:**
-
-- `config`: Document grounding service configuration
-
-**Returns:** Full grounding module configuration
-
-**Example:**
-
-```typescript
-import { buildDocumentGroundingConfig } from "@mymediset/sap-ai-provider";
-
-const groundingConfig = buildDocumentGroundingConfig({
-  // Document grounding configuration
-  // See SAP AI SDK documentation for details
-});
-
-const provider = createSAPAIProvider({
-  defaultSettings: {
-    grounding: groundingConfig,
-  },
-});
-```
-
----
-
-### `buildTranslationConfig(type, config)`
-
-Creates a translation configuration for input/output translation using SAP Document Translation service.
-
-**Signature:**
-
-```typescript
-function buildTranslationConfig(
-  type: "input" | "output",
-  config: TranslationConfigParams,
-): TranslationReturnType;
-```
-
-**Parameters:**
-
-- `type`: Translation type - `"input"` (before model) or `"output"` (after model)
-- `config`: Translation configuration
-  - `sourceLanguage`: Source language code (auto-detected if omitted)
-  - `targetLanguage`: Target language code (required)
-  - `translateMessagesHistory`: Whether to translate message history (optional)
-
-**Returns:** SAP Document Translation configuration
-
-**Example:**
-
-```typescript
-import { buildTranslationConfig } from "@mymediset/sap-ai-provider";
-
-// Translate user input from German to English
-const inputTranslation = buildTranslationConfig("input", {
-  sourceLanguage: "de-DE",
-  targetLanguage: "en-US",
-});
-
-// Translate model output from English to German
-const outputTranslation = buildTranslationConfig("output", {
-  targetLanguage: "de-DE",
-});
-
-const provider = createSAPAIProvider({
-  defaultSettings: {
-    translation: {
-      input: inputTranslation,
-      output: outputTranslation,
-    },
-  },
-});
-```
-
----
-
 ## Response Formats
 
 ### Text Response
@@ -761,6 +583,8 @@ Default response format for text-only outputs.
 
 Instructs the model to return valid JSON.
 
+Note: This provider forwards the setting to SAP orchestration (`response_format`). Whether the backend strictly obeys this depends on the underlying model.
+
 ---
 
 ### JSON Schema Response
@@ -780,6 +604,8 @@ Instructs the model to return valid JSON.
 ```
 
 Instructs the model to follow a specific JSON schema.
+
+Note: This provider forwards the schema to SAP orchestration (`response_format.json_schema.schema`). Strict adherence depends on the underlying model; even with `strict: true`, some models/backends may be best-effort.
 
 **Example:**
 
@@ -808,10 +634,13 @@ const settings: SAPAISettings = {
 
 ## Environment Variables
 
-| Variable             | Description                                 | Required    |
-| -------------------- | ------------------------------------------- | ----------- |
-| `AICORE_SERVICE_KEY` | SAP AI Core service key JSON (local)        | Yes (local) |
-| `VCAP_SERVICES`      | Service bindings (auto-detected on SAP BTP) | Yes (BTP)   |
+| Variable                | Description                        | Required                     |
+| ----------------------- | ---------------------------------- | ---------------------------- |
+| `SAP_AI_SERVICE_KEY`    | Full JSON service key from SAP BTP | No (if token provided)       |
+| `SAP_AI_TOKEN`          | Direct OAuth2 access token         | No (if service key provided) |
+| `SAP_AI_BASE_URL`       | Custom API base URL                | No                           |
+| `SAP_AI_DEPLOYMENT_ID`  | Custom deployment ID               | No                           |
+| `SAP_AI_RESOURCE_GROUP` | Custom resource group              | No                           |
 
 ---
 
@@ -835,23 +664,16 @@ Common HTTP status codes returned by SAP AI Core:
 
 ## Version Information
 
-For the current package version, see [package.json](./package.json).
-
-### Dependencies
-
-- **Vercel AI SDK:** v6.0+ (`ai` package)
-- **SAP AI SDK:** ^2.4.0 (`@sap-ai-sdk/orchestration`)
-- **Node.js:** >= 18
-
-> **Note:** For exact dependency versions, always refer to `package.json` in the repository root.
+- **API Version:** v2 (with v1 legacy support)
+- **SDK Version:** Vercel AI SDK v5+
+- **Node Version:** >= 18
 
 ---
 
 ## Related Documentation
 
-- [README.md](./README.md) - Getting started, quick start, and feature overview
-- [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) - Authentication setup and environment configuration
-- [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) - Migration from v1.x with troubleshooting
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Internal architecture, component design, and request flows
-- [CURL_API_TESTING_GUIDE.md](./CURL_API_TESTING_GUIDE.md) - Low-level API testing and debugging
-- [CONTRIBUTING.md](./CONTRIBUTING.md) - Development setup and contribution guidelines
+- [README.md](./README.md) - Getting started guide
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - Internal architecture
+- [TESTING.md](./TESTING.md) - Testing guide
+- [DEPLOYMENT.md](./DEPLOYMENT.md) - Production deployment
+- [CONTRIBUTING.md](./CONTRIBUTING.md) - Contribution guidelines

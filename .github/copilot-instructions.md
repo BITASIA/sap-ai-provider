@@ -37,7 +37,7 @@ Always reference these instructions first and fallback to search or bash command
 - **Type checking**: `npm run type-check` -- takes ~2 seconds. Set timeout to 15+ seconds.
 - **Prettier formatting check**: `npm run prettier-check` -- takes ~1 second. Set timeout to 10+ seconds.
 - **Auto-fix formatting**: `npm run prettier-fix`
-- **Linting**: `npm run lint` -- takes ~1 second. Set timeout to 10+ seconds.
+- **Linting**: `npm run lint` -- takes ~1 second. Set timeout to 15+ seconds.
 - **Auto-fix linting issues**: `npm run lint-fix`
 
 ### Development Workflow
@@ -221,7 +221,7 @@ Ensure all changes comply with established standards:
 
 **Error Handling:**
 
-- Use custom `SAPAIError` class for provider-specific errors
+- Use Vercel AI SDK standard errors (`APICallError`, `LoadAPIKeyError`)
 - Provide clear, actionable error messages
 - Include error context and debugging information
 - Follow existing error patterns in the codebase

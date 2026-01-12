@@ -2,8 +2,6 @@
 
 This document provides a detailed overview of the SAP AI Core Provider's architecture, internal components, and integration patterns.
 
-**For general usage**, see [README.md](./README.md). **For API documentation**, see [API_REFERENCE.md](./API_REFERENCE.md).
-
 ## Table of Contents
 
 - [Overview](#overview)
@@ -424,15 +422,23 @@ POST /v2/completion
 **Configuration:**
 
 ```typescript
-// Default configuration
-const provider = createSAPAIProvider({
-  resourceGroup: "default",
+// Default (recommended): uses deployment-specific v2 endpoint
+const provider = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
 });
 
-// With specific deployment
-const provider = createSAPAIProvider({
-  deploymentId: "d65d81e7c077e583",
-  resourceGroup: "production",
+// Top-level v2 endpoint
+const provider = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
+  baseURL: "https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com",
+  completionPath: "/v2/completion",
+});
+
+// v1 (legacy - deprecated, decommission on 31 Oct 2026)
+const providerV1 = await createSAPAIProvider({
+  serviceKey: process.env.SAP_AI_SERVICE_KEY,
+  baseURL: "https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com",
+  completionPath: "/completion",
 });
 ```
 
@@ -734,9 +740,9 @@ sequenceDiagram
     participant SAPAI as SAP AI Core API
 
     rect rgb(240, 248, 255)
-        Note over App,Provider: 1. Provider Initialization (v2.0+)
-        App->>Provider: createSAPAIProvider()<br/>(synchronous, no await needed)
-        Provider->>Provider: Initialize with SAP AI SDK<br/>Authentication handled automatically
+        Note over App,Provider: 1. Provider Initialization
+        App->>Provider: createSAPAIProvider({<br/>  serviceKey: {<br/>    clientid: "...",<br/>    clientsecret: "...",<br/>    url: "https://...auth.../oauth/token"<br/>  }<br/>})
+        Provider->>Provider: Parse service key<br/>Extract credentials
     end
 
     rect rgb(255, 248, 240)
@@ -789,24 +795,90 @@ sequenceDiagram
 
 ### OAuth2 Flow
 
-Authentication is handled automatically by `@sap-ai-sdk/orchestration`:
+The provider implements the OAuth2 client credentials flow for SAP AI Core authentication:
 
-- **Local**: `AICORE_SERVICE_KEY` environment variable
-- **SAP BTP**: `VCAP_SERVICES` service binding
+```typescript
+// Service key structure from SAP BTP
+interface SAPAIServiceKey {
+  serviceurls: { AI_API_URL: string };
+  clientid: string;
+  clientsecret: string;
+  url: string; // OAuth2 server URL
+  // ... other fields
+}
 
-The SDK manages credentials, token acquisition, caching, and refresh internally.
+// Token acquisition process
+async function getOAuthToken(serviceKey: SAPAIServiceKey): Promise<string> {
+  // 1. Create Basic Auth header from client credentials
+  const credentials = Buffer.from(
+    `${serviceKey.clientid}:${serviceKey.clientsecret}`,
+  ).toString("base64");
+
+  // 2. Request token from OAuth2 server
+  const response = await fetch(`${serviceKey.url}/oauth/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${credentials}`,
+    },
+    body: "grant_type=client_credentials",
+  });
+
+  // 3. Extract access token from response
+  const { access_token } = await response.json();
+  return access_token;
+}
+```
+
+### Token Management
+
+- **Automatic Refresh**: Tokens are refreshed automatically when expired
+- **Error Handling**: Authentication errors are caught and retried
+- **Security**: Credentials are never logged or exposed in error messages
 
 ## Error Handling
 
-The provider implements robust internal error handling with automatic retry logic for transient failures.
+### Error Hierarchy
 
-**Error Response Processing:**
+```typescript
+Error
+├── LoadAPIKeyError (auth/setup)
+└── APICallError (HTTP/API)
+    ├── statusCode 401/403 (auth issues)
+    ├── statusCode 429 (rate limit)
+    ├── statusCode 4xx (validation/not found)
+    └── statusCode 5xx (server errors)
 
-- Automatic categorization of HTTP error codes (401/403, 429, 400, 404, 5xx)
-- JSON error response parsing and transformation to SDK-compatible format
-- Retry logic with exponential backoff for rate limits (429) and server errors (5xx)
+// SAP-specific details are preserved in APICallError.responseBody
+```
 
-**For user-facing error handling guidance**, see [API_REFERENCE.md - Error Codes](./API_REFERENCE.md#error-codes) and [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
+### Error Response Handling
+
+```typescript
+export const sapAIFailedResponseHandler = createJsonErrorResponseHandler({
+  errorSchema: sapAIErrorSchema,
+  errorToMessage: (data) => {
+    return (
+      data?.error?.message ||
+      data?.message ||
+      "An error occurred during the SAP AI Core request."
+    );
+  },
+  isRetryable: (response) => {
+    const status = response.status;
+    return [429, 500, 502, 503, 504].includes(status);
+  },
+});
+```
+
+### Retry Logic
+
+The provider implements exponential backoff for retryable errors:
+
+1. **Immediate retry**: For network timeouts
+2. **Exponential backoff**: For rate limits (429) and server errors (5xx)
+3. **Circuit breaker**: After consecutive failures
+4. **Jitter**: Random delay to prevent thundering herd
 
 ## Type System
 
@@ -1006,13 +1078,3 @@ class RateLimiter {
 ```
 
 This architecture ensures the SAP AI Core Provider is robust, scalable, and maintainable while providing a seamless integration experience with the Vercel AI SDK.
-
----
-
-## See Also
-
-- [API Reference](./API_REFERENCE.md) - Complete API documentation including types, interfaces, and configuration options
-- [README](./README.md) - Getting started guide and basic usage examples
-- [Migration Guide](./MIGRATION_GUIDE.md) - Upgrading from v1.x to v2.0
-- [Environment Setup](./ENVIRONMENT_SETUP.md) - Authentication and configuration setup
-- [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) - Low-level API testing and debugging

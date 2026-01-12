@@ -7,6 +7,52 @@ import type {
 
 /**
  * Settings for configuring SAP AI Core model behavior.
+ *
+ * These settings control model parameters, data masking, content filtering,
+ * and tool usage. Settings can be provided at provider-level (defaults) or
+ * per-model call (overrides).
+ *
+ * @example
+ * **Basic usage with model parameters**
+ * ```typescript
+ * const model = provider('gpt-4o', {
+ *   modelParams: {
+ *     temperature: 0.7,
+ *     maxTokens: 2000
+ *   }
+ * });
+ * ```
+ *
+ * @example
+ * **With data masking (DPI)**
+ * ```typescript
+ * import { buildDpiMaskingProvider } from '@mymediset/sap-ai-provider';
+ *
+ * const model = provider('gpt-4o', {
+ *   masking: {
+ *     masking_providers: [
+ *       buildDpiMaskingProvider({
+ *         method: 'anonymization',
+ *         entities: ['profile-email', 'profile-person']
+ *       })
+ *     ]
+ *   }
+ * });
+ * ```
+ *
+ * @example
+ * **With content filtering**
+ * ```typescript
+ * import { buildAzureContentSafetyFilter } from '@mymediset/sap-ai-provider';
+ *
+ * const model = provider('gpt-4o', {
+ *   filtering: {
+ *     input: {
+ *       filters: [buildAzureContentSafetyFilter('input', { hate: 'ALLOW_SAFE' })]
+ *     }
+ *   }
+ * });
+ * ```
  */
 export interface SAPAISettings {
   /**
@@ -14,6 +60,14 @@ export interface SAPAISettings {
    * If not provided, the latest version will be used.
    */
   modelVersion?: string;
+
+  /**
+   * Whether to include assistant reasoning parts in the SAP prompt conversion.
+   *
+   * Reasoning parts may contain internal model reasoning that you may not want
+   * to persist or show to users
+   */
+  includeReasoning?: boolean;
 
   /**
    * Model generation parameters that control the output.
@@ -28,28 +82,28 @@ export interface SAPAISettings {
     /**
      * Sampling temperature between 0 and 2.
      * Higher values make output more random, lower values more deterministic.
-     * No default; omitted when unspecified or unsupported by the target model.
+     * If not specified, the model's default temperature is used.
      */
     temperature?: number;
 
     /**
      * Nucleus sampling parameter between 0 and 1.
      * Controls diversity via cumulative probability cutoff.
-     * @default 1
+     * If not specified, the model's default topP is used (typically 1).
      */
     topP?: number;
 
     /**
      * Frequency penalty between -2.0 and 2.0.
      * Positive values penalize tokens based on their frequency.
-     * @default 0
+     * If not specified, the model's default is used (typically 0).
      */
     frequencyPenalty?: number;
 
     /**
      * Presence penalty between -2.0 and 2.0.
      * Positive values penalize tokens that have appeared in the text.
-     * @default 0
+     * If not specified, the model's default is used (typically 0).
      */
     presencePenalty?: number;
 
@@ -57,13 +111,15 @@ export interface SAPAISettings {
      * Number of completions to generate.
      * Multiple completions provide alternative responses.
      * Note: Not supported by Amazon and Anthropic models.
-     * @default 1
+     * If not specified, typically defaults to 1 on the model side.
      */
     n?: number;
 
     /**
      * Whether to enable parallel tool calls.
      * When enabled, the model can call multiple tools in parallel.
+     *
+     * Note: This uses the SAP/OpenAI-style key `parallel_tool_calls`.
      */
     parallel_tool_calls?: boolean;
   };
@@ -116,9 +172,10 @@ export interface SAPAISettings {
   filtering?: FilteringModule;
 
   /**
-   * Response format for templating prompt (OpenAI-compatible).
-   * Allows specifying structured output formats.
+   * Response format for templating prompt (OpenAI-compatible)
+   * Allows specifying structured output formats
    *
+
    * @example
    * ```typescript
    * const model = provider('gpt-4o', {
@@ -146,8 +203,9 @@ export interface SAPAISettings {
       };
 
   /**
-   * Tool definitions in SAP AI SDK format.
+   * Tool definitions in SAP AI SDK format
    *
+
    * Use this to pass tools directly with proper JSON Schema definitions.
    * This bypasses the AI SDK's Zod conversion which may have issues.
    *

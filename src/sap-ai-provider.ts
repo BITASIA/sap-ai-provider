@@ -11,7 +11,7 @@ import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
  * SAP AI Provider interface.
  *
  * This is the main interface for creating and configuring SAP AI Core models.
- * It extends the standard Vercel AI SDK ProviderV2 interface with SAP-specific functionality.
+ * It extends the standard AI SDK ProviderV2 interface with SAP-specific functionality.
  *
  * @example
  * ```typescript
@@ -81,6 +81,14 @@ export interface SAPAIProvider extends ProviderV2 {
  */
 export interface SAPAIProviderSettings {
   /**
+   * Whether to emit warnings for ambiguous configurations.
+   *
+   * When enabled (default), the provider will warn when mutually-exclusive
+   * settings are provided (e.g. both `deploymentId` and `resourceGroup`).
+   */
+  warnOnAmbiguousConfig?: boolean;
+
+  /**
    * SAP AI Core resource group.
    *
    * Logical grouping of AI resources in SAP AI Core.
@@ -140,9 +148,9 @@ export interface SAPAIProviderSettings {
 export type DeploymentConfig = ResourceGroupConfig | DeploymentIdConfig;
 
 /**
- * Creates a SAP AI Core provider instance for use with Vercel AI SDK.
+ * Creates a SAP AI Core provider instance for use with the AI SDK.
  *
- * This is the main entry point for integrating SAP AI Core with the Vercel AI SDK.
+ * This is the main entry point for integrating SAP AI Core with the AI SDK.
  * It uses the official SAP AI SDK (@sap-ai-sdk/orchestration) under the hood,
  * which handles authentication and API communication automatically.
  *
@@ -208,13 +216,83 @@ export function createSAPAIProvider(
 ): SAPAIProvider {
   const resourceGroup = options.resourceGroup ?? "default";
 
-  // Build deployment config for SAP AI SDK
+  const warnOnAmbiguousConfig = options.warnOnAmbiguousConfig ?? true;
+
+  if (warnOnAmbiguousConfig && options.deploymentId && options.resourceGroup) {
+    console.warn(
+      "createSAPAIProvider: both 'deploymentId' and 'resourceGroup' were provided; using 'deploymentId' and ignoring 'resourceGroup'.",
+    );
+  }
+
   const deploymentConfig: DeploymentConfig = options.deploymentId
     ? { deploymentId: options.deploymentId }
     : { resourceGroup };
 
-  // Create the model factory function
   const createModel = (modelId: SAPAIModelId, settings: SAPAISettings = {}) => {
+    /**
+     * Settings merge strategy:
+     * - modelParams (primitives): Deep merge - both default and per-call values combine
+     * - Complex objects (masking, filtering, tools): Override - last value wins
+     *
+     * This design avoids unexpected behavior from merging complex configuration objects.
+     *
+     * @example
+     * **Model params are merged:**
+     * ```typescript
+     * const provider = createSAPAIProvider({
+     *   defaultSettings: {
+     *     modelParams: { temperature: 0.7, maxTokens: 1000 }
+     *   }
+     * });
+     *
+     * const model = provider('gpt-4o', {
+     *   modelParams: { maxTokens: 2000 }
+     * });
+     *
+     * // Result: { temperature: 0.7, maxTokens: 2000 }
+     * // temperature from default, maxTokens overridden
+     * ```
+     *
+     * @example
+     * **Complex objects are replaced (not merged):**
+     * ```typescript
+     * const provider = createSAPAIProvider({
+     *   defaultSettings: {
+     *     masking: {
+     *       enabled: true,
+     *       entities: ['PERSON', 'EMAIL']
+     *     }
+     *   }
+     * });
+     *
+     * const model = provider('gpt-4o', {
+     *   masking: {
+     *     enabled: true,
+     *     entities: ['PHONE']
+     *   }
+     * });
+     *
+     * // Result: masking = { enabled: true, entities: ['PHONE'] }
+     * // Completely replaced, not merged - PERSON and EMAIL are gone
+     * ```
+     *
+     * @example
+     * **Tools override completely:**
+     * ```typescript
+     * const provider = createSAPAIProvider({
+     *   defaultSettings: {
+     *     tools: [weatherTool, searchTool]
+     *   }
+     * });
+     *
+     * const model = provider('gpt-4o', {
+     *   tools: [calculatorTool]
+     * });
+     *
+     * // Result: tools = [calculatorTool]
+     * // Default tools are completely replaced
+     * ```
+     */
     const mergedSettings: SAPAISettings = {
       ...options.defaultSettings,
       ...settings,
@@ -222,6 +300,11 @@ export function createSAPAIProvider(
         ...(options.defaultSettings?.modelParams ?? {}),
         ...(settings.modelParams ?? {}),
       },
+      // Complex objects: override, do not merge
+
+      masking: settings.masking ?? options.defaultSettings?.masking,
+      filtering: settings.filtering ?? options.defaultSettings?.filtering,
+      tools: settings.tools ?? options.defaultSettings?.tools,
     };
 
     return new SAPAIChatLanguageModel(modelId, mergedSettings, {
@@ -231,7 +314,6 @@ export function createSAPAIProvider(
     });
   };
 
-  // Create the provider function
   const provider = function (modelId: SAPAIModelId, settings?: SAPAISettings) {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (new.target) {

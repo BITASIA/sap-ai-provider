@@ -1,137 +1,325 @@
+import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
 import type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
+import { isErrorWithCause } from "@sap-cloud-sdk/util";
 
 /**
- * Custom error class for SAP AI Core errors.
- * Provides structured access to error details returned by the API.
+ * Maps SAP AI Core error codes to HTTP status codes for standardized error handling.
  *
- * The SAP AI SDK handles most error responses internally, but this class
- * can be used to wrap and provide additional context for errors.
+ * Validates that codes are in standard HTTP range (100-599) and falls back
+ * to 500 for custom SAP error codes outside this range.
+ *
+ * @param code - SAP error code
+ * @returns HTTP status code (100-599)
+ * @internal
+ */
+function getStatusCodeFromSAPError(code?: number): number {
+  if (!code) return 500;
+
+  // Validate the code is a standard HTTP status code (100-599)
+  if (code >= 100 && code < 600) {
+    return code;
+  }
+
+  // If code is outside HTTP range (custom SAP codes), map to generic server error
+  return 500;
+}
+
+/**
+ * Determines if an error should be retryable based on status code.
+ * Following the AI SDK pattern: 429 (rate limit) and 5xx (server errors) are retryable.
+ *
+ * @param statusCode - HTTP status code
+ * @returns True if error should be retried
+ * @internal
+ */
+function isRetryable(statusCode: number): boolean {
+  return statusCode === 429 || (statusCode >= 500 && statusCode < 600);
+}
+
+/**
+ * Converts SAP AI SDK OrchestrationErrorResponse to AI SDK APICallError.
+ *
+ * This ensures standardized error handling compatible with the AI SDK
+ * error classification system (retryable vs non-retryable errors).
+ *
+ * @param errorResponse - The error response from SAP AI SDK
+ * @param context - Optional context about where the error occurred
+ * @returns APICallError compatible with AI SDK
  *
  * @example
+ * **Basic Usage**
  * ```typescript
  * try {
- *   await model.doGenerate({ prompt });
+ *   await client.chatCompletion({ messages });
  * } catch (error) {
- *   if (error instanceof SAPAIError) {
- *     console.error('Error Code:', error.code);
- *     console.error('Request ID:', error.requestId);
- *     console.error('Location:', error.location);
- *   }
+ *   throw convertSAPErrorToAPICallError(error);
  * }
  * ```
  */
-export class SAPAIError extends Error {
-  /** HTTP status code or custom error code */
-  public readonly code?: number;
+export function convertSAPErrorToAPICallError(
+  errorResponse: OrchestrationErrorResponse,
+  context?: {
+    url?: string;
+    requestBody?: unknown;
+    responseHeaders?: Record<string, string>;
+  },
+): APICallError {
+  const error = errorResponse.error;
 
-  /** Where the error occurred (e.g., module name) */
-  public readonly location?: string;
+  let message: string;
+  let code: number | undefined;
+  let location: string | undefined;
+  let requestId: string | undefined;
 
-  /** Unique identifier for tracking the request */
-  public readonly requestId?: string;
-
-  /** Additional error context or debugging information */
-  public readonly details?: string;
-
-  /** Original cause of the error */
-  public readonly cause?: unknown;
-
-  constructor(
-    message: string,
-    options?: {
-      code?: number;
-      location?: string;
-      requestId?: string;
-      details?: string;
-      cause?: unknown;
-    },
-  ) {
-    super(message);
-    this.name = "SAPAIError";
-    this.code = options?.code;
-    this.location = options?.location;
-    this.requestId = options?.requestId;
-    this.details = options?.details;
-    this.cause = options?.cause;
+  if (Array.isArray(error)) {
+    // Prefer the first entry when an error list is returned
+    const firstError = error[0];
+    message = firstError.message;
+    code = firstError.code;
+    location = firstError.location;
+    requestId = firstError.request_id;
+  } else {
+    message = error.message;
+    code = error.code;
+    location = error.location;
+    requestId = error.request_id;
   }
 
-  /**
-   * Creates a SAPAIError from an OrchestrationErrorResponse.
-   *
-   * @param errorResponse - The error response from SAP AI SDK
-   * @returns A new SAPAIError instance
-   */
-  static fromOrchestrationError(
-    errorResponse: OrchestrationErrorResponse,
-  ): SAPAIError {
-    const error = errorResponse.error;
+  const statusCode = getStatusCodeFromSAPError(code);
 
-    // Handle both single error and error list
-    if (Array.isArray(error)) {
-      // ErrorList - get first error
-      const firstError = error[0];
-      return new SAPAIError(
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        firstError?.message ?? "Unknown orchestration error",
-        {
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          code: firstError?.code,
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          location: firstError?.location,
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          requestId: firstError?.request_id,
-        },
-      );
-    } else {
-      // Single Error object
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      return new SAPAIError(error.message ?? "Unknown orchestration error", {
-        code: error.code,
-        location: error.location,
-        requestId: error.request_id,
+  const responseBody = JSON.stringify({
+    error: {
+      message,
+      code,
+      location,
+      request_id: requestId,
+    },
+  });
+
+  let enhancedMessage = message;
+
+  if (statusCode === 401 || statusCode === 403) {
+    enhancedMessage +=
+      "\n\nAuthentication failed. Verify your AICORE_SERVICE_KEY environment variable is set correctly." +
+      "\nSee: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-service-key";
+  } else if (statusCode === 404) {
+    enhancedMessage +=
+      "\n\nResource not found. The model or deployment may not exist in your SAP AI Core instance." +
+      "\nSee: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-deployment-for-orchestration";
+  } else if (statusCode === 429) {
+    enhancedMessage +=
+      "\n\nRate limit exceeded. Please try again later or contact your SAP administrator." +
+      "\nSee: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/rate-limits";
+  } else if (statusCode >= 500) {
+    enhancedMessage +=
+      "\n\nSAP AI Core service error. This is typically a temporary issue. The request will be retried automatically." +
+      "\nSee: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/troubleshooting";
+  } else if (location) {
+    enhancedMessage += `\n\nError location: ${location}`;
+  }
+
+  if (requestId) {
+    enhancedMessage += `\nRequest ID: ${requestId}`;
+  }
+
+  return new APICallError({
+    message: enhancedMessage,
+    url: context?.url ?? "",
+    requestBodyValues: context?.requestBody,
+    statusCode,
+    responseHeaders: context?.responseHeaders,
+    responseBody,
+    isRetryable: isRetryable(statusCode),
+  });
+}
+
+/**
+ * Type guard to check if an error is an OrchestrationErrorResponse.
+ *
+ * @param error - Error to check
+ * @returns True if error is OrchestrationErrorResponse
+ * @internal
+ */
+function isOrchestrationErrorResponse(
+  error: unknown,
+): error is OrchestrationErrorResponse {
+  if (error === null || typeof error !== "object" || !("error" in error)) {
+    return false;
+  }
+
+  const errorEnvelope = error as { error?: unknown };
+  const innerError = errorEnvelope.error;
+
+  if (innerError === undefined) return false;
+
+  if (Array.isArray(innerError)) {
+    return innerError.every(
+      (entry) =>
+        entry !== null &&
+        typeof entry === "object" &&
+        "message" in entry &&
+        typeof (entry as { message?: unknown }).message === "string",
+    );
+  }
+
+  return (
+    typeof innerError === "object" &&
+    innerError !== null &&
+    "message" in innerError &&
+    typeof (innerError as { message?: unknown }).message === "string"
+  );
+}
+
+/**
+ * Normalizes various header formats to Record<string, string>.
+ *
+ * @param headers - Raw headers object
+ * @returns Normalized headers or undefined
+ * @internal
+ */
+function normalizeHeaders(
+  headers: unknown,
+): Record<string, string> | undefined {
+  if (!headers || typeof headers !== "object") return undefined;
+
+  const record = headers as Record<string, unknown>;
+  const entries = Object.entries(record).flatMap(([key, value]) => {
+    if (typeof value === "string") return [[key, value]];
+    if (Array.isArray(value)) {
+      // Use semicolon separator to avoid ambiguity with commas in header values
+      // Example: "Accept: text/html, application/json" contains commas
+      const strings = value
+        .filter((item): item is string => typeof item === "string")
+        .join("; ");
+      return strings.length > 0 ? [[key, strings]] : [];
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return [[key, String(value)]];
+    }
+    return [];
+  });
+
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
+/**
+ * Extracts response headers from Axios errors.
+ *
+ * @param error - Error object
+ * @returns Response headers or undefined
+ * @internal
+ */
+function getAxiosResponseHeaders(
+  error: unknown,
+): Record<string, string> | undefined {
+  if (!(error instanceof Error)) return undefined;
+
+  const rootCause = isErrorWithCause(error) ? error.rootCause : error;
+  if (typeof rootCause !== "object") return undefined;
+
+  const maybeAxios = rootCause as {
+    isAxiosError?: boolean;
+    response?: { headers?: unknown };
+  };
+
+  if (maybeAxios.isAxiosError !== true) return undefined;
+  return normalizeHeaders(maybeAxios.response?.headers);
+}
+
+/**
+ * Converts a generic error to an appropriate AI SDK error.
+ *
+ * @param error - The error to convert
+ * @param context - Optional context about where the error occurred
+ * @returns APICallError or LoadAPIKeyError
+ *
+ * @example
+ * **Basic Usage**
+ * ```typescript
+ * catch (error) {
+ *   throw convertToAISDKError(error, { operation: 'doGenerate' });
+ * }
+ * ```
+ */
+export function convertToAISDKError(
+  error: unknown,
+  context?: {
+    operation?: string;
+    url?: string;
+    requestBody?: unknown;
+    responseHeaders?: Record<string, string>;
+  },
+): APICallError | LoadAPIKeyError {
+  if (error instanceof APICallError || error instanceof LoadAPIKeyError) {
+    return error;
+  }
+
+  if (isOrchestrationErrorResponse(error)) {
+    return convertSAPErrorToAPICallError(error, {
+      ...context,
+      responseHeaders:
+        context?.responseHeaders ?? getAxiosResponseHeaders(error),
+    });
+  }
+
+  const responseHeaders =
+    context?.responseHeaders ?? getAxiosResponseHeaders(error);
+
+  if (error instanceof Error) {
+    const errorMsg = error.message.toLowerCase();
+    if (
+      errorMsg.includes("authentication") ||
+      errorMsg.includes("unauthorized") ||
+      errorMsg.includes("aicore_service_key") ||
+      errorMsg.includes("invalid credentials")
+    ) {
+      return new LoadAPIKeyError({
+        message:
+          `SAP AI Core authentication failed: ${error.message}\n\n` +
+          `Make sure your AICORE_SERVICE_KEY environment variable is set correctly.\n` +
+          `See: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-service-key`,
+      });
+    }
+
+    if (
+      errorMsg.includes("econnrefused") ||
+      errorMsg.includes("enotfound") ||
+      errorMsg.includes("network") ||
+      errorMsg.includes("timeout")
+    ) {
+      return new APICallError({
+        message: `Network error connecting to SAP AI Core: ${error.message}`,
+        url: context?.url ?? "",
+        requestBodyValues: context?.requestBody,
+        statusCode: 503,
+        isRetryable: true,
+        responseHeaders,
+        cause: error,
       });
     }
   }
 
-  /**
-   * Creates a SAPAIError from a generic error.
-   *
-   * @param error - The original error
-   * @param context - Optional context about where the error occurred
-   * @returns A new SAPAIError instance
-   */
-  static fromError(error: unknown, context?: string): SAPAIError {
-    if (error instanceof SAPAIError) {
-      return error;
-    }
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "Unknown error occurred";
 
-    let message: string;
-    if (error instanceof Error) {
-      message = error.message;
-    } else if (error == null) {
-      message = "Unknown error";
-    } else if (
-      typeof error === "string" ||
-      typeof error === "number" ||
-      typeof error === "boolean" ||
-      typeof error === "bigint"
-    ) {
-      // Primitives that can be safely stringified
-      message = String(error);
-    } else {
-      // Objects, symbols, and other types
-      try {
-        message = JSON.stringify(error);
-      } catch {
-        message = "[Unstringifiable Value]";
-      }
-    }
+  const fullMessage = context?.operation
+    ? `SAP AI Core ${context.operation} failed: ${message}`
+    : `SAP AI Core error: ${message}`;
 
-    return new SAPAIError(context ? `${context}: ${message}` : message, {
-      cause: error,
-    });
-  }
+  return new APICallError({
+    message: fullMessage,
+    url: context?.url ?? "",
+    requestBodyValues: context?.requestBody,
+    statusCode: 500,
+    isRetryable: false,
+    responseHeaders,
+    cause: error,
+  });
 }
 
-// Re-export the error response type from SAP AI SDK
 export type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";

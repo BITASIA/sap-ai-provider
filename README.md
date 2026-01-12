@@ -36,6 +36,7 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 
 - 🔐 **Automatic Authentication** - Uses SAP AI SDK's built-in credential handling
 - 🎯 **Tool Calling Support** - Full function calling capabilities
+- 🧠 **Reasoning-Safe by Default** - Assistant reasoning parts are not forwarded unless enabled
 - 🖼️ **Multi-modal Input** - Support for text and image inputs
 - 📡 **Streaming Support** - Real-time text generation
 - 🔒 **Data Masking** - Built-in SAP DPI integration for privacy
@@ -118,6 +119,8 @@ console.log(result.text);
 
 ### Chat Conversations
 
+Note: assistant `reasoning` parts are dropped by default. Set `includeReasoning: true` on the model settings if you explicitly want to forward them.
+
 ```typescript
 import { generateText } from "ai";
 
@@ -152,6 +155,9 @@ for await (const delta of result.textStream) {
 
 ```typescript
 const model = provider("gpt-4o", {
+  // Optional: include assistant reasoning parts (chain-of-thought).
+  // Best practice is to keep this disabled.
+  includeReasoning: false,
   modelParams: {
     temperature: 0.3,
     maxTokens: 2000,
@@ -294,6 +300,8 @@ const provider = createSAPAIProvider({
 interface SAPAIProviderSettings {
   resourceGroup?: string; // SAP AI Core resource group (default: 'default')
   deploymentId?: string; // Specific deployment ID (auto-resolved if not set)
+  warnOnAmbiguousConfig?: boolean; // Emit warnings (default: true)
+  // Note: if both `deploymentId` and `resourceGroup` are provided, `deploymentId` takes precedence.
   destination?: HttpDestinationOrFetchOptions; // Custom destination
   defaultSettings?: SAPAISettings; // Default settings for all models
 }
@@ -324,8 +332,10 @@ For complete configuration details, see [API Reference - Configuration](./API_RE
 
 The provider includes structured error handling with detailed context:
 
+This provider throws standard Vercel AI SDK errors (e.g. `APICallError`, `LoadAPIKeyError`).
+
 ```typescript
-import { SAPAIError } from "@mymediset/sap-ai-provider";
+import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
 
 try {
   const result = await generateText({
@@ -333,10 +343,16 @@ try {
     prompt: "Hello world",
   });
 } catch (error) {
-  if (error instanceof SAPAIError) {
-    console.error("Code:", error.code);
-    console.error("Location:", error.location);
-    console.error("Request ID:", error.requestId);
+  if (error instanceof LoadAPIKeyError) {
+    console.error("Missing/invalid SAP AI Core credentials:", error.message);
+  } else if (error instanceof APICallError) {
+    console.error("Status:", error.statusCode);
+    console.error("Retryable:", error.isRetryable);
+
+    // SAP-specific metadata is preserved in responseBody
+    if (error.responseBody) {
+      console.error("SAP responseBody:", error.responseBody);
+    }
   }
 }
 ```

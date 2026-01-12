@@ -8,37 +8,244 @@ import {
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
 } from "@ai-sdk/provider";
+import type { JSONValue } from "@ai-sdk/provider";
 import {
   OrchestrationClient,
   OrchestrationModuleConfig,
   ChatMessage,
   ChatCompletionTool,
 } from "@sap-ai-sdk/orchestration";
+import type { LlmModelParams } from "@sap-ai-sdk/orchestration";
 import type { HttpDestinationOrFetchOptions } from "@sap-cloud-sdk/connectivity";
 import type {
   ResourceGroupConfig,
   DeploymentIdConfig,
 } from "@sap-ai-sdk/ai-api/internal.js";
-// Note: zodToJsonSchema and isZodSchema are kept for potential future use
-// when AI SDK Zod conversion issues are resolved
 import { zodToJsonSchema } from "zod-to-json-schema";
-// Import ZodSchema from zod/v3 for zod-to-json-schema
-import type { ZodSchema } from "zod/v3";
+import type { ZodType } from "zod";
+import type { Template } from "@sap-ai-sdk/orchestration/dist/client/api/schema/template.js";
+
+type SAPResponseFormat = Template["response_format"];
+
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
+import { convertToAISDKError } from "./sap-ai-error";
+
+/**
+ * Validates model parameters against expected ranges and adds warnings to the array.
+ *
+ * Does not throw errors to allow API-side validation to be authoritative.
+ * Warnings help developers catch configuration issues early during development.
+ *
+ * @internal
+ */
+function validateModelParameters(
+  params: {
+    temperature?: number;
+    topP?: number;
+    frequencyPenalty?: number;
+    presencePenalty?: number;
+    maxTokens?: number;
+    n?: number;
+  },
+  warnings: LanguageModelV2CallWarning[],
+): void {
+  // Heuristic range checks (provider/model-specific constraints may differ).
+  if (
+    params.temperature !== undefined &&
+    (params.temperature < 0 || params.temperature > 2)
+  ) {
+    warnings.push({
+      type: "other",
+      message: `temperature=${String(params.temperature)} is outside typical range [0, 2]. The API may reject this value.`,
+    });
+  }
+
+  if (params.topP !== undefined && (params.topP < 0 || params.topP > 1)) {
+    warnings.push({
+      type: "other",
+      message: `topP=${String(params.topP)} is outside valid range [0, 1]. The API may reject this value.`,
+    });
+  }
+
+  if (
+    params.frequencyPenalty !== undefined &&
+    (params.frequencyPenalty < -2 || params.frequencyPenalty > 2)
+  ) {
+    warnings.push({
+      type: "other",
+      message: `frequencyPenalty=${String(params.frequencyPenalty)} is outside typical range [-2, 2]. The API may reject this value.`,
+    });
+  }
+
+  if (
+    params.presencePenalty !== undefined &&
+    (params.presencePenalty < -2 || params.presencePenalty > 2)
+  ) {
+    warnings.push({
+      type: "other",
+      message: `presencePenalty=${String(params.presencePenalty)} is outside typical range [-2, 2]. The API may reject this value.`,
+    });
+  }
+
+  if (params.maxTokens !== undefined && params.maxTokens <= 0) {
+    warnings.push({
+      type: "other",
+      message: `maxTokens=${String(params.maxTokens)} must be positive. The API will likely reject this value.`,
+    });
+  }
+
+  if (params.n !== undefined && params.n <= 0) {
+    warnings.push({
+      type: "other",
+      message: `n=${String(params.n)} must be positive. The API will likely reject this value.`,
+    });
+  }
+}
+
+/**
+ * Creates a summary of the AI SDK request body for error reporting.
+ * @internal
+ */
+function createAISDKRequestBodySummary(options: LanguageModelV2CallOptions): {
+  promptMessages: number;
+  hasImageParts: boolean;
+  tools: number;
+  temperature?: number;
+  topP?: number;
+  topK?: number;
+  maxOutputTokens?: number;
+  stopSequences?: number;
+  seed?: number;
+  toolChoiceType?: string;
+  responseFormatType?: string;
+} {
+  return {
+    promptMessages: options.prompt.length,
+    hasImageParts: options.prompt.some(
+      (message) =>
+        message.role === "user" &&
+        message.content.some(
+          (part) => part.type === "file" && part.mediaType.startsWith("image/"),
+        ),
+    ),
+    tools: options.tools?.length ?? 0,
+    temperature: options.temperature,
+    topP: options.topP,
+    topK: options.topK,
+    maxOutputTokens: options.maxOutputTokens,
+    stopSequences: options.stopSequences?.length,
+    seed: options.seed,
+    toolChoiceType: options.toolChoice?.type,
+    responseFormatType: options.responseFormat?.type,
+  };
+}
+
+/**
+ * Extended SAP model parameters including additional OpenAI-compatible options
+ * beyond the base LlmModelParams from SAP AI SDK.
+ *
+ * @internal
+ */
+type SAPModelParams = LlmModelParams & {
+  top_k?: number;
+  stop?: string[];
+  seed?: number;
+  parallel_tool_calls?: boolean;
+};
+
+/**
+ * SAP tool parameters with required object type.
+ *
+ * @internal
+ */
+type SAPToolParameters = Record<string, unknown> & {
+  type: "object";
+};
+
+/**
+ * Extended function tool type that includes the raw parameters field
+ * which may contain a Zod schema in some AI SDK versions.
+ *
+ * @internal
+ */
+interface FunctionToolWithParameters extends LanguageModelV2FunctionTool {
+  parameters?: unknown;
+}
+
+/**
+ * Type guard helper to check if an object has a callable 'parse' property.
+ *
+ * @param obj - Object to check
+ * @returns True if object has callable parse method
+ * @internal
+ */
+function hasCallableParse(
+  obj: Record<string, unknown>,
+): obj is Record<string, unknown> & { parse: (...args: unknown[]) => unknown } {
+  return typeof obj.parse === "function";
+}
 
 /**
  * Type guard to check if an object is a Zod schema.
+ * Used internally to detect Zod schemas passed via tool parameters.
+ *
+ * @param obj - Object to check
+ * @returns True if object is a Zod schema
  * @internal
  */
-function isZodSchema(obj: unknown): obj is ZodSchema {
-  return (
-    obj !== null &&
-    typeof obj === "object" &&
-    "_def" in obj &&
-    "parse" in obj &&
-    typeof (obj as { parse: unknown }).parse === "function"
+function isZodSchema(obj: unknown): obj is ZodType {
+  if (obj === null || typeof obj !== "object") {
+    return false;
+  }
+  const record = obj as Record<string, unknown>;
+  return "_def" in record && "parse" in record && hasCallableParse(record);
+}
+
+/**
+ * Build a SAPToolParameters object from a schema.
+ * Ensures type: "object" is always present as required by SAP AI Core.
+ *
+ * @param schema - Input schema to convert
+ * @returns SAPToolParameters with type: "object"
+ * @internal
+ */
+function buildSAPToolParameters(
+  schema: Record<string, unknown>,
+): SAPToolParameters {
+  const schemaType = schema.type;
+
+  if (schemaType !== undefined && schemaType !== "object") {
+    return {
+      type: "object",
+      properties: {},
+      required: [],
+    };
+  }
+
+  const properties =
+    schema.properties && typeof schema.properties === "object"
+      ? (schema.properties as Record<string, unknown>)
+      : {};
+
+  const required =
+    Array.isArray(schema.required) &&
+    schema.required.every((item) => typeof item === "string")
+      ? schema.required
+      : [];
+
+  const additionalFields = Object.fromEntries(
+    Object.entries(schema).filter(
+      ([key]) => key !== "type" && key !== "properties" && key !== "required",
+    ),
   );
+
+  return {
+    type: "object",
+    properties,
+    required,
+    ...additionalFields,
+  };
 }
 
 /**
@@ -46,18 +253,15 @@ function isZodSchema(obj: unknown): obj is ZodSchema {
  * @internal
  */
 interface SAPAIConfig {
-  /** Provider identifier */
   provider: string;
-  /** Deployment configuration for SAP AI SDK */
   deploymentConfig: ResourceGroupConfig | DeploymentIdConfig;
-  /** Optional custom destination */
   destination?: HttpDestinationOrFetchOptions;
 }
 
 /**
  * SAP AI Chat Language Model implementation.
  *
- * This class implements the Vercel AI SDK's `LanguageModelV2` interface,
+ * This class implements the AI SDK's `LanguageModelV2` interface,
  * providing a bridge between the AI SDK and SAP AI Core's Orchestration API
  * using the official SAP AI SDK (@sap-ai-sdk/orchestration).
  *
@@ -90,20 +294,10 @@ interface SAPAIConfig {
  * @implements {LanguageModelV2}
  */
 export class SAPAIChatLanguageModel implements LanguageModelV2 {
-  /** AI SDK specification version */
   readonly specificationVersion = "v2";
-  /** Default object generation mode */
-  readonly defaultObjectGenerationMode = "json";
-  /** Whether the model supports image URLs */
-  readonly supportsImageUrls = true;
-  /** The model identifier (e.g., 'gpt-4o', 'anthropic--claude-3.5-sonnet') */
   readonly modelId: SAPAIModelId;
-  /** Whether the model supports structured outputs */
-  readonly supportsStructuredOutputs = true;
 
-  /** Internal configuration */
   private readonly config: SAPAIConfig;
-  /** Model-specific settings */
   private readonly settings: SAPAISettings;
 
   /**
@@ -130,10 +324,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * Checks if a URL is supported for file/image uploads.
    *
    * @param url - The URL to check
-   * @returns True if the URL protocol is HTTPS
+   * @returns True if the URL protocol is HTTPS or data (content-type rules are enforced via supportedUrls)
    */
   supportsUrl(url: URL): boolean {
-    return url.protocol === "https:";
+    return url.protocol === "https:" || url.protocol === "data:";
   }
 
   /**
@@ -143,10 +337,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    */
   get supportedUrls(): Record<string, RegExp[]> {
     return {
-      "image/*": [
-        /^https:\/\/.*\.(?:png|jpg|jpeg|gif|webp)$/i,
-        /^data:image\/.*$/,
-      ],
+      "image/*": [/^https:\/\/.+$/i, /^data:image\/.*$/],
     };
   }
 
@@ -160,11 +351,34 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
   }
 
   /**
+   * Model capabilities.
+   *
+   * These defaults assume “modern” model behavior to avoid maintaining a
+   * per-model capability matrix. If a deployment doesn't support a feature,
+   * SAP AI Core will fail the request at runtime.
+   */
+  readonly supportsImageUrls: boolean = true;
+
+  /** Structured JSON outputs (json_schema response format). */
+  readonly supportsStructuredOutputs: boolean = true;
+
+  /** Tool/function calling. */
+  readonly supportsToolCalls: boolean = true;
+
+  /** Streaming responses. */
+  readonly supportsStreaming: boolean = true;
+
+  /** Multiple completions via the `n` parameter (provider-specific support). */
+  readonly supportsMultipleCompletions: boolean = true;
+
+  /** Parallel tool calls. */
+  readonly supportsParallelToolCalls: boolean = true;
+
+  /**
    * Builds orchestration module config for SAP AI SDK.
    *
    * @param options - Call options from the AI SDK
-   * @returns Object containing orchestration config and warnings
-   *
+   * @returns Object containing orchestration config, messages, and warnings
    * @internal
    */
   private buildOrchestrationConfig(options: LanguageModelV2CallOptions): {
@@ -172,82 +386,97 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     messages: ChatMessage[];
     warnings: LanguageModelV2CallWarning[];
   } {
+    const providerOptions =
+      (options.providerOptions as { sap?: Partial<SAPAISettings> } | undefined)
+        ?.sap ?? {};
     const warnings: LanguageModelV2CallWarning[] = [];
 
-    // Convert AI SDK prompt to SAP messages
-    const messages = convertToSAPMessages(options.prompt);
+    const messages = convertToSAPMessages(options.prompt, {
+      includeReasoning:
+        providerOptions.includeReasoning ??
+        this.settings.includeReasoning ??
+        false,
+    });
 
-    // Get tools - prefer settings.tools if provided (proper JSON Schema),
-    // otherwise try to convert from AI SDK tools
+    // AI SDK convention: options.tools override provider/model defaults
     let tools: ChatCompletionTool[] | undefined;
 
-    if (this.settings.tools && this.settings.tools.length > 0) {
-      // Use tools from settings (already in SAP format with proper schemas)
-      tools = this.settings.tools;
+    const settingsTools = providerOptions.tools ?? this.settings.tools;
+    const optionsTools = options.tools;
+
+    const shouldUseSettingsTools =
+      settingsTools &&
+      settingsTools.length > 0 &&
+      (!optionsTools || optionsTools.length === 0);
+
+    const shouldUseOptionsTools = !!(optionsTools && optionsTools.length > 0);
+
+    if (
+      settingsTools &&
+      settingsTools.length > 0 &&
+      optionsTools &&
+      optionsTools.length > 0
+    ) {
+      warnings.push({
+        type: "other",
+        message:
+          "Both settings.tools and call options.tools were provided; preferring call options.tools.",
+      });
+    }
+
+    if (shouldUseSettingsTools) {
+      tools = settingsTools;
     } else {
-      // Extract tools from options and convert
-      const availableTools = options.tools;
+      const availableTools = shouldUseOptionsTools ? optionsTools : undefined;
 
       tools = availableTools
         ?.map((tool): ChatCompletionTool | null => {
           if (tool.type === "function") {
-            // Get the input schema - AI SDK provides this as JSONSchema7
-            // But in some cases, it might be a Zod schema or have empty properties
             const inputSchema = tool.inputSchema as
               | Record<string, unknown>
               | undefined;
 
-            // Also check for raw Zod schema in 'parameters' field (AI SDK internal)
-            const toolWithParams = tool as LanguageModelV2FunctionTool & {
-              parameters?: unknown;
-            };
+            // AI SDK may pass Zod schemas in 'parameters' field (internal detail)
+            const toolWithParams = tool as FunctionToolWithParameters;
 
-            // Build parameters ensuring type: "object" is always present
-            // SAP AI Core requires explicit type: "object" in the schema
-            let parameters: Record<string, unknown>;
+            let parameters: SAPToolParameters;
 
-            // First, check if there's a Zod schema we need to convert
             if (
               toolWithParams.parameters &&
               isZodSchema(toolWithParams.parameters)
             ) {
-              // Convert Zod schema to JSON Schema
-              const jsonSchema = zodToJsonSchema(toolWithParams.parameters, {
-                $refStrategy: "none",
-              }) as Record<string, unknown>;
-              // Remove $schema property as SAP doesn't need it
-              delete jsonSchema.$schema;
-              parameters = {
-                type: "object",
-                ...jsonSchema,
-              };
+              try {
+                const jsonSchema = zodToJsonSchema(
+                  toolWithParams.parameters as never,
+                  {
+                    $refStrategy: "none",
+                  },
+                );
+                const schemaRecord = jsonSchema as Record<string, unknown>;
+                delete schemaRecord.$schema;
+                parameters = buildSAPToolParameters(schemaRecord);
+              } catch {
+                warnings.push({
+                  type: "unsupported-tool",
+                  tool,
+                  details:
+                    "Failed to convert tool Zod schema to JSON Schema. Falling back to empty object schema.",
+                });
+                parameters = buildSAPToolParameters({});
+              }
             } else if (inputSchema && Object.keys(inputSchema).length > 0) {
-              // Check if schema has properties (it's a proper object schema)
               const hasProperties =
                 inputSchema.properties &&
                 typeof inputSchema.properties === "object" &&
                 Object.keys(inputSchema.properties).length > 0;
 
               if (hasProperties) {
-                parameters = {
-                  type: "object",
-                  ...inputSchema,
-                };
+                parameters = buildSAPToolParameters(inputSchema);
               } else {
-                // Schema exists but has no properties - use default empty schema
-                parameters = {
-                  type: "object",
-                  properties: {},
-                  required: [],
-                };
+                parameters = buildSAPToolParameters({});
               }
             } else {
-              // No schema provided - use default empty schema
-              parameters = {
-                type: "object",
-                properties: {},
-                required: [],
-              };
+              parameters = buildSAPToolParameters({});
             }
 
             return {
@@ -269,37 +498,149 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         .filter((t): t is ChatCompletionTool => t !== null);
     }
 
-    // Check if model supports certain features
+    // Amazon Bedrock and Anthropic models don't support the 'n' parameter
+    // Only set n when explicitly provided to avoid overriding API defaults
     const supportsN =
       !this.modelId.startsWith("amazon--") &&
       !this.modelId.startsWith("anthropic--");
 
-    // Build orchestration config
+    const modelParams: SAPModelParams = {};
+
+    const maxTokens =
+      options.maxOutputTokens ??
+      providerOptions.modelParams?.maxTokens ??
+      this.settings.modelParams?.maxTokens;
+    if (maxTokens !== undefined) modelParams.max_tokens = maxTokens;
+
+    const temperature =
+      options.temperature ??
+      providerOptions.modelParams?.temperature ??
+      this.settings.modelParams?.temperature;
+    if (temperature !== undefined) modelParams.temperature = temperature;
+
+    const topP =
+      options.topP ??
+      providerOptions.modelParams?.topP ??
+      this.settings.modelParams?.topP;
+    if (topP !== undefined) modelParams.top_p = topP;
+
+    if (options.topK !== undefined) modelParams.top_k = options.topK;
+
+    const frequencyPenalty =
+      options.frequencyPenalty ??
+      providerOptions.modelParams?.frequencyPenalty ??
+      this.settings.modelParams?.frequencyPenalty;
+    if (frequencyPenalty !== undefined) {
+      modelParams.frequency_penalty = frequencyPenalty;
+    }
+
+    const presencePenalty =
+      options.presencePenalty ??
+      providerOptions.modelParams?.presencePenalty ??
+      this.settings.modelParams?.presencePenalty;
+    if (presencePenalty !== undefined) {
+      modelParams.presence_penalty = presencePenalty;
+    }
+
+    if (supportsN) {
+      const nValue =
+        providerOptions.modelParams?.n ?? this.settings.modelParams?.n;
+      if (nValue !== undefined) {
+        modelParams.n = nValue;
+      }
+      // If n is not explicitly provided, omit it to allow the API to use its default
+    }
+
+    const parallelToolCalls =
+      providerOptions.modelParams?.parallel_tool_calls ??
+      this.settings.modelParams?.parallel_tool_calls;
+    if (parallelToolCalls !== undefined) {
+      modelParams.parallel_tool_calls = parallelToolCalls;
+    }
+
+    if (options.stopSequences && options.stopSequences.length > 0) {
+      modelParams.stop = options.stopSequences;
+    }
+
+    if (options.seed !== undefined) {
+      modelParams.seed = options.seed;
+    }
+
+    // Validate model parameters and add warnings for out-of-range values
+    validateModelParameters(
+      {
+        temperature,
+        topP,
+        frequencyPenalty,
+        presencePenalty,
+        maxTokens,
+        n: modelParams.n,
+      },
+      warnings,
+    );
+
+    // SAP AI SDK only supports toolChoice: 'auto'
+    if (options.toolChoice && options.toolChoice.type !== "auto") {
+      warnings.push({
+        type: "unsupported-setting",
+        setting: "toolChoice",
+        details: `SAP AI SDK does not support toolChoice '${options.toolChoice.type}'. Using default 'auto' behavior.`,
+      });
+    }
+
+    // Forward JSON mode to model; support varies by deployment
+    if (options.responseFormat?.type === "json") {
+      warnings.push({
+        type: "other",
+        message:
+          "responseFormat JSON mode is forwarded to the underlying model; support and schema adherence depend on the model/deployment.",
+      });
+    }
+
+    const responseFormat: SAPResponseFormat | undefined =
+      options.responseFormat?.type === "json"
+        ? options.responseFormat.schema
+          ? {
+              type: "json_schema" as const,
+              json_schema: {
+                name: options.responseFormat.name ?? "response",
+                description: options.responseFormat.description,
+                schema: options.responseFormat.schema as Record<
+                  string,
+                  unknown
+                >,
+                strict: null,
+              },
+            }
+          : { type: "json_object" as const }
+        : undefined;
+
     const orchestrationConfig: OrchestrationModuleConfig = {
       promptTemplating: {
         model: {
           name: this.modelId,
-          version: this.settings.modelVersion ?? "latest",
-          params: {
-            max_tokens: this.settings.modelParams?.maxTokens,
-            temperature: this.settings.modelParams?.temperature,
-            top_p: this.settings.modelParams?.topP,
-            frequency_penalty: this.settings.modelParams?.frequencyPenalty,
-            presence_penalty: this.settings.modelParams?.presencePenalty,
-            n: supportsN ? (this.settings.modelParams?.n ?? 1) : undefined,
-          },
+          version:
+            providerOptions.modelVersion ??
+            this.settings.modelVersion ??
+            "latest",
+          params: modelParams,
         },
         prompt: {
           template: [],
           tools: tools && tools.length > 0 ? tools : undefined,
+          ...(responseFormat ? { response_format: responseFormat } : {}),
         },
       },
-      // Include masking module if provided
-      ...(this.settings.masking ? { masking: this.settings.masking } : {}),
-      // Include filtering module if provided
-      ...(this.settings.filtering
-        ? { filtering: this.settings.filtering }
-        : {}),
+      ...(() => {
+        const masking = providerOptions.masking ?? this.settings.masking;
+        return masking && Object.keys(masking).length > 0 ? { masking } : {};
+      })(),
+      ...(() => {
+        const filtering = providerOptions.filtering ?? this.settings.filtering;
+        return filtering && Object.keys(filtering).length > 0
+          ? { filtering }
+          : {};
+      })(),
     };
 
     return { orchestrationConfig, messages, warnings };
@@ -310,7 +651,6 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    *
    * @param config - Orchestration module configuration
    * @returns OrchestrationClient instance
-   *
    * @internal
    */
   private createClient(config: OrchestrationModuleConfig): OrchestrationClient {
@@ -352,64 +692,175 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     content: LanguageModelV2Content[];
     finishReason: LanguageModelV2FinishReason;
     usage: LanguageModelV2Usage;
-    rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
+    providerMetadata?: Record<string, Record<string, JSONValue>>;
+    request: { body?: unknown };
+    response: {
+      timestamp: Date;
+      modelId: string;
+      headers?: Record<string, string>;
+      body?: unknown;
+    };
     warnings: LanguageModelV2CallWarning[];
   }> {
-    const { orchestrationConfig, messages, warnings } =
-      this.buildOrchestrationConfig(options);
+    try {
+      const { orchestrationConfig, messages, warnings } =
+        this.buildOrchestrationConfig(options);
 
-    const client = this.createClient(orchestrationConfig);
+      const client = this.createClient(orchestrationConfig);
 
-    const response = await client.chatCompletion({
-      messages,
-    });
+      const promptTemplating =
+        orchestrationConfig.promptTemplating as unknown as {
+          prompt: { tools?: unknown; response_format?: unknown };
+        };
 
-    const content: LanguageModelV2Content[] = [];
+      const requestBody = {
+        messages,
+        model: {
+          ...orchestrationConfig.promptTemplating.model,
+        },
+        ...(promptTemplating.prompt.tools
+          ? { tools: promptTemplating.prompt.tools }
+          : {}),
+        ...(promptTemplating.prompt.response_format
+          ? { response_format: promptTemplating.prompt.response_format }
+          : {}),
+        ...(() => {
+          const masking = orchestrationConfig.masking;
+          return masking && Object.keys(masking).length > 0 ? { masking } : {};
+        })(),
+        ...(() => {
+          const filtering = orchestrationConfig.filtering;
+          return filtering && Object.keys(filtering).length > 0
+            ? { filtering }
+            : {};
+        })(),
+      };
 
-    // Extract text content
-    const textContent = response.getContent();
-    if (textContent) {
-      content.push({
-        type: "text",
-        text: textContent,
-      });
-    }
+      // SAP AI SDK's chatCompletion() doesn't accept AbortSignal directly
+      // Implement cancellation via Promise.race() when an AbortSignal is provided
+      const response = await (async () => {
+        const completionPromise = client.chatCompletion(requestBody);
 
-    // Extract tool calls
-    const toolCalls = response.getToolCalls();
-    if (toolCalls) {
-      for (const toolCall of toolCalls) {
+        if (options.abortSignal) {
+          return Promise.race([
+            completionPromise,
+            new Promise<never>((_, reject) => {
+              if (options.abortSignal?.aborted) {
+                reject(
+                  new Error(
+                    `Request aborted: ${String(options.abortSignal.reason ?? "unknown reason")}`,
+                  ),
+                );
+                return;
+              }
+
+              options.abortSignal?.addEventListener(
+                "abort",
+                () => {
+                  reject(
+                    new Error(
+                      `Request aborted: ${String(options.abortSignal?.reason ?? "unknown reason")}`,
+                    ),
+                  );
+                },
+                { once: true },
+              );
+            }),
+          ]);
+        }
+
+        return completionPromise;
+      })();
+      const responseHeadersRaw = response.rawResponse.headers as
+        | Record<string, unknown>
+        | undefined;
+      const responseHeaders = responseHeadersRaw
+        ? Object.fromEntries(
+            Object.entries(responseHeadersRaw).flatMap(([key, value]) => {
+              if (typeof value === "string") return [[key, value]];
+              if (Array.isArray(value)) {
+                const strings = value
+                  .filter((item): item is string => typeof item === "string")
+                  .join(",");
+                return strings.length > 0 ? [[key, strings]] : [];
+              }
+              if (typeof value === "number" || typeof value === "boolean") {
+                return [[key, String(value)]];
+              }
+              return [];
+            }),
+          )
+        : undefined;
+
+      const content: LanguageModelV2Content[] = [];
+
+      const textContent = response.getContent();
+      if (textContent) {
         content.push({
-          type: "tool-call",
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          // AI SDK expects input as a JSON string, which it parses internally
-          input: toolCall.function.arguments,
+          type: "text",
+          text: textContent,
         });
       }
+
+      const toolCalls = response.getToolCalls();
+      if (toolCalls) {
+        for (const toolCall of toolCalls) {
+          content.push({
+            type: "tool-call",
+            toolCallId: toolCall.id,
+            toolName: toolCall.function.name,
+            input: toolCall.function.arguments,
+          });
+        }
+      }
+
+      const tokenUsage = response.getTokenUsage();
+
+      const finishReasonRaw = response.getFinishReason();
+      const finishReason = mapFinishReason(finishReasonRaw);
+
+      const rawResponseBody = {
+        content: textContent,
+        toolCalls,
+        tokenUsage,
+        finishReason: finishReasonRaw,
+      };
+
+      return {
+        content,
+        finishReason,
+        usage: {
+          inputTokens: tokenUsage.prompt_tokens,
+          outputTokens: tokenUsage.completion_tokens,
+          totalTokens: tokenUsage.total_tokens,
+        },
+        providerMetadata: {
+          "sap-ai": {
+            finishReason: finishReasonRaw ?? "unknown",
+            finishReasonMapped: finishReason,
+            ...(typeof responseHeaders?.["x-request-id"] === "string"
+              ? { requestId: responseHeaders["x-request-id"] }
+              : {}),
+          },
+        },
+        request: {
+          body: requestBody as unknown,
+        },
+        response: {
+          timestamp: new Date(),
+          modelId: this.modelId,
+          headers: responseHeaders,
+          body: rawResponseBody,
+        },
+        warnings,
+      };
+    } catch (error) {
+      throw convertToAISDKError(error, {
+        operation: "doGenerate",
+        url: "sap-ai:orchestration",
+        requestBody: createAISDKRequestBodySummary(options),
+      });
     }
-
-    // Get usage
-    const tokenUsage = response.getTokenUsage();
-
-    // Map finish reason
-    const finishReasonRaw = response.getFinishReason();
-    const finishReason = mapFinishReason(finishReasonRaw);
-
-    return {
-      content,
-      finishReason,
-      usage: {
-        inputTokens: tokenUsage.prompt_tokens,
-        outputTokens: tokenUsage.completion_tokens,
-        totalTokens: tokenUsage.total_tokens,
-      },
-      rawCall: {
-        rawPrompt: { config: orchestrationConfig, messages },
-        rawSettings: {},
-      },
-      warnings,
-    };
   }
 
   /**
@@ -429,7 +880,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * - `error` - Error occurred
    *
    * @param options - Streaming options including prompt, tools, and settings
-   * @returns Promise resolving to stream and raw call metadata
+   * @returns Promise resolving to stream and request metadata
    *
    * @example
    * ```typescript
@@ -448,195 +899,336 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    */
   async doStream(options: LanguageModelV2CallOptions): Promise<{
     stream: ReadableStream<LanguageModelV2StreamPart>;
-    rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
+    request?: { body?: unknown };
+    response?: { headers?: Record<string, string> };
+    warnings: LanguageModelV2CallWarning[];
   }> {
-    const { orchestrationConfig, messages, warnings } =
-      this.buildOrchestrationConfig(options);
+    try {
+      const { orchestrationConfig, messages, warnings } =
+        this.buildOrchestrationConfig(options);
 
-    const client = this.createClient(orchestrationConfig);
+      const client = this.createClient(orchestrationConfig);
 
-    const streamResponse = await client.stream(
-      { messages },
-      options.abortSignal,
-      { promptTemplating: { include_usage: true } },
-    );
+      const promptTemplating =
+        orchestrationConfig.promptTemplating as unknown as {
+          prompt: { tools?: unknown; response_format?: unknown };
+        };
 
-    let finishReason: LanguageModelV2FinishReason = "unknown";
-    const usage: LanguageModelV2Usage = {
-      inputTokens: undefined,
-      outputTokens: undefined,
-      totalTokens: undefined,
-    };
+      const requestBody = {
+        messages,
+        model: {
+          ...orchestrationConfig.promptTemplating.model,
+        },
+        ...(promptTemplating.prompt.tools
+          ? { tools: promptTemplating.prompt.tools }
+          : {}),
+        ...(promptTemplating.prompt.response_format
+          ? { response_format: promptTemplating.prompt.response_format }
+          : {}),
+        ...(() => {
+          const masking = orchestrationConfig.masking;
+          return masking && Object.keys(masking).length > 0 ? { masking } : {};
+        })(),
+        ...(() => {
+          const filtering = orchestrationConfig.filtering;
+          return filtering && Object.keys(filtering).length > 0
+            ? { filtering }
+            : {};
+        })(),
+      };
 
-    let isFirstChunk = true;
-    let activeText = false;
+      const streamResponse = await client.stream(
+        requestBody,
+        options.abortSignal,
+        { promptTemplating: { include_usage: true } },
+      );
 
-    // Track tool calls being built up
-    const toolCallsInProgress = new Map<
-      number,
-      { id: string; name: string; arguments: string }
-    >();
+      // Track stream state in one place to keep updates consistent
+      const streamState = {
+        finishReason: "unknown" as LanguageModelV2FinishReason,
+        usage: {
+          inputTokens: undefined as number | undefined,
+          outputTokens: undefined as number | undefined,
+          totalTokens: undefined as number | undefined,
+        },
+        isFirstChunk: true,
+        activeText: false,
+      };
 
-    const sdkStream = streamResponse.stream;
+      const toolCallsInProgress = new Map<
+        number,
+        {
+          id: string;
+          toolName?: string;
+          arguments: string;
+          didEmitInputStart: boolean;
+          didEmitCall: boolean;
+        }
+      >();
 
-    const transformedStream = new ReadableStream<LanguageModelV2StreamPart>({
-      async start(controller) {
-        controller.enqueue({ type: "stream-start", warnings });
+      const sdkStream = streamResponse.stream;
+      const modelId = this.modelId;
 
-        try {
-          for await (const chunk of sdkStream) {
-            if (isFirstChunk) {
-              isFirstChunk = false;
-              controller.enqueue({
-                type: "response-metadata",
-                id: undefined,
-                modelId: undefined,
-                timestamp: new Date(),
-              });
-            }
+      const warningsSnapshot = [...warnings];
 
-            // Get delta content
-            const deltaContent = chunk.getDeltaContent();
-            if (deltaContent) {
-              if (!activeText) {
-                controller.enqueue({ type: "text-start", id: "0" });
-                activeText = true;
+      // Warnings may be discovered while consuming the upstream stream
+      // Expose them on the final result without mutating stream-start
+      const warningsOut: LanguageModelV2CallWarning[] = [...warningsSnapshot];
+
+      const transformedStream = new ReadableStream<LanguageModelV2StreamPart>({
+        async start(controller) {
+          controller.enqueue({
+            type: "stream-start",
+            warnings: warningsSnapshot,
+          });
+
+          try {
+            for await (const chunk of sdkStream) {
+              if (streamState.isFirstChunk) {
+                streamState.isFirstChunk = false;
+                controller.enqueue({
+                  type: "response-metadata",
+                  modelId,
+                  timestamp: new Date(),
+                });
               }
-              controller.enqueue({
-                type: "text-delta",
-                id: "0",
-                delta: deltaContent,
-              });
-            }
 
-            // Handle tool calls
-            const deltaToolCalls = chunk.getDeltaToolCalls();
-            if (deltaToolCalls) {
-              for (const toolCallChunk of deltaToolCalls) {
-                const index = toolCallChunk.index;
+              const deltaToolCalls = chunk.getDeltaToolCalls();
+              if (Array.isArray(deltaToolCalls) && deltaToolCalls.length > 0) {
+                // Once tool call deltas appear, stop emitting text deltas
+                streamState.finishReason = "tool-calls";
+              }
 
-                // Initialize tool call if new
-                if (!toolCallsInProgress.has(index)) {
-                  toolCallsInProgress.set(index, {
-                    id: toolCallChunk.id ?? `tool_${String(index)}`,
-                    name: toolCallChunk.function?.name ?? "",
-                    arguments: "",
-                  });
+              const deltaContent = chunk.getDeltaContent();
+              if (
+                typeof deltaContent === "string" &&
+                deltaContent.length > 0 &&
+                streamState.finishReason !== "tool-calls"
+              ) {
+                if (!streamState.activeText) {
+                  controller.enqueue({ type: "text-start", id: "0" });
+                  streamState.activeText = true;
+                }
+                controller.enqueue({
+                  type: "text-delta",
+                  id: "0",
+                  delta: deltaContent,
+                });
+              }
 
-                  // Emit tool-input-start
+              if (Array.isArray(deltaToolCalls) && deltaToolCalls.length > 0) {
+                for (const toolCallChunk of deltaToolCalls) {
+                  const index = toolCallChunk.index;
+                  if (typeof index !== "number" || !Number.isFinite(index)) {
+                    continue;
+                  }
+
+                  if (!toolCallsInProgress.has(index)) {
+                    toolCallsInProgress.set(index, {
+                      id: toolCallChunk.id ?? `tool_${String(index)}`,
+                      toolName: toolCallChunk.function?.name,
+                      arguments: "",
+                      didEmitInputStart: false,
+                      didEmitCall: false,
+                    });
+                  }
+
                   const tc = toolCallsInProgress.get(index);
                   if (!tc) continue;
-                  if (toolCallChunk.function?.name) {
+
+                  if (toolCallChunk.id) {
+                    tc.id = toolCallChunk.id;
+                  }
+
+                  const nextToolName = toolCallChunk.function?.name;
+                  if (
+                    typeof nextToolName === "string" &&
+                    nextToolName.length > 0
+                  ) {
+                    tc.toolName = nextToolName;
+                  }
+
+                  if (!tc.didEmitInputStart && tc.toolName) {
+                    tc.didEmitInputStart = true;
                     controller.enqueue({
                       type: "tool-input-start",
                       id: tc.id,
-                      toolName: tc.name,
+                      toolName: tc.toolName,
                     });
                   }
+
+                  const argumentsDelta = toolCallChunk.function?.arguments;
+                  if (
+                    typeof argumentsDelta === "string" &&
+                    argumentsDelta.length > 0
+                  ) {
+                    tc.arguments += argumentsDelta;
+
+                    if (tc.didEmitInputStart) {
+                      controller.enqueue({
+                        type: "tool-input-delta",
+                        id: tc.id,
+                        delta: argumentsDelta,
+                      });
+                    }
+                  }
                 }
+              }
 
-                const tc = toolCallsInProgress.get(index);
-                if (!tc) continue;
+              const chunkFinishReason = chunk.getFinishReason();
+              if (chunkFinishReason) {
+                streamState.finishReason = mapFinishReason(chunkFinishReason);
 
-                // Update tool call ID if provided
-                if (toolCallChunk.id) {
-                  tc.id = toolCallChunk.id;
-                }
+                if (streamState.finishReason === "tool-calls") {
+                  const toolCalls = Array.from(toolCallsInProgress.values());
+                  for (const tc of toolCalls) {
+                    if (tc.didEmitCall) {
+                      continue;
+                    }
+                    if (!tc.didEmitInputStart) {
+                      tc.didEmitInputStart = true;
+                      controller.enqueue({
+                        type: "tool-input-start",
+                        id: tc.id,
+                        toolName: tc.toolName ?? "",
+                      });
+                    }
 
-                // Update function name if provided
-                if (toolCallChunk.function?.name) {
-                  tc.name = toolCallChunk.function.name;
-                }
+                    if (!tc.toolName) {
+                      warningsOut.push({
+                        type: "other",
+                        message:
+                          "Received tool-call delta without a tool name. Emitting tool-call with an empty tool name.",
+                      });
+                    }
 
-                // Accumulate arguments
-                if (toolCallChunk.function?.arguments) {
-                  tc.arguments += toolCallChunk.function.arguments;
-                  controller.enqueue({
-                    type: "tool-input-delta",
-                    id: tc.id,
-                    delta: toolCallChunk.function.arguments,
-                  });
+                    tc.didEmitCall = true;
+                    controller.enqueue({ type: "tool-input-end", id: tc.id });
+                    controller.enqueue({
+                      type: "tool-call",
+                      toolCallId: tc.id,
+                      toolName: tc.toolName ?? "",
+                      input: tc.arguments,
+                    });
+                  }
+
+                  if (streamState.activeText) {
+                    controller.enqueue({ type: "text-end", id: "0" });
+                    streamState.activeText = false;
+                  }
                 }
               }
             }
 
-            // Check for finish reason
-            const chunkFinishReason = chunk.getFinishReason();
-            if (chunkFinishReason) {
-              finishReason = mapFinishReason(chunkFinishReason);
+            const toolCalls = Array.from(toolCallsInProgress.values());
+            let didEmitAnyToolCalls = false;
+
+            for (const tc of toolCalls) {
+              if (tc.didEmitCall) {
+                continue;
+              }
+
+              if (!tc.didEmitInputStart) {
+                tc.didEmitInputStart = true;
+                controller.enqueue({
+                  type: "tool-input-start",
+                  id: tc.id,
+                  toolName: tc.toolName ?? "",
+                });
+              }
+
+              if (!tc.toolName) {
+                warningsOut.push({
+                  type: "other",
+                  message:
+                    "Received tool-call delta without a tool name. Emitting tool-call with an empty tool name.",
+                });
+              }
+
+              didEmitAnyToolCalls = true;
+              tc.didEmitCall = true;
+              controller.enqueue({ type: "tool-input-end", id: tc.id });
+              controller.enqueue({
+                type: "tool-call",
+                toolCallId: tc.id,
+                toolName: tc.toolName ?? "",
+                input: tc.arguments,
+              });
             }
 
-            // Get usage from chunk
-            const chunkUsage = chunk.getTokenUsage();
-            if (chunkUsage) {
-              usage.inputTokens = chunkUsage.prompt_tokens;
-              usage.outputTokens = chunkUsage.completion_tokens;
-              usage.totalTokens = chunkUsage.total_tokens;
+            if (streamState.activeText) {
+              controller.enqueue({ type: "text-end", id: "0" });
             }
-          }
 
-          // Emit completed tool calls
-          const toolCalls = Array.from(toolCallsInProgress.values());
-          for (const tc of toolCalls) {
+            // Determine final finish reason
+            // Prefer the server value, otherwise fall back to tool-call detection
+            const finalFinishReason = streamResponse.getFinishReason();
+            if (finalFinishReason) {
+              streamState.finishReason = mapFinishReason(finalFinishReason);
+            } else if (didEmitAnyToolCalls) {
+              streamState.finishReason = "tool-calls";
+            }
+
+            // Get final token usage from the SDK aggregate
+            const finalUsage = streamResponse.getTokenUsage();
+            if (finalUsage) {
+              streamState.usage.inputTokens = finalUsage.prompt_tokens;
+              streamState.usage.outputTokens = finalUsage.completion_tokens;
+              streamState.usage.totalTokens = finalUsage.total_tokens;
+            }
+
             controller.enqueue({
-              type: "tool-input-end",
-              id: tc.id,
+              type: "finish",
+              finishReason: streamState.finishReason,
+              usage: streamState.usage,
+            });
+
+            controller.close();
+          } catch (error) {
+            const aiError = convertToAISDKError(error, {
+              operation: "doStream",
+              url: "sap-ai:orchestration",
+              requestBody: createAISDKRequestBodySummary(options),
             });
             controller.enqueue({
-              type: "tool-call",
-              toolCallId: tc.id,
-              toolName: tc.name,
-              input: tc.arguments,
+              type: "error",
+              error:
+                aiError instanceof Error ? aiError : new Error(String(aiError)),
             });
+            controller.close();
           }
-
-          if (activeText) {
-            controller.enqueue({ type: "text-end", id: "0" });
+        },
+        cancel(reason) {
+          // SAP AI SDK stream auto-closes; log cancellation for debugging
+          if (reason) {
+            console.debug("SAP AI stream cancelled:", reason);
           }
+        },
+      });
 
-          // Try to get final usage from stream response
-          const finalUsage = streamResponse.getTokenUsage();
-          if (finalUsage) {
-            usage.inputTokens = finalUsage.prompt_tokens;
-            usage.outputTokens = finalUsage.completion_tokens;
-            usage.totalTokens = finalUsage.total_tokens;
-          }
-
-          // Get final finish reason
-          const finalFinishReason = streamResponse.getFinishReason();
-          if (finalFinishReason) {
-            finishReason = mapFinishReason(finalFinishReason);
-          }
-
-          controller.enqueue({
-            type: "finish",
-            finishReason,
-            usage,
-          });
-
-          controller.close();
-        } catch (error) {
-          controller.enqueue({
-            type: "error",
-            error: error instanceof Error ? error : new Error(String(error)),
-          });
-          controller.close();
-        }
-      },
-    });
-
-    return {
-      stream: transformedStream,
-      rawCall: {
-        rawPrompt: { config: orchestrationConfig, messages },
-        rawSettings: {},
-      },
-    };
+      return {
+        stream: transformedStream,
+        request: {
+          body: requestBody as unknown,
+        },
+        warnings: warningsOut,
+      };
+    } catch (error) {
+      throw convertToAISDKError(error, {
+        operation: "doStream",
+        url: "sap-ai:orchestration",
+        requestBody: createAISDKRequestBodySummary(options),
+      });
+    }
   }
 }
 
 /**
- * Maps SAP AI Core finish reasons to AI SDK finish reasons.
+ * Maps SAP AI finish reason to Vercel AI SDK finish reason.
+ *
+ * @param reason - SAP AI finish reason string
+ * @returns Mapped AI SDK finish reason
+ * @internal
  */
 function mapFinishReason(
   reason: string | undefined,
@@ -645,15 +1237,23 @@ function mapFinishReason(
 
   switch (reason.toLowerCase()) {
     case "stop":
+    case "end_turn":
+    case "stop_sequence":
+    case "eos":
       return "stop";
     case "length":
+    case "max_tokens":
+    case "max_tokens_reached":
       return "length";
     case "tool_calls":
+    case "tool_call":
     case "function_call":
       return "tool-calls";
     case "content_filter":
       return "content-filter";
+    case "error":
+      return "error";
     default:
-      return "unknown";
+      return "other";
   }
 }
