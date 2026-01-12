@@ -66,11 +66,11 @@ Always reference these instructions first and fallback to search or bash command
 
 ### Manual Testing with Examples
 
-- **Examples location**: `/examples` directory contains 4 example files
+- **Examples location**: `/examples` directory contains 6 example files
 - **Running examples**: `npx tsx examples/example-simple-chat-completion.ts`
-- **LIMITATION**: Examples require `SAP_AI_SERVICE_KEY` environment variable to work
+- **LIMITATION**: Examples require `AICORE_SERVICE_KEY` environment variable to work
 - **Without service key**: Examples will fail with clear error message about missing environment variable
-- **With service key**: Create `.env` file with `SAP_AI_SERVICE_KEY=<your-service-key-json>`
+- **With service key**: Create `.env` file with `AICORE_SERVICE_KEY=<your-service-key-json>`
 
 ### Complete End-to-End Validation Scenario
 
@@ -82,7 +82,7 @@ Since full example testing requires SAP credentials, validate changes using this
 4. **Type check passes**: `npm run type-check`
 5. **Formatting is correct**: `npm run prettier-check`
 6. **Try running an example**: `npx tsx examples/example-simple-chat-completion.ts`
-7. **Expected result**: Clear error message about missing `SAP_AI_SERVICE_KEY`
+7. **Expected result**: Clear error message about missing `AICORE_SERVICE_KEY`
 
 **Complete CI-like validation command:**
 
@@ -178,7 +178,7 @@ npx tsx examples/example-image-recognition.ts
 - **Tests fail**: Run `npm run test:watch` for detailed test output
 - **Formatting issues**: Use `npm run prettier-fix` to auto-fix
 - **Missing dependencies**: Delete `node_modules` and `package-lock.json`, then run `npm ci`
-- **Example errors**: Verify `.env` file exists with valid `SAP_AI_SERVICE_KEY`
+- **Example errors**: Verify `.env` file exists with valid `AICORE_SERVICE_KEY`
 
 ## Pull Request Review Guidelines
 

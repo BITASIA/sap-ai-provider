@@ -14,9 +14,10 @@ Start with the README’s Quick Start and Advanced sections: [README.md](mdc:REA
 
 ## Common Patterns
 
-- Create provider with service key: `createSAPAIProvider({ serviceKey })`.
-- Default instance with env token: `sapai("gpt-4o")`.
-- Use with Vercel AI SDK: `generateText`, `streamText`, `generateObject`.
+- Create provider: `createSAPAIProvider()` (auto-detects AICORE_SERVICE_KEY from environment)
+- With options: `createSAPAIProvider({ resourceGroup: 'production', deploymentId: 'abc123' })`
+- Default instance: `sapai("gpt-4o")` (uses default configuration)
+- Use with Vercel AI SDK: `generateText`, `streamText`, `generateObject`
 
 See exported APIs: [src/index.ts](mdc:src/index.ts)
 
