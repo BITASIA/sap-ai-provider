@@ -13,7 +13,7 @@
 
 // Load environment variables from .env file
 import "dotenv/config";
-import { createSAPAIProvider } from "../src/sap-ai-provider";
+import { createSAPAIProvider } from "../src/index";
 import { streamText } from "ai";
 
 async function streamingChatExample() {

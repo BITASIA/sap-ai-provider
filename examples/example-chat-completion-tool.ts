@@ -14,11 +14,11 @@
  * - Locally: Set AICORE_SERVICE_KEY environment variable with your service key JSON
  */
 
+import "dotenv/config";
 import { generateText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 import { createSAPAIProvider } from "../src/index";
 import type { ChatCompletionTool } from "@sap-ai-sdk/orchestration";
-import "dotenv/config";
 
 // Define tool schemas in SAP AI SDK format (proper JSON Schema)
 // These are passed via provider settings to bypass AI SDK conversion issues

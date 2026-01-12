@@ -13,7 +13,7 @@
 
 // Load environment variables from .env file
 import "dotenv/config";
-import { createSAPAIProvider } from "../src/sap-ai-provider";
+import { createSAPAIProvider } from "../src/index";
 
 async function simpleTest() {
   console.log("🧪 Simple SAP AI Chat Completion Example\n");

@@ -11,9 +11,9 @@
  * - Locally: Set AICORE_SERVICE_KEY environment variable with your service key JSON
  */
 
+import "dotenv/config";
 import { generateText } from "ai";
 import { createSAPAIProvider, buildDpiMaskingProvider } from "../src/index";
-import "dotenv/config";
 
 await (async () => {
   console.log("🔒 SAP AI Data Masking Example (DPI)\n");
