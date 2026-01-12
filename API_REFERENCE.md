@@ -55,6 +55,55 @@ const model = provider("gpt-4o");
 
 ---
 
+### `sapai`
+
+Default SAP AI provider instance with automatic configuration.
+
+**Type:**
+
+```typescript
+const sapai: SAPAIProvider;
+```
+
+**Description:**
+
+A pre-configured provider instance that uses automatic authentication from:
+
+- `AICORE_SERVICE_KEY` environment variable (local development)
+- `VCAP_SERVICES` service binding (SAP BTP Cloud Foundry)
+
+This is the quickest way to get started without explicit provider creation.
+
+**Example:**
+
+```typescript
+import "dotenv/config"; // Load environment variables
+import { sapai } from "@mymediset/sap-ai-provider";
+import { generateText } from "ai";
+
+// Use directly without creating a provider
+const result = await generateText({
+  model: sapai("gpt-4o"),
+  prompt: "Explain quantum computing",
+});
+
+console.log(result.text);
+```
+
+**When to use:**
+
+- ✅ Quick prototypes and simple applications
+- ✅ Default configuration is sufficient
+- ✅ No need for custom resource groups or deployment IDs
+
+**When to use `createSAPAIProvider()` instead:**
+
+- Need custom `resourceGroup` or `deploymentId`
+- Want explicit configuration control
+- Need multiple provider instances with different settings
+
+---
+
 ## Interfaces
 
 ### `SAPAIProvider`
@@ -433,7 +482,7 @@ const { stream } = await model.doStream({
 
 ---
 
-### Error Handling
+### Error Handling & Reference
 
 The provider uses standard Vercel AI SDK error types for consistent error handling across providers.
 
@@ -504,16 +553,27 @@ try {
 }
 ```
 
-#### Common Error Scenarios
+#### HTTP Status Code Reference
 
-| Status Code | Error Type      | Retryable | Quick Fix                    |
-| ----------- | --------------- | --------- | ---------------------------- |
-| 401/403     | LoadAPIKeyError | No        | Check `AICORE_SERVICE_KEY`   |
-| 404         | APICallError    | No        | Verify model/deployment ID   |
-| 429         | APICallError    | Yes       | Automatic retry with backoff |
-| 500-504     | APICallError    | Yes       | Automatic retry with backoff |
+Complete reference for status codes returned by SAP AI Core:
 
-**For detailed troubleshooting of each error type, see [Troubleshooting Guide](./TROUBLESHOOTING.md).**
+| Code | Description           | Error Type      | Retryable | Common Causes                         | Quick Fix                                       | Details                                                                               |
+| ---- | --------------------- | --------------- | --------- | ------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 400  | Bad Request           | APICallError    | No        | Invalid parameters, malformed request | Validate configuration against TypeScript types | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-400-bad-request)                     |
+| 401  | Unauthorized          | LoadAPIKeyError | No        | Invalid/expired token                 | Check AICORE_SERVICE_KEY environment variable   | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-authentication-failed-or-401-errors) |
+| 403  | Forbidden             | APICallError    | No        | Insufficient permissions              | Verify service key has required roles           | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-403-forbidden)                       |
+| 404  | Not Found             | APICallError    | No        | Invalid model ID or deployment        | Verify deployment ID and model name             | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-404-modeldeployment-not-found)       |
+| 429  | Too Many Requests     | APICallError    | Yes       | Rate limit exceeded                   | Automatic retry with exponential backoff        | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-429-rate-limit-exceeded)             |
+| 500  | Internal Server Error | APICallError    | Yes       | Service issue                         | Automatic retry, check SAP AI Core status       | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| 502  | Bad Gateway           | APICallError    | Yes       | Network/proxy issue                   | Automatic retry                                 | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| 503  | Service Unavailable   | APICallError    | Yes       | Service temporarily down              | Automatic retry                                 | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| 504  | Gateway Timeout       | APICallError    | Yes       | Request timeout                       | Automatic retry, reduce request complexity      | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+
+#### Error Handling Strategy
+
+The provider automatically handles retryable errors (429, 500-504) with exponential backoff. For non-retryable errors, your application should handle them appropriately.
+
+**See also:** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for detailed solutions to each error type.
 
 ---
 
@@ -895,35 +955,6 @@ const settings: SAPAISettings = {
 | -------------------- | ------------------------------------------- | ----------- |
 | `AICORE_SERVICE_KEY` | SAP AI Core service key JSON (local)        | Yes (local) |
 | `VCAP_SERVICES`      | Service bindings (auto-detected on SAP BTP) | Yes (BTP)   |
-
----
-
-## Error Codes
-
-Complete reference for HTTP status codes returned by SAP AI Core. For detailed troubleshooting of each error, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
-
-### Error Code Reference Table
-
-| Code | Description           | Type            | Retryable | Common Causes                         | Quick Fix                                       | Details                                                                               |
-| ---- | --------------------- | --------------- | --------- | ------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------- |
-| 400  | Bad Request           | APICallError    | No        | Invalid parameters, malformed request | Validate configuration against TypeScript types | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-400-bad-request)                     |
-| 401  | Unauthorized          | LoadAPIKeyError | No        | Invalid/expired token                 | Check AICORE_SERVICE_KEY environment variable   | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-authentication-failed-or-401-errors) |
-| 403  | Forbidden             | APICallError    | No        | Insufficient permissions              | Verify service key has required roles           | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-403-forbidden)                       |
-| 404  | Not Found             | APICallError    | No        | Invalid model ID or deployment        | Verify deployment ID and model name             | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-404-modeldeployment-not-found)       |
-| 429  | Too Many Requests     | APICallError    | Yes       | Rate limit exceeded                   | Automatic retry with exponential backoff        | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-429-rate-limit-exceeded)             |
-| 500  | Internal Server Error | APICallError    | Yes       | Service issue                         | Automatic retry, check SAP AI Core status       | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
-| 502  | Bad Gateway           | APICallError    | Yes       | Network/proxy issue                   | Automatic retry                                 | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
-| 503  | Service Unavailable   | APICallError    | Yes       | Service temporarily down              | Automatic retry                                 | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
-| 504  | Gateway Timeout       | APICallError    | Yes       | Request timeout                       | Automatic retry, reduce request complexity      | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
-
-### Error Handling Strategy
-
-The provider automatically handles retryable errors (429, 500-504) with exponential backoff. For non-retryable errors, your application should handle them appropriately.
-
-**See also:**
-
-- [Error Handling Examples](#error-handling) - Code examples for catching and handling errors
-- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Detailed solutions for each error type
 
 ---
 

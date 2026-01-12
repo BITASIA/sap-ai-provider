@@ -6,18 +6,15 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
 
 ## TL;DR (Executive Summary)
 
-The SAP AI Core Provider implements a **3-layer architecture** that bridges your application to SAP's AI services:
+**3-layer architecture** bridging your application to SAP AI services:
 
-- **Application Layer** → **Provider Layer** → **SAP AI Core** → AI Models (GPT-4, Claude, Gemini, Nova, etc.)
-- Implements Vercel AI SDK's `ProviderV2` interface for seamless integration with `generateText()`, `streamText()`, and other AI SDK functions
-- Handles OAuth2 authentication automatically via the official **SAP AI SDK** (`@sap-ai-sdk/orchestration`)
-- Transforms messages bidirectionally between Vercel AI SDK format and SAP AI Core's Orchestration API format
-- Supports **streaming**, **tool calling**, **multi-modal** (text + images), and advanced features like **DPI masking**
-- Built with TypeScript for full type safety across the entire request/response chain
+- **Application** → **Provider** → **SAP AI Core** → AI Models
+- Implements Vercel AI SDK's `ProviderV2` interface
+- Uses SAP AI SDK (`@sap-ai-sdk/orchestration`) for OAuth2 auth
+- Transforms messages bidirectionally (AI SDK ↔ SAP format)
+- Supports streaming, tool calling, multi-modal, and data masking
 
-**Key Components:** Provider (main interface) → OAuth Manager (auth) → Message Transformer (format conversion) → Error Handler (normalization) → SAP AI Core API
-
-For implementation details, continue reading the sections below.
+**Key Components:** Provider → OAuth Manager → Message Transformer → Error Handler → SAP AI Core API
 
 ## Table of Contents
 

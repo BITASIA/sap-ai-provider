@@ -34,22 +34,16 @@ This guide helps diagnose and resolve common issues when using the SAP AI Core P
 
 **Solutions:**
 
-1. **Verify environment variable:**
+1. **Verify environment variable is set:**
 
    ```bash
    echo $AICORE_SERVICE_KEY  # macOS/Linux
    echo $env:AICORE_SERVICE_KEY  # Windows PowerShell
    ```
 
-2. **Validate service key JSON:**
+2. **Check service key validity** - Ensure JSON is valid and contains required fields
 
-   ```typescript
-   import "dotenv/config";
-   const key = JSON.parse(process.env.AICORE_SERVICE_KEY || "{}");
-   console.log("API URL:", key.serviceurls?.AI_API_URL);
-   ```
-
-3. **Check:** Token expiration, service binding status, OAuth endpoint accessibility
+3. **→ See [Environment Setup Guide](./ENVIRONMENT_SETUP.md) for complete authentication setup**
 
 ### Problem: "Cannot find module 'dotenv'"
 

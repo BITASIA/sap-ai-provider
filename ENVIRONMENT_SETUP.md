@@ -15,7 +15,18 @@ Create a `.env` file in your project root:
 
 ```bash
 # .env
-AICORE_SERVICE_KEY={"serviceurls":{"AI_API_URL":"https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com"},"appname":"your-app-name","clientid":"your-client-id","clientsecret":"your-client-secret","identityzone":"your-identity-zone","identityzoneid":"your-identity-zone-id","url":"https://your-auth-url.authentication.region.hana.ondemand.com","credential-type":"binding-secret"}
+AICORE_SERVICE_KEY='{
+  "serviceurls": {
+    "AI_API_URL": "https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com"
+  },
+  "appname": "your-app-name",
+  "clientid": "your-client-id",
+  "clientsecret": "your-client-secret",
+  "identityzone": "your-identity-zone",
+  "identityzoneid": "your-identity-zone-id",
+  "url": "https://your-auth-url.authentication.region.hana.ondemand.com",
+  "credential-type": "binding-secret"
+}'
 ```
 
 **Important:** The environment variable name changed from `SAP_AI_SERVICE_KEY` (v1.x) to `AICORE_SERVICE_KEY` (v2.0+) to align with SAP AI SDK conventions.

@@ -37,7 +37,7 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 ## Features
 
 - 🔐 **Automatic Authentication** - Uses SAP AI SDK's built-in credential handling
-- 🎯 **Tool Calling Support** - Full function calling capabilities
+- 🎯 **Tool Calling Support** - Full tool/function calling capabilities
 - 🧠 **Reasoning-Safe by Default** - Assistant reasoning parts are not forwarded unless enabled
 - 🖼️ **Multi-modal Input** - Support for text and image inputs
 - 📡 **Streaming Support** - Real-time text generation
@@ -87,6 +87,36 @@ yarn add @mymediset/sap-ai-provider ai
 pnpm add @mymediset/sap-ai-provider ai
 ```
 
+## Provider Creation
+
+You can create an SAP AI provider in two ways:
+
+### Option 1: Factory Function (Recommended for Custom Configuration)
+
+```typescript
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+
+const provider = createSAPAIProvider({
+  resourceGroup: "production",
+  deploymentId: "your-deployment-id", // Optional
+});
+```
+
+### Option 2: Default Instance (Quick Start)
+
+```typescript
+import { sapai } from "@mymediset/sap-ai-provider";
+import { generateText } from "ai";
+
+// Use directly with auto-detected configuration
+const result = await generateText({
+  model: sapai("gpt-4o"),
+  prompt: "Hello!",
+});
+```
+
+The `sapai` export provides a convenient default provider instance with automatic configuration from environment variables or service bindings.
+
 ## Authentication
 
 Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERVICE_KEY` environment variable.
@@ -94,15 +124,14 @@ Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERV
 **Quick Setup:**
 
 ```bash
-# Set environment variable with your SAP AI Core service key
 export AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"..."},...}'
 ```
 
 ```typescript
-const provider = createSAPAIProvider(); // Authentication is automatic
+const provider = createSAPAIProvider();
 ```
 
-**For complete setup instructions, authentication methods, troubleshooting, and security best practices, see the [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
+**→ For complete setup, authentication methods, and troubleshooting, see [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
 
 ## Basic Usage
 
