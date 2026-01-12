@@ -161,12 +161,12 @@ npm run type-check && npm run test && npm run test:node && npm run test:edge && 
 # Total time: ~15s
 
 # Examples (requires SAP service key)
-npx tsx examples/example-simple-chat-completion.ts
-npx tsx examples/example-chat-completion-tool.ts
 npx tsx examples/example-generate-text.ts
+npx tsx examples/example-simple-chat-completion.ts
+npx tsx examples/example-streaming-chat.ts
+npx tsx examples/example-chat-completion-tool.ts
 npx tsx examples/example-image-recognition.ts
 npx tsx examples/example-data-masking.ts
-npx tsx examples/example-streaming-chat.ts
 ```
 
 ### Known Issues

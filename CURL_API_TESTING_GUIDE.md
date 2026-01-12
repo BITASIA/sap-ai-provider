@@ -546,8 +546,8 @@ For production-ready code examples using the SAP AI Provider package, see the Ty
 - `example-simple-chat-completion.ts` - Simple chat completion
 - `example-streaming-chat.ts` - Streaming responses
 - `example-chat-completion-tool.ts` - Function calling / tool usage
-- `example-data-masking.ts` - DPI data masking
 - `example-image-recognition.ts` - Vision model usage
+- `example-data-masking.ts` - DPI data masking
 
 For more examples, see the [README](./README.md#basic-usage).
 

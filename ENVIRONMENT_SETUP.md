@@ -54,11 +54,11 @@ const model = provider("gpt-4o");
 All example files use the automatic authentication approach:
 
 - `example-generate-text.ts` - Basic text generation
-- `example-image-recognition.ts` - Image analysis with vision models
 - `example-simple-chat-completion.ts` - Simple chat completion
-- `example-chat-completion-tool.ts` - Advanced tool calling and debugging
-- `example-data-masking.ts` - Data masking with DPI
 - `example-streaming-chat.ts` - Streaming responses
+- `example-chat-completion-tool.ts` - Advanced tool calling and debugging
+- `example-image-recognition.ts` - Image analysis with vision models
+- `example-data-masking.ts` - Data masking with DPI
 
 Simply set your `AICORE_SERVICE_KEY` and run any example:
 

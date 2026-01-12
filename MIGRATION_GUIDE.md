@@ -61,49 +61,26 @@ npm install @mymediset/sap-ai-provider@latest ai@latest
 
 #### 2. Update Authentication
 
-**Before (v1.x):**
+| Aspect                   | v1.x                                        | v2.x                                  |
+| ------------------------ | ------------------------------------------- | ------------------------------------- |
+| **Environment variable** | `SAP_AI_SERVICE_KEY`                        | `AICORE_SERVICE_KEY`                  |
+| **Provider creation**    | `await createSAPAIProvider({ serviceKey })` | `createSAPAIProvider()` (synchronous) |
+| **Token management**     | Manual                                      | Automatic (SAP AI SDK)                |
 
-```typescript
-const provider = await createSAPAIProvider({
-  serviceKey: process.env.SAP_AI_SERVICE_KEY,
-});
-```
-
-**After (v2.x):**
-
-```typescript
-// Set AICORE_SERVICE_KEY environment variable
-// Provider is now synchronous
-const provider = createSAPAIProvider();
-```
-
-**Important Changes:**
-
-- Environment variable changed: `SAP_AI_SERVICE_KEY` (v1.x) → `AICORE_SERVICE_KEY` (v2.x)
-- Provider creation is now synchronous (no `await` needed)
-- Authentication handled automatically by SAP AI SDK
-
-**For complete authentication setup instructions, environment variables, troubleshooting, and security best practices, see the [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
+**For complete authentication setup, see [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
 
 #### 3. Update Code (Remove await)
 
-**Before (v1.x):**
-
 ```typescript
+// v1.x: Async
 const provider = await createSAPAIProvider({
   serviceKey: process.env.SAP_AI_SERVICE_KEY,
 });
 
-const model = provider("gpt-4o");
-const result = await generateText({ model, prompt: "Hello!" });
-```
-
-**After (v2.x):**
-
-```typescript
-// No await needed
+// v2.x: Synchronous
 const provider = createSAPAIProvider();
 
+// Rest of your code remains the same
 const model = provider("gpt-4o");
 const result = await generateText({ model, prompt: "Hello!" });
 ```
@@ -114,89 +91,17 @@ After updating authentication and removing `await` from provider creation, run y
 
 #### 5. Optional: Adopt New Features
 
-##### Data Masking (DPI)
+V2.0 introduces powerful features. See [API_REFERENCE.md](./API_REFERENCE.md) for complete documentation and [examples/](./examples/) for working code.
 
-**Before (v1.x):** No masking support
+**Key new capabilities:**
 
-**After (v2.x):** Add DPI masking using helper function
+- **Data Masking (DPI)**: Anonymize sensitive data (emails, names, phone numbers) - see [example-data-masking.ts](./examples/example-data-masking.ts)
+- **Content Filtering**: Azure Content Safety, Llama Guard - see [API_REFERENCE.md#content-filtering](./API_REFERENCE.md#content-filtering)
+- **Response Format**: Structured outputs with JSON schema - see [API_REFERENCE.md#response-format](./API_REFERENCE.md#response-format)
+- **Default Settings**: Apply consistent settings across all models - see [API_REFERENCE.md#default-settings](./API_REFERENCE.md#default-settings)
+- **Grounding & Translation**: Document grounding, language translation modules
 
-```typescript
-import "dotenv/config"; // Load environment variables
-import {
-  createSAPAIProvider,
-  buildDpiMaskingProvider,
-} from "@mymediset/sap-ai-provider";
-
-const provider = createSAPAIProvider({
-  defaultSettings: {
-    masking: {
-      masking_providers: [
-        buildDpiMaskingProvider({
-          method: "anonymization",
-          entities: ["profile-email", "profile-person"],
-        }),
-      ],
-    },
-  },
-});
-```
-
-##### Content Filtering
-
-**New in v2.x:** Azure Content Safety filtering
-
-```typescript
-import "dotenv/config"; // Load environment variables
-import {
-  createSAPAIProvider,
-  buildAzureContentSafetyFilter,
-} from "@mymediset/sap-ai-provider";
-
-const provider = createSAPAIProvider({
-  defaultSettings: {
-    filtering: {
-      input: {
-        filters: [
-          buildAzureContentSafetyFilter("input", {
-            hate: "ALLOW_SAFE",
-            violence: "ALLOW_SAFE_LOW_MEDIUM",
-          }),
-        ],
-      },
-    },
-  },
-});
-```
-
-##### Response Format
-
-You can specify structured outputs with response format:
-
-```typescript
-const model = provider("gpt-4o", {
-  responseFormat: {
-    type: "json_schema",
-    json_schema: {
-      name: "user_data",
-      schema: {
-        type: "object",
-        properties: {
-          name: { type: "string" },
-          age: { type: "number" },
-        },
-      },
-    },
-  },
-});
-```
-
-##### Synchronous Provider Creation
-
-In v2.x, provider creation is synchronous by default (no `await` required):
-
-```typescript
-const provider = createSAPAIProvider();
-```
+For detailed examples, see the [New Features](#new-features) section below.
 
 ---
 
@@ -204,24 +109,12 @@ const provider = createSAPAIProvider();
 
 ### Version 2.0.x
 
-### Authentication Changes:\*\*
-
-- Removed `serviceKey` option from `createSAPAIProvider()`
-- Authentication now via `AICORE_SERVICE_KEY` environment variable (local) or `VCAP_SERVICES` (SAP BTP)
-- SAP AI SDK handles token management automatically
-
-**Migration:** See **[Environment Setup](./ENVIRONMENT_SETUP.md)** for complete authentication configuration.
-
-**Synchronous Provider Creation:**
-
-- Provider creation is now synchronous
-- Remove `await` from `createSAPAIProvider()` calls
-
-**API Changes:**
-
-- Removed direct OAuth2 token management
-- Removed `completionPath` option (routing handled by SAP AI SDK)
-- Updated to use SAP AI SDK types directly
+| Change                   | Details                                                            | Migration                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| **Authentication**       | `serviceKey` option removed; now uses `AICORE_SERVICE_KEY` env var | Set environment variable, remove `serviceKey` from code. See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) |
+| **Synchronous Provider** | `createSAPAIProvider()` no longer async                            | Remove `await` from provider creation                                                                       |
+| **Removed Options**      | `token`, `completionPath`, `baseURL`, `headers`, `fetch`           | Use SAP AI SDK automatic handling                                                                           |
+| **Token Management**     | Manual OAuth2 removed                                              | Automatic via SAP AI SDK                                                                                    |
 
 ---
 
@@ -229,27 +122,9 @@ const provider = createSAPAIProvider();
 
 ### Manual OAuth2 Token Management (Removed in v2.0)
 
-**Status:** Removed in v2.0
-
-**What:** Manual token management and `token` option in provider settings
-
-**Replacement:** Automatic authentication via SAP AI SDK
-
-**Migration:** Authentication is now automatic. Set `AICORE_SERVICE_KEY` environment variable. See **[Environment Setup](./ENVIRONMENT_SETUP.md)** for complete instructions.
-
-```typescript
-// ❌ Old v1.x approach (removed)
-const provider = await createSAPAIProvider({
-  token: "your-oauth-token",
-  deploymentId: "your-deployment",
-});
-
-// ✅ New v2.x approach (automatic authentication)
-const provider = createSAPAIProvider({
-  resourceGroup: "default",
-  deploymentId: "your-deployment", // optional
-});
-```
+**Status:** Removed in v2.0  
+**Replacement:** Automatic authentication via SAP AI SDK with `AICORE_SERVICE_KEY` environment variable  
+**Migration:** See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) for setup instructions
 
 ---
 
@@ -383,112 +258,51 @@ Improved streaming support with better error recovery and detailed error message
 
 ## API Changes
 
-### Added APIs
+### Added APIs (v2.0+)
 
-#### Helper Functions (v2.0+)
+| API                                     | Purpose                 | Example                                                                 |
+| --------------------------------------- | ----------------------- | ----------------------------------------------------------------------- |
+| `buildDpiMaskingProvider()`             | Data masking helper     | `buildDpiMaskingProvider({ method: "anonymization", entities: [...] })` |
+| `buildAzureContentSafetyFilter()`       | Azure content filtering | `buildAzureContentSafetyFilter("input", { hate: "ALLOW_SAFE" })`        |
+| `buildLlamaGuard38BFilter()`            | Llama Guard filtering   | `buildLlamaGuard38BFilter("input")`                                     |
+| `buildDocumentGroundingConfig()`        | Document grounding      | `buildDocumentGroundingConfig({ ... })`                                 |
+| `buildTranslationConfig()`              | Translation module      | `buildTranslationConfig({ ... })`                                       |
+| `SAPAISettings.responseFormat`          | Structured outputs      | `{ type: "json_schema", json_schema: {...} }`                           |
+| `SAPAISettings.masking`                 | Masking configuration   | `{ masking_providers: [...] }`                                          |
+| `SAPAISettings.filtering`               | Content filtering       | `{ input: { filters: [...] } }`                                         |
+| `SAPAIProviderSettings.defaultSettings` | Provider defaults       | `{ defaultSettings: { modelParams: {...} } }`                           |
 
-New helper functions exported from the SAP AI SDK:
-
-```typescript
-// Data masking
-buildDpiMaskingProvider(config: DpiConfig): DpiMaskingProvider
-
-// Content filtering
-buildAzureContentSafetyFilter(type: 'input' | 'output', config: AzureContentSafetyConfig): Filter
-buildLlamaGuard38BFilter(type: 'input' | 'output'): Filter
-
-// Grounding and translation
-buildDocumentGroundingConfig(config: GroundingConfig): GroundingModule
-buildTranslationConfig(config: TranslationConfig): TranslationModule
-```
-
-#### `SAPAISettings.responseFormat`
-
-New property for controlling response format:
-
-```typescript
-interface SAPAISettings {
-  // ... existing properties ...
-  responseFormat?:
-    | { type: 'text' }
-    | { type: 'json_object' }
-    | { type: 'json_schema'; json_schema: { ... } };
-}
-```
-
-#### `SAPAISettings.masking`
-
-New property for data masking configuration:
-
-```typescript
-interface SAPAISettings {
-  // ... existing properties ...
-  masking?: MaskingModule;
-}
-```
-
-#### `SAPAISettings.filtering`
-
-New property for content filtering configuration:
-
-```typescript
-interface SAPAISettings {
-  // ... existing properties ...
-  filtering?: FilteringModule;
-}
-```
-
-#### `SAPAIProviderSettings.defaultSettings`
-
-New property for provider-wide default settings:
-
-```typescript
-interface SAPAIProviderSettings {
-  // ... existing properties ...
-  defaultSettings?: SAPAISettings;
-}
-```
+**See [API_REFERENCE.md](./API_REFERENCE.md) for complete documentation.**
 
 ### Modified APIs
 
-#### `createSAPAIProvider`
-
-Now synchronous and uses SAP AI SDK for authentication:
+**`createSAPAIProvider`** - Now synchronous:
 
 ```typescript
-// Before (v1.x) - Async with serviceKey
-async function createSAPAIProvider(options?: {
-  serviceKey?: string | SAPAIServiceKey;
-  token?: string;
-  deploymentId?: string;
-  resourceGroup?: string;
-  baseURL?: string;
-  headers?: Record<string, string>;
-  fetch?: typeof fetch;
-}): Promise<SAPAIProvider>;
+// v1.x: Async with serviceKey
+await createSAPAIProvider({
+  serviceKey,
+  token,
+  deploymentId,
+  baseURL,
+  headers,
+  fetch,
+});
 
-// After (v2.x) - Synchronous with SAP AI SDK
-function createSAPAIProvider(options?: {
-  resourceGroup?: string; // default: 'default'
-  deploymentId?: string; // optional, auto-resolved if not provided
-  destination?: HttpDestinationOrFetchOptions; // optional custom destination
-  defaultSettings?: SAPAISettings; // optional default settings
-}): SAPAIProvider;
+// v2.x: Synchronous with SAP AI SDK
+createSAPAIProvider({
+  resourceGroup,
+  deploymentId,
+  destination,
+  defaultSettings,
+});
 ```
 
 ### Removed APIs
 
-#### `serviceKey` option (v2.0+)
-
-Authentication is now handled by the SAP AI SDK via `AICORE_SERVICE_KEY` environment variable.
-
-#### `token` option (v2.0+)
-
-Manual token management is no longer supported. Use SAP AI SDK's automatic authentication.
-
-#### `baseURL`, `completionPath`, `headers`, `fetch` options (v2.0+)
-
-These low-level options are no longer needed. The SAP AI SDK handles routing and configuration.
+- `serviceKey` option → Use `AICORE_SERVICE_KEY` env var
+- `token` option → Automatic authentication
+- `baseURL`, `completionPath`, `headers`, `fetch` → Handled by SAP AI SDK
 
 ---
 
@@ -526,54 +340,13 @@ After migration:
 
 ## Common Migration Issues
 
-### Issue 1: Type Errors After Upgrade
+| Issue                         | Cause                     | Solution                                                                                                  |
+| ----------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Type errors after upgrade** | Stale build cache         | `npm run clean && npm run build && npm run type-check`                                                    |
+| **Authentication failures**   | Missing/incorrect env var | Verify `AICORE_SERVICE_KEY` is set. See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md)                    |
+| **Masking errors**            | Incorrect configuration   | Use `buildDpiMaskingProvider()` helper. See [example-data-masking.ts](./examples/example-data-masking.ts) |
 
-**Problem:** TypeScript errors after upgrading
-
-**Solution:** Rebuild your project and update type definitions:
-
-```bash
-npm run clean
-npm run build
-npm run type-check
-```
-
-### Issue 2: Authentication Errors
-
-**Problem:** Authentication failures after upgrading to v2.x
-
-**Solution:** Ensure `AICORE_SERVICE_KEY` environment variable is set correctly:
-
-```bash
-# .env file
-AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"https://..."},"clientid":"...","clientsecret":"...","url":"..."}'
-```
-
-On SAP BTP, ensure the AI Core service is bound to your application (VCAP_SERVICES).
-
-### Issue 3: Masking Configuration Errors
-
-**Problem:** Errors when using masking configuration
-
-**Solution:** Use the helper function `buildDpiMaskingProvider()`:
-
-```typescript
-import "dotenv/config"; // Load environment variables
-import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
-
-const provider = createSAPAIProvider({
-  defaultSettings: {
-    masking: {
-      masking_providers: [
-        buildDpiMaskingProvider({
-          method: "anonymization",
-          entities: ["profile-email", "profile-person"],
-        }),
-      ],
-    },
-  },
-});
-```
+For detailed troubleshooting, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
 ---
 
