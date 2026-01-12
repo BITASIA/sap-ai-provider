@@ -763,9 +763,9 @@ The SDK manages credentials, token acquisition, caching, and refresh internally.
 
 ## Error Handling
 
-The provider converts SAP AI SDK errors to standard Vercel AI SDK error types for consistent error handling across providers.
+The provider implements robust error handling by converting SAP AI SDK errors to standard Vercel AI SDK error types for consistent error handling across providers.
 
-### Error Conversion Flow
+### Error Conversion Architecture
 
 ```typescript
 // Internal error handling in doGenerate/doStream
@@ -782,62 +782,30 @@ try {
 }
 ```
 
-### Error Types
-
-**`APICallError`** - For HTTP/API failures
-
-- Includes status code, URL, request/response details
-- `isRetryable` flag for automatic retry (429, 5xx)
-- Enhanced messages with troubleshooting guidance
-
-**`LoadAPIKeyError`** - For authentication/setup issues
-
-- Includes setup instructions
-- Points to documentation
-
-### Error Response Processing
+### Error Classification
 
 The `convertToAISDKError()` function handles error conversion with a clear priority:
 
-1. **Already AI SDK error?** → Return as-is
-2. **SAP Orchestration error?** → Convert with details extracted from response
+1. **Already AI SDK error?** → Return as-is (no conversion needed)
+2. **SAP Orchestration error?** → Convert to `APICallError` with details extracted from response
 3. **Network/auth errors?** → Classify as `LoadAPIKeyError` or `APICallError` with appropriate status code
 4. **Unknown error?** → Generic `APICallError` with status 500
 
-All errors include helpful context (operation, URL, request body) for debugging.
+All errors include helpful context (operation, URL, request body summary) for debugging.
 
-### Retry Logic
+### Retry Mechanism
 
-Errors marked `isRetryable: true` trigger automatic retry:
+The provider marks errors as retryable based on HTTP status codes:
 
-- **429 (Rate Limit)**: Exponential backoff
-- **500-504 (Server Errors)**: Exponential backoff
-- **Network Timeouts**: Immediate retry with backoff
+- **429 (Rate Limit)**: `isRetryable: true` → Exponential backoff
+- **500-504 (Server Errors)**: `isRetryable: true` → Exponential backoff
+- **400-404, 401-403**: `isRetryable: false` → Immediate failure
 
-The Vercel AI SDK handles retry logic based on the `isRetryable` flag.
+The Vercel AI SDK handles retry logic automatically based on the `isRetryable` flag.
 
-### Enhanced Error Messages
+**For complete error handling reference** (error types, status codes, examples), see [API_REFERENCE.md - Error Handling](./API_REFERENCE.md#error-handling-reference).
 
-The provider adds helpful context to error messages:
-
-```typescript
-// 401/403 errors
-enhancedMessage +=
-  "\n\nAuthentication failed. Verify your AICORE_SERVICE_KEY environment variable is set correctly." +
-  "\nSee: https://help.sap.com/docs/sap-ai-core/...";
-
-// 404 errors
-enhancedMessage +=
-  "\n\nResource not found. The model or deployment may not exist in your SAP AI Core instance." +
-  "\nSee: https://help.sap.com/docs/sap-ai-core/...";
-
-// 429 errors
-enhancedMessage +=
-  "\n\nRate limit exceeded. Please try again later or contact your SAP administrator." +
-  "\nSee: https://help.sap.com/docs/sap-ai-core/...";
-```
-
-**For user-facing error handling guidance**, see [API_REFERENCE.md - Error Handling](./API_REFERENCE.md#error-handling) and [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
+**For troubleshooting specific errors**, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
 ## Type System
 

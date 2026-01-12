@@ -342,45 +342,56 @@ Supported model identifiers.
 
 ```typescript
 type SAPAIModelId =
-  | "gpt-4"
-  | "gpt-4o"
-  | "gpt-4o-mini"
-  | "gpt-4.1"
-  | "gpt-4.1-mini"
-  | "gpt-4.1-nano"
-  | "o1"
-  | "o1-mini"
-  | "o3"
-  | "o3-mini"
-  | "o4-mini"
-  | "gemini-1.5-pro"
-  | "gemini-1.5-flash"
-  | "gemini-2.0-pro"
-  | "gemini-2.0-flash"
-  | "gemini-2.0-flash-thinking"
-  | "gemini-2.0-flash-lite"
-  | "gemini-2.5-pro"
-  | "gemini-2.5-flash"
-  | "anthropic--claude-3-haiku"
-  | "anthropic--claude-3-sonnet"
-  | "anthropic--claude-3-opus"
-  | "anthropic--claude-3.5-sonnet"
-  | "anthropic--claude-3.7-sonnet"
-  | "anthropic--claude-4-sonnet"
-  | "anthropic--claude-4-opus"
-  | "amazon--nova-premier"
-  | "amazon--nova-pro"
-  | "amazon--nova-lite"
-  | "amazon--nova-micro"
-  | "amazon--titan-text-lite"
-  | "amazon--titan-text-express"
-  | "meta--llama3-70b-instruct"
-  | "meta--llama3.1-70b-instruct"
-  | "mistralai--mistral-large-instruct"
-  | "mistralai--mistral-small-instruct"
-  | "mistralai--pixtral-large-instruct"
-  | "ibm--granite-13b-chat"
-  | "alephalpha-pharia-1-7b-control"
+  // OpenAI GPT-4 Series
+  | "gpt-4" // Legacy GPT-4
+  | "gpt-4o" // GPT-4o (Recommended - vision, tools)
+  | "gpt-4o-mini" // Fast, cost-effective (vision, tools)
+  | "gpt-4.1" // Latest GPT-4 (vision, tools)
+  | "gpt-4.1-mini" // Latest GPT-4 mini (vision, tools)
+  | "gpt-4.1-nano" // Smallest GPT-4 variant
+
+  // OpenAI Reasoning Models
+  | "o1" // Extended reasoning
+  | "o1-mini" // Faster reasoning
+  | "o3" // Advanced reasoning
+  | "o3-mini" // Efficient reasoning
+  | "o4-mini" // Latest reasoning mini
+
+  // Google Gemini Series
+  | "gemini-1.5-pro" // Large context (vision, tools)
+  | "gemini-1.5-flash" // Fast (vision, tools)
+  | "gemini-2.0-pro" // Latest pro (vision, tools)
+  | "gemini-2.0-flash" // Latest flash (vision, tools)
+  | "gemini-2.0-flash-thinking" // With reasoning
+  | "gemini-2.0-flash-lite" // Lightweight
+  | "gemini-2.5-pro" // Newest pro
+  | "gemini-2.5-flash" // Newest flash
+
+  // Anthropic Claude Series
+  | "anthropic--claude-3-haiku" // Fast, affordable
+  | "anthropic--claude-3-sonnet" // Balanced
+  | "anthropic--claude-3-opus" // Most capable
+  | "anthropic--claude-3.5-sonnet" // Enhanced sonnet (vision, tools)
+  | "anthropic--claude-3.7-sonnet" // Latest sonnet
+  | "anthropic--claude-4-sonnet" // Claude 4 balanced
+  | "anthropic--claude-4-opus" // Claude 4 most capable
+
+  // Amazon Bedrock Models
+  | "amazon--nova-premier" // Premier tier
+  | "amazon--nova-pro" // Professional tier
+  | "amazon--nova-lite" // Lite tier
+  | "amazon--nova-micro" // Micro tier
+  | "amazon--titan-text-lite" // Titan lite
+  | "amazon--titan-text-express" // Titan express
+
+  // Open Source Models
+  | "meta--llama3-70b-instruct" // Meta Llama 3
+  | "meta--llama3.1-70b-instruct" // Meta Llama 3.1
+  | "mistralai--mistral-large-instruct" // Mistral large
+  | "mistralai--mistral-small-instruct" // Mistral small
+  | "mistralai--pixtral-large-instruct" // Mistral vision
+  | "ibm--granite-13b-chat" // IBM Granite
+  | "alephalpha-pharia-1-7b-control" // Aleph Alpha
   | (string & {}); // Allow custom model IDs
 ```
 

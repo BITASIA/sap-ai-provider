@@ -14,6 +14,7 @@
  * - Locally: Set AICORE_SERVICE_KEY environment variable with your service key JSON
  */
 
+// Load environment variables
 import "dotenv/config";
 import { generateText, tool, stepCountIs } from "ai";
 import { z } from "zod";

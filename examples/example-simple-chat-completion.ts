@@ -11,7 +11,7 @@
  * - Locally: Set AICORE_SERVICE_KEY environment variable with your service key JSON
  */
 
-// Load environment variables from .env file
+// Load environment variables
 import "dotenv/config";
 import { createSAPAIProvider } from "../src/index";
 

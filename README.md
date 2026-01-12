@@ -69,6 +69,9 @@ const result = await generateText({
 console.log(result.text);
 ```
 
+> **Setup:** Create a `.env` file with your `AICORE_SERVICE_KEY`. You can copy from `.env.example`: `cp .env.example .env`  
+> **Full Setup Guide:** See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) for detailed authentication configuration.
+
 ## Installation
 
 **Requirements:** Node.js 18+ and Vercel AI SDK 6.0+

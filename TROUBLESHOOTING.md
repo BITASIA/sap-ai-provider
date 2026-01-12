@@ -129,7 +129,7 @@ For a complete error code reference, see [API Reference - Error Codes](./API_REF
 1. **Iterate correctly:**
 
    ```typescript
-   import "dotenv/config";
+   import "dotenv/config"; // Load environment variables
    import { streamText } from "ai";
 
    const result = streamText({
@@ -239,7 +239,7 @@ Check: `exp` (expiration), `subaccountid`, `scope`
 Start simple, add features gradually:
 
 ```typescript
-import "dotenv/config";
+import "dotenv/config"; // Load environment variables
 import { generateText } from "ai";
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 
@@ -254,7 +254,7 @@ console.log(result.text);
 ### Verify Configuration
 
 ```typescript
-import "dotenv/config";
+import "dotenv/config"; // Load environment variables
 console.log("Node:", process.version);
 console.log("Service key set:", !!process.env.AICORE_SERVICE_KEY);
 

@@ -11,7 +11,13 @@ Starting with version 2.0, the SAP AI provider uses the **SAP AI SDK** for authe
 
 ### 1. Create a .env file
 
-Create a `.env` file in your project root:
+Create a `.env` file in your project root (or copy from `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` with your actual service key:
 
 ```bash
 # .env

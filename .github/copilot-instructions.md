@@ -42,27 +42,26 @@ Always reference these instructions first and fallback to search or bash command
 
 ### Development Workflow
 
-1. **Always run the bootstrap steps first**: `npm ci`
-2. **Make your changes** to TypeScript files in `/src`
-3. **Run type checking**: `npm run type-check`
-4. **Run tests**: `npm run test`
-5. **Check formatting**: `npm run prettier-check` (fix with `npm run prettier-fix` if needed)
-6. **Build the library**: `npm run build`
-7. **Verify build outputs**: `npm run check-build`
+**For comprehensive workflow and standards**, see [CONTRIBUTING.md](../CONTRIBUTING.md#development-workflow)
+
+**Quick workflow summary:**
+
+1. **Bootstrap**: `npm ci` (always first)
+2. **Make changes** in `/src`
+3. **Validate**: `npm run type-check && npm run test && npm run prettier-check`
+4. **Build**: `npm run build && npm run check-build`
 
 ## Validation
 
 ### Pre-commit Requirements
 
-- **ALWAYS run these commands before committing or the CI will fail**:
-  - `npm run type-check`
-  - `npm run test`
-  - `npm run test:node`
-  - `npm run test:edge`
-  - `npm run prettier-check`
-  - `npm run lint`
-  - `npm run build`
-  - `npm run check-build`
+**ALWAYS run this command before committing (CI will fail otherwise):**
+
+```bash
+npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
+```
+
+**Detailed checklist and standards**: See [CONTRIBUTING.md - Pre-Commit Checklist](../CONTRIBUTING.md#pre-commit-checklist)
 
 ### Manual Testing with Examples
 
@@ -184,6 +183,8 @@ npx tsx examples/example-data-masking.ts
 
 ## Pull Request Review Guidelines
 
+**For complete coding standards and contribution process**, see [CONTRIBUTING.md](../CONTRIBUTING.md)
+
 When acting as a PR reviewer, you must first thoroughly analyze and understand the entire codebase before providing any reviews. Follow this comprehensive review process:
 
 ### Pre-Review Codebase Analysis
@@ -199,73 +200,36 @@ When acting as a PR reviewer, you must first thoroughly analyze and understand t
 
 ### Coding Standards Enforcement
 
-Ensure all changes comply with established standards:
+**For complete coding standards**, see [CONTRIBUTING.md - Coding Standards](../CONTRIBUTING.md#coding-standards)
 
-**TypeScript Standards:**
+**Key requirements:**
 
-- Strict TypeScript configuration must be maintained (`strict: true`)
-- All public APIs must have comprehensive JSDoc comments with examples
-- Interfaces and types should be exported when part of public API
-- Use `zod` schemas for runtime validation of external data
-- Prefer explicit typing over `any` or implicit types
-
-**Code Formatting:**
-
-- Prettier configuration must be followed (2 spaces, existing config)
-- Run `npm run prettier-check` to verify formatting
-- No manual spacing/formatting changes if Prettier handles it
-
-**Documentation Standards:**
-
-- JSDoc comments required for all public functions/classes/interfaces
-- Include `@example` blocks for complex APIs
-- Update README.md if public API changes
-
-**Error Handling:**
-
-- Use Vercel AI SDK standard errors (`APICallError`, `LoadAPIKeyError`)
-- Provide clear, actionable error messages
-- Include error context and debugging information
-- Follow existing error patterns in the codebase
+- Strict TypeScript with JSDoc for all public APIs
+- Follow Prettier/ESLint configuration (`npm run prettier-check && npm run lint`)
+- Use Vercel AI SDK standard errors with clear messages
+- Update documentation (README.md, API_REFERENCE.md) for API changes
 
 ### Architecture and Design Compliance
 
-**Provider Integration Patterns:**
+**For complete architecture guidelines**, see [CONTRIBUTING.md - Architecture Guidelines](../CONTRIBUTING.md#architecture-guidelines)
 
-- Must implement Vercel AI SDK interfaces correctly (`ProviderV2`, etc.)
-- Follow existing pattern of separating provider factory from language model
-- Maintain compatibility with both Node.js and Edge runtime environments
-- Use existing authentication and request handling patterns
+**Key patterns to follow:**
 
-**Modularity Requirements:**
-
+- Implement Vercel AI SDK interfaces correctly (`ProviderV2`, etc.)
+- Maintain Node.js and Edge runtime compatibility
 - Keep components focused and single-purpose
-- Place types in appropriate locations (`src/types/` for complex schemas)
-- Maintain separation between core logic and utility functions
-- Follow existing file naming conventions
-
-**Performance Considerations:**
-
-- Streaming responses should be handled efficiently
-- Avoid blocking operations in request/response flow
-- Use existing caching patterns where applicable
-- Consider memory usage for large responses
+- Follow existing authentication and caching patterns
 
 ### Testing Requirements
 
-**Test Coverage:**
+**For complete testing guidelines**, see [CONTRIBUTING.md - Testing Guidelines](../CONTRIBUTING.md#testing-guidelines)
 
-- New features require corresponding test files (`*.test.ts`)
-- Tests must pass in both Node.js (`npm run test:node`) and Edge (`npm run test:edge`) environments
-- Use existing test patterns and utilities (Vitest, mocking patterns)
-- Include both unit tests and integration tests where appropriate
+**Essential checks:**
 
-**Test Quality:**
-
-- Tests should cover error conditions and edge cases
-- Mock external dependencies appropriately
-- Test files should mirror source file structure
-- Use descriptive test names and clear assertions
+- Tests must pass in both Node.js (`npm run test:node`) and Edge (`npm run test:edge`)
+- Use existing Vitest patterns and mocking utilities
+- Cover error conditions and edge cases
+- Test files mirror source file structure
 
 ### Security Review
 
