@@ -2,6 +2,8 @@
 
 This document provides a detailed overview of the SAP AI Core Provider's architecture, internal components, and integration patterns.
 
+**For general usage**, see [README.md](./README.md). **For API documentation**, see [API_REFERENCE.md](./API_REFERENCE.md).
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -422,23 +424,15 @@ POST /v2/completion
 **Configuration:**
 
 ```typescript
-// Default (recommended): uses deployment-specific v2 endpoint
-const provider = await createSAPAIProvider({
-  serviceKey: process.env.SAP_AI_SERVICE_KEY,
+// Default configuration
+const provider = createSAPAIProvider({
+  resourceGroup: "default",
 });
 
-// Top-level v2 endpoint
-const provider = await createSAPAIProvider({
-  serviceKey: process.env.SAP_AI_SERVICE_KEY,
-  baseURL: "https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com",
-  completionPath: "/v2/completion",
-});
-
-// v1 (legacy - deprecated, decommission on 31 Oct 2026)
-const providerV1 = await createSAPAIProvider({
-  serviceKey: process.env.SAP_AI_SERVICE_KEY,
-  baseURL: "https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com",
-  completionPath: "/completion",
+// With specific deployment
+const provider = createSAPAIProvider({
+  deploymentId: "d65d81e7c077e583",
+  resourceGroup: "production",
 });
 ```
 
@@ -740,9 +734,9 @@ sequenceDiagram
     participant SAPAI as SAP AI Core API
 
     rect rgb(240, 248, 255)
-        Note over App,Provider: 1. Provider Initialization
-        App->>Provider: createSAPAIProvider({<br/>  serviceKey: {<br/>    clientid: "...",<br/>    clientsecret: "...",<br/>    url: "https://...auth.../oauth/token"<br/>  }<br/>})
-        Provider->>Provider: Parse service key<br/>Extract credentials
+        Note over App,Provider: 1. Provider Initialization (v2.0+)
+        App->>Provider: createSAPAIProvider()<br/>(synchronous, no await needed)
+        Provider->>Provider: Initialize with SAP AI SDK<br/>Authentication handled automatically
     end
 
     rect rgb(255, 248, 240)
@@ -795,90 +789,119 @@ sequenceDiagram
 
 ### OAuth2 Flow
 
-The provider implements the OAuth2 client credentials flow for SAP AI Core authentication:
+Authentication is handled automatically by `@sap-ai-sdk/orchestration`:
 
-```typescript
-// Service key structure from SAP BTP
-interface SAPAIServiceKey {
-  serviceurls: { AI_API_URL: string };
-  clientid: string;
-  clientsecret: string;
-  url: string; // OAuth2 server URL
-  // ... other fields
-}
+- **Local**: `AICORE_SERVICE_KEY` environment variable
+- **SAP BTP**: `VCAP_SERVICES` service binding
 
-// Token acquisition process
-async function getOAuthToken(serviceKey: SAPAIServiceKey): Promise<string> {
-  // 1. Create Basic Auth header from client credentials
-  const credentials = Buffer.from(
-    `${serviceKey.clientid}:${serviceKey.clientsecret}`,
-  ).toString("base64");
-
-  // 2. Request token from OAuth2 server
-  const response = await fetch(`${serviceKey.url}/oauth/token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${credentials}`,
-    },
-    body: "grant_type=client_credentials",
-  });
-
-  // 3. Extract access token from response
-  const { access_token } = await response.json();
-  return access_token;
-}
-```
-
-### Token Management
-
-- **Automatic Refresh**: Tokens are refreshed automatically when expired
-- **Error Handling**: Authentication errors are caught and retried
-- **Security**: Credentials are never logged or exposed in error messages
+The SDK manages credentials, token acquisition, caching, and refresh internally.
 
 ## Error Handling
 
-### Error Hierarchy
+The provider converts SAP AI SDK errors to standard Vercel AI SDK error types for consistent error handling across providers.
+
+### Error Conversion Flow
 
 ```typescript
-Error
-├── LoadAPIKeyError (auth/setup)
-└── APICallError (HTTP/API)
-    ├── statusCode 401/403 (auth issues)
-    ├── statusCode 429 (rate limit)
-    ├── statusCode 4xx (validation/not found)
-    └── statusCode 5xx (server errors)
-
-// SAP-specific details are preserved in APICallError.responseBody
+// Internal error handling in doGenerate/doStream
+try {
+  const response = await client.chatCompletion({ messages });
+  // Process response...
+} catch (error) {
+  // Convert to AI SDK standard errors
+  throw convertToAISDKError(error, {
+    operation: "doGenerate",
+    url: "sap-ai:orchestration",
+    requestBody: requestSummary,
+  });
+}
 ```
 
-### Error Response Handling
+### Error Types
+
+**`APICallError`** - For HTTP/API failures
+
+- Includes status code, URL, request/response details
+- `isRetryable` flag for automatic retry (429, 5xx)
+- Enhanced messages with troubleshooting guidance
+
+**`LoadAPIKeyError`** - For authentication/setup issues
+
+- Includes setup instructions
+- Points to documentation
+
+### Error Response Processing
 
 ```typescript
-export const sapAIFailedResponseHandler = createJsonErrorResponseHandler({
-  errorSchema: sapAIErrorSchema,
-  errorToMessage: (data) => {
-    return (
-      data?.error?.message ||
-      data?.message ||
-      "An error occurred during the SAP AI Core request."
-    );
-  },
-  isRetryable: (response) => {
-    const status = response.status;
-    return [429, 500, 502, 503, 504].includes(status);
-  },
-});
+export function convertToAISDKError(
+  error: unknown,
+  context?: { operation?: string; url?: string; requestBody?: unknown }
+): APICallError | LoadAPIKeyError {
+  // 1. Already AI SDK error? Return as-is
+  if (error instanceof APICallError || error instanceof LoadAPIKeyError) {
+    return error;
+  }
+
+  // 2. SAP Orchestration error? Convert with details
+  if (isOrchestrationErrorResponse(error)) {
+    return convertSAPErrorToAPICallError(error, context);
+  }
+
+  // 3. Network/auth errors? Classify appropriately
+  if (error instanceof Error) {
+    if (isAuthenticationError(error)) {
+      return new LoadAPIKeyError({ message: /* helpful message */ });
+    }
+    if (isNetworkError(error)) {
+      return new APICallError({
+        statusCode: 503,
+        isRetryable: true,
+        // ... details
+      });
+    }
+  }
+
+  // 4. Unknown error? Generic APICallError
+  return new APICallError({
+    statusCode: 500,
+    isRetryable: false,
+    // ... details
+  });
+}
 ```
 
 ### Retry Logic
 
-The provider implements exponential backoff for retryable errors:
+Errors marked `isRetryable: true` trigger automatic retry:
 
-1. **Immediate retry**: For network timeouts
-2. **Exponential backoff**: For rate limits (429) and server errors (5xx)
-3. **Circuit breaker**: After consecutive failures
-4. **Jitter**: Random delay to prevent thundering herd
+- **429 (Rate Limit)**: Exponential backoff
+- **500-504 (Server Errors)**: Exponential backoff
+- **Network Timeouts**: Immediate retry with backoff
+
+The Vercel AI SDK handles retry logic based on the `isRetryable` flag.
+
+### Enhanced Error Messages
+
+The provider adds helpful context to error messages:
+
+```typescript
+// 401/403 errors
+enhancedMessage +=
+  "\n\nAuthentication failed. Verify your AICORE_SERVICE_KEY environment variable is set correctly." +
+  "\nSee: https://help.sap.com/docs/sap-ai-core/...";
+
+// 404 errors
+enhancedMessage +=
+  "\n\nResource not found. The model or deployment may not exist in your SAP AI Core instance." +
+  "\nSee: https://help.sap.com/docs/sap-ai-core/...";
+
+// 429 errors
+enhancedMessage +=
+  "\n\nRate limit exceeded. Please try again later or contact your SAP administrator." +
+  "\nSee: https://help.sap.com/docs/sap-ai-core/...";
+```
+
+**For user-facing error handling guidance**, see [API_REFERENCE.md - Error Handling](./API_REFERENCE.md#error-handling) and [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
 ## Type System
 
@@ -1078,3 +1101,13 @@ class RateLimiter {
 ```
 
 This architecture ensures the SAP AI Core Provider is robust, scalable, and maintainable while providing a seamless integration experience with the Vercel AI SDK.
+
+---
+
+## See Also
+
+- [API Reference](./API_REFERENCE.md) - Complete API documentation including types, interfaces, and configuration options
+- [README](./README.md) - Getting started guide and basic usage examples
+- [Migration Guide](./MIGRATION_GUIDE.md) - Upgrading from v1.x to v2.0
+- [Environment Setup](./ENVIRONMENT_SETUP.md) - Authentication and configuration setup
+- [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) - Low-level API testing and debugging
