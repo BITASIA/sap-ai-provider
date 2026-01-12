@@ -232,19 +232,20 @@ This section provides detailed troubleshooting steps for common API errors. For 
 
 1. **Iterate the stream correctly:**
 
-   ```typescript
-   import { streamText } from "ai";
+```typescript
+import "dotenv/config"; // Load environment variables
+import { streamText } from "ai";
 
-   const result = streamText({
-     model: provider("gpt-4o"),
-     prompt: "Write a story",
-   });
+const result = streamText({
+  model: provider("gpt-4o"),
+  prompt: "Write a story",
+});
 
-   // Correct: iterate over textStream
-   for await (const chunk of result.textStream) {
-     process.stdout.write(chunk);
-   }
-   ```
+// Correct: iterate over textStream
+for await (const chunk of result.textStream) {
+  process.stdout.write(chunk);
+}
+```
 
 2. **Don't mix generateText and streamText:**
    - Use `streamText` for streaming
@@ -457,6 +458,7 @@ Look for:
 Start with the simplest possible configuration:
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { generateText } from "ai";
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 

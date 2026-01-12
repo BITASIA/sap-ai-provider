@@ -2,6 +2,15 @@
 
 Complete API documentation for the SAP AI Core Provider.
 
+## Terminology
+
+To avoid confusion, this documentation uses the following terminology consistently:
+
+- **SAP AI Core** - The SAP BTP service that provides AI model hosting and orchestration (the cloud service)
+- **SAP AI SDK** - The official `@sap-ai-sdk/orchestration` npm package used for API communication
+- **SAP AI Core Provider** or **this provider** - This npm package (`@mymediset/sap-ai-provider`)
+- **Tool calling** and **Function calling** - These terms are used interchangeably in AI contexts. This provider uses "tool calling" to align with Vercel AI SDK terminology, but the concepts are identical.
+
 ## Table of Contents
 
 - [Provider Factory Functions](#provider-factory-functions)
@@ -33,6 +42,9 @@ function createSAPAIProvider(options?: SAPAIProviderSettings): SAPAIProvider;
 **Example:**
 
 ```typescript
+import "dotenv/config"; // Load environment variables
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+
 const provider = createSAPAIProvider({
   resourceGroup: "default",
   deploymentId: "d65d81e7c077e583",
@@ -629,6 +641,7 @@ function buildDpiMaskingProvider(
 **Example:**
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
 
 const dpiMasking = buildDpiMaskingProvider({
@@ -683,6 +696,7 @@ function buildAzureContentSafetyFilter(
 **Example:**
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { buildAzureContentSafetyFilter } from "@mymediset/sap-ai-provider";
 
 const provider = createSAPAIProvider({
@@ -728,6 +742,7 @@ function buildLlamaGuard38BFilter(
 **Example:**
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { buildLlamaGuard38BFilter } from "@mymediset/sap-ai-provider";
 
 const provider = createSAPAIProvider({
@@ -764,6 +779,7 @@ function buildDocumentGroundingConfig(
 **Example:**
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { buildDocumentGroundingConfig } from "@mymediset/sap-ai-provider";
 
 const groundingConfig = buildDocumentGroundingConfig({
@@ -806,6 +822,7 @@ function buildTranslationConfig(
 **Example:**
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { buildTranslationConfig } from "@mymediset/sap-ai-provider";
 
 // Translate user input from German to English

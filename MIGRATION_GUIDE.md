@@ -115,6 +115,7 @@ After updating authentication and removing `await` from provider creation, run y
 **After (v2.x):** Add DPI masking using helper function
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import {
   createSAPAIProvider,
   buildDpiMaskingProvider,
@@ -139,6 +140,7 @@ const provider = createSAPAIProvider({
 **New in v2.x:** Azure Content Safety filtering
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import {
   createSAPAIProvider,
   buildAzureContentSafetyFilter,
@@ -271,6 +273,7 @@ const provider = createSAPAIProvider({
 Automatically anonymize or pseudonymize sensitive information using helper functions:
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import {
   createSAPAIProvider,
   buildDpiMaskingProvider,
@@ -301,6 +304,7 @@ const model = provider("gpt-4o", {
 Filter harmful content using Azure Content Safety or Llama Guard:
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import {
   createSAPAIProvider,
   buildAzureContentSafetyFilter,
@@ -395,6 +399,7 @@ const model3 = provider("gpt-4o", {
 Improved streaming support with better error handling:
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { streamText } from "ai";
 
 const result = streamText({
@@ -412,6 +417,7 @@ for await (const textPart of result.textStream) {
 More detailed error information:
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { SAPAIError } from "@mymediset/sap-ai-provider";
 
 try {
@@ -607,6 +613,7 @@ On SAP BTP, ensure the AI Core service is bound to your application (VCAP_SERVIC
 **Solution:** Use the helper function `buildDpiMaskingProvider()`:
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
 
 const provider = createSAPAIProvider({

@@ -51,6 +51,7 @@ npm install @mymediset/sap-ai-provider ai
 ```
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 import { generateText } from "ai";
 
@@ -104,6 +105,7 @@ For detailed setup instructions, troubleshooting, and security best practices, s
 ### Text Generation
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 import { generateText } from "ai";
 
@@ -122,7 +124,11 @@ console.log(result.text);
 Note: assistant `reasoning` parts are dropped by default. Set `includeReasoning: true` on the model settings if you explicitly want to forward them.
 
 ```typescript
+import "dotenv/config"; // Load environment variables
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 import { generateText } from "ai";
+
+const provider = createSAPAIProvider();
 
 const result = await generateText({
   model: provider("anthropic--claude-3.5-sonnet"),
@@ -139,7 +145,11 @@ const result = await generateText({
 ### Streaming Responses
 
 ```typescript
+import "dotenv/config"; // Load environment variables
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 import { streamText } from "ai";
+
+const provider = createSAPAIProvider();
 
 const result = streamText({
   model: provider("gpt-4o"),
@@ -154,6 +164,12 @@ for await (const delta of result.textStream) {
 ### Model Configuration
 
 ```typescript
+import "dotenv/config"; // Load environment variables
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+import { generateText } from "ai";
+
+const provider = createSAPAIProvider();
+
 const model = provider("gpt-4o", {
   // Optional: include assistant reasoning parts (chain-of-thought).
   // Best practice is to keep this disabled.
@@ -187,8 +203,12 @@ The following helper functions are exported by this package for convenient confi
 ### Tool Calling
 
 ```typescript
+import "dotenv/config"; // Load environment variables
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 import { generateText, tool } from "ai";
 import { z } from "zod";
+
+const provider = createSAPAIProvider();
 
 const weatherSchema = z.object({
   location: z.string(),
@@ -218,6 +238,12 @@ console.log(result.text);
 ### Multi-modal Input (Images)
 
 ```typescript
+import "dotenv/config"; // Load environment variables
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+import { generateText } from "ai";
+
+const provider = createSAPAIProvider();
+
 const result = await generateText({
   model: provider("gpt-4o"),
   messages: [
@@ -237,10 +263,12 @@ const result = await generateText({
 Use SAP's Data Privacy Integration to mask sensitive data:
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import {
   createSAPAIProvider,
   buildDpiMaskingProvider,
 } from "@mymediset/sap-ai-provider";
+import { generateText } from "ai";
 
 const dpiConfig = buildDpiMaskingProvider({
   method: "anonymization",
@@ -271,6 +299,7 @@ const result = await generateText({
 ### Content Filtering
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import {
   createSAPAIProvider,
   buildAzureContentSafetyFilter,
@@ -335,7 +364,12 @@ The provider includes structured error handling with detailed context:
 This provider throws standard Vercel AI SDK errors (e.g. `APICallError`, `LoadAPIKeyError`).
 
 ```typescript
+import "dotenv/config"; // Load environment variables
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+import { generateText } from "ai";
 import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
+
+const provider = createSAPAIProvider();
 
 try {
   const result = await generateText({
