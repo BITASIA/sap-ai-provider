@@ -141,14 +141,15 @@ Model-specific configuration options.
 
 **Properties:**
 
-| Property         | Type                   | Default    | Description                           |
-| ---------------- | ---------------------- | ---------- | ------------------------------------- |
-| `modelVersion`   | `string`               | `'latest'` | Specific model version                |
-| `modelParams`    | `ModelParams`          | -          | Model generation parameters           |
-| `masking`        | `MaskingModule`        | -          | Data masking configuration (DPI)      |
-| `filtering`      | `FilteringModule`      | -          | Content filtering configuration       |
-| `responseFormat` | `ResponseFormatConfig` | -          | Response format specification         |
-| `tools`          | `ChatCompletionTool[]` | -          | Tool definitions in SAP AI SDK format |
+| Property           | Type                   | Default    | Description                                                                                            |
+| ------------------ | ---------------------- | ---------- | ------------------------------------------------------------------------------------------------------ |
+| `modelVersion`     | `string`               | `'latest'` | Specific model version                                                                                 |
+| `includeReasoning` | `boolean`              | -          | Whether to include assistant reasoning parts in SAP prompt conversion (may contain internal reasoning) |
+| `modelParams`      | `ModelParams`          | -          | Model generation parameters                                                                            |
+| `masking`          | `MaskingModule`        | -          | Data masking configuration (DPI)                                                                       |
+| `filtering`        | `FilteringModule`      | -          | Content filtering configuration                                                                        |
+| `responseFormat`   | `ResponseFormatConfig` | -          | Response format specification                                                                          |
+| `tools`            | `ChatCompletionTool[]` | -          | Tool definitions in SAP AI SDK format                                                                  |
 
 **Example:**
 

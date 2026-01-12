@@ -72,12 +72,18 @@ const provider = await createSAPAIProvider({
 **After (v2.x):**
 
 ```typescript
-// Set AICORE_SERVICE_KEY environment variable (see ENVIRONMENT_SETUP.md for details)
+// Set AICORE_SERVICE_KEY environment variable
 // Provider is now synchronous
 const provider = createSAPAIProvider();
 ```
 
-For detailed authentication setup, see [Environment Setup](./ENVIRONMENT_SETUP.md#setting-up-aicore_service_key-v20).
+**Important Changes:**
+
+- Environment variable changed: `SAP_AI_SERVICE_KEY` (v1.x) → `AICORE_SERVICE_KEY` (v2.x)
+- Provider creation is now synchronous (no `await` needed)
+- Authentication handled automatically by SAP AI SDK
+
+For detailed authentication setup instructions, see **[Environment Setup Guide](./ENVIRONMENT_SETUP.md#setting-up-aicore_service_key-v20)**.
 
 #### 3. Update Code (Remove await)
 
@@ -198,12 +204,13 @@ const provider = createSAPAIProvider();
 
 ### Version 2.0.x
 
-**Authentication Changes:**
+### Authentication Changes:\*\*
 
 - Removed `serviceKey` option from `createSAPAIProvider()`
-- Authentication now handled automatically by SAP AI SDK via:
-  - `AICORE_SERVICE_KEY` environment variable (local development)
-  - `VCAP_SERVICES` service binding (SAP BTP)
+- Authentication now via `AICORE_SERVICE_KEY` environment variable (local) or `VCAP_SERVICES` (SAP BTP)
+- SAP AI SDK handles token management automatically
+
+**Migration:** See **[Environment Setup](./ENVIRONMENT_SETUP.md)** for complete authentication configuration.
 
 **Synchronous Provider Creation:**
 
@@ -228,9 +235,7 @@ const provider = createSAPAIProvider();
 
 **Replacement:** Automatic authentication via SAP AI SDK
 
-**Migration:**
-
-Authentication is now handled automatically by the SAP AI SDK. Simply set the `AICORE_SERVICE_KEY` environment variable.
+**Migration:** Authentication is now automatic. Set `AICORE_SERVICE_KEY` environment variable. See **[Environment Setup](./ENVIRONMENT_SETUP.md)** for complete instructions.
 
 ```typescript
 // ❌ Old v1.x approach (removed)
@@ -240,7 +245,6 @@ const provider = await createSAPAIProvider({
 });
 
 // ✅ New v2.x approach (automatic authentication)
-// Set environment variable: AICORE_SERVICE_KEY='{"serviceurls":...}'
 const provider = createSAPAIProvider({
   resourceGroup: "default",
   deploymentId: "your-deployment", // optional

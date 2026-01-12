@@ -5,6 +5,8 @@
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. Built on top of the official **@sap-ai-sdk/orchestration** package, this provider enables you to use SAP's enterprise-grade AI models through the familiar Vercel AI SDK interface.
 
+> **Note on Terminology:** This documentation uses "tool calling" to align with Vercel AI SDK conventions. This is equivalent to "function calling" - both terms refer to the same capability of models invoking external functions.
+
 ## ⚠️ Breaking Changes in v2.0
 
 Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
@@ -87,18 +89,14 @@ pnpm add @mymediset/sap-ai-provider ai
 
 ## Authentication
 
-The SAP AI SDK handles authentication automatically using environment variables or SAP BTP service bindings.
+Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERVICE_KEY` environment variable (local development) or `VCAP_SERVICES` service binding (SAP BTP).
 
 **Quick Setup:**
 
-- **Local development**: Set `AICORE_SERVICE_KEY` environment variable with your service key JSON
-- **SAP BTP**: Service binding via `VCAP_SERVICES` (automatic)
+1. Set `AICORE_SERVICE_KEY` environment variable with your service key JSON
+2. Create provider: `const provider = createSAPAIProvider()`
 
-For detailed setup instructions, troubleshooting, and security best practices, see:
-
-- [Setting up AICORE_SERVICE_KEY](./ENVIRONMENT_SETUP.md#setting-up-aicore_service_key-v20)
-- [Authentication Methods](./ENVIRONMENT_SETUP.md#authentication-methods)
-- [Troubleshooting Authentication](./ENVIRONMENT_SETUP.md#troubleshooting)
+For complete setup instructions, authentication methods, troubleshooting, and security best practices, see the **[Environment Setup Guide](./ENVIRONMENT_SETUP.md)**.
 
 ## Basic Usage
 
@@ -189,12 +187,17 @@ const result = await generateText({
 
 ## Supported Models
 
-This provider works with models available via SAP AI Core Orchestration (OpenAI, Anthropic, Google Vertex AI, Amazon Bedrock, and selected open-source models).
+This provider works with models available via SAP AI Core Orchestration including:
 
-- Overview: GPT-4 family, Claude 3/4, Gemini 2.x, Amazon Nova, Mistral, Cohere
-- Availability varies by tenant and region
+- **OpenAI**: GPT-4o, GPT-4.1, o1/o3 series
+- **Anthropic**: Claude 3.x/4.x family
+- **Google**: Gemini 2.x series
+- **Amazon**: Nova family, Titan models
+- **Open Source**: Mistral, Llama, and others
 
-For exact identifiers and the authoritative list, see [API Reference: SAPAIModelId](./API_REFERENCE.md#sapaimodelid).
+**Note:** Model availability varies by tenant, region, and subscription.
+
+For the complete list of model identifiers and capabilities, see **[API Reference: SAPAIModelId](./API_REFERENCE.md#sapaimodelid)**.
 
 ## Advanced Features
 
@@ -323,53 +326,26 @@ const provider = createSAPAIProvider({
 
 ## Configuration Options
 
-### Provider Settings
+The provider and models can be configured with various settings for authentication, model parameters, data masking, content filtering, and more.
 
-```typescript
-interface SAPAIProviderSettings {
-  resourceGroup?: string; // SAP AI Core resource group (default: 'default')
-  deploymentId?: string; // Specific deployment ID (auto-resolved if not set)
-  warnOnAmbiguousConfig?: boolean; // Emit warnings (default: true)
-  // Note: if both `deploymentId` and `resourceGroup` are provided, `deploymentId` takes precedence.
-  destination?: HttpDestinationOrFetchOptions; // Custom destination
-  defaultSettings?: SAPAISettings; // Default settings for all models
-}
-```
+**Common Configuration:**
 
-### Model Settings
+- `resourceGroup`: SAP AI Core resource group (default: 'default')
+- `deploymentId`: Specific deployment ID (auto-resolved if not set)
+- `modelParams`: Temperature, maxTokens, topP, and other generation parameters
+- `masking`: SAP Data Privacy Integration (DPI) configuration
+- `filtering`: Content safety filters (Azure Content Safety, Llama Guard)
 
-```typescript
-interface SAPAISettings {
-  modelVersion?: string; // Model version (default: 'latest')
-  modelParams?: {
-    maxTokens?: number; // Maximum tokens to generate
-    temperature?: number; // Sampling temperature (0-2)
-    topP?: number; // Nucleus sampling (0-1)
-    frequencyPenalty?: number; // Frequency penalty (-2 to 2)
-    presencePenalty?: number; // Presence penalty (-2 to 2)
-    n?: number; // Number of completions
-    parallel_tool_calls?: boolean; // Enable parallel tool calls
-  };
-  masking?: MaskingModule; // Data masking (DPI) configuration
-  filtering?: FilteringModule; // Content filtering configuration
-}
-```
-
-For complete configuration details, see [API Reference - Configuration](./API_REFERENCE.md#sapaiprovidersettings).
+For complete configuration reference including all available options, types, and examples, see **[API Reference - Configuration](./API_REFERENCE.md#sapaiprovidersettings)**.
 
 ## Error Handling
 
-The provider includes structured error handling with detailed context:
+The provider uses standard Vercel AI SDK error types for consistent error handling.
 
-This provider throws standard Vercel AI SDK errors (e.g. `APICallError`, `LoadAPIKeyError`).
+**Basic Error Handling:**
 
 ```typescript
-import "dotenv/config"; // Load environment variables
-import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
-import { generateText } from "ai";
 import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
-
-const provider = createSAPAIProvider();
 
 try {
   const result = await generateText({
@@ -378,23 +354,17 @@ try {
   });
 } catch (error) {
   if (error instanceof LoadAPIKeyError) {
-    console.error("Missing/invalid SAP AI Core credentials:", error.message);
+    console.error("Authentication issue:", error.message);
   } else if (error instanceof APICallError) {
-    console.error("Status:", error.statusCode);
-    console.error("Retryable:", error.isRetryable);
-
-    // SAP-specific metadata is preserved in responseBody
-    if (error.responseBody) {
-      console.error("SAP responseBody:", error.responseBody);
-    }
+    console.error("API error:", error.statusCode, error.message);
   }
 }
 ```
 
-For complete error reference and troubleshooting, see:
+For complete error reference, status codes, troubleshooting steps, and advanced error handling patterns, see:
 
-- [API Reference - Error Codes](./API_REFERENCE.md#error-codes)
-- [Troubleshooting Guide](./TROUBLESHOOTING.md)
+- **[API Reference - Error Handling](./API_REFERENCE.md#error-handling)** - Error types and codes
+- **[Troubleshooting Guide](./TROUBLESHOOTING.md)** - Detailed solutions for each error type
 
 ## Troubleshooting
 
@@ -427,19 +397,24 @@ Common issues and error codes are documented in [API Reference: Error Codes](./A
 
 ## Examples
 
-The `examples/` directory contains complete, runnable examples:
+The `examples/` directory contains complete, runnable examples demonstrating key features:
 
-- `example-generate-text.ts` - Basic text generation
-- `example-chat-completion-tool.ts` - Function calling with tools
-- `example-streaming-chat.ts` - Streaming responses
-- `example-image-recognition.ts` - Multi-modal with images
-- `example-data-masking.ts` - Data privacy integration
+| Example                             | Description                 | Key Features                           |
+| ----------------------------------- | --------------------------- | -------------------------------------- |
+| `example-generate-text.ts`          | Basic text generation       | Simple prompts, synchronous generation |
+| `example-simple-chat-completion.ts` | Simple chat conversation    | System messages, user prompts          |
+| `example-chat-completion-tool.ts`   | Tool calling with functions | Weather API tool, function execution   |
+| `example-streaming-chat.ts`         | Streaming responses         | Real-time text generation, SSE         |
+| `example-image-recognition.ts`      | Multi-modal with images     | Vision models, image analysis          |
+| `example-data-masking.ts`           | Data privacy integration    | DPI masking, anonymization             |
 
-Run any example with:
+**Running Examples:**
 
 ```bash
 npx tsx examples/example-generate-text.ts
 ```
+
+**Note:** Examples require `AICORE_SERVICE_KEY` environment variable. See [Environment Setup](./ENVIRONMENT_SETUP.md) for configuration.
 
 ## Migration from v1
 
