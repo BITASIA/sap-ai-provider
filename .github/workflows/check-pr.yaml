@@ -76,10 +76,25 @@ jobs:
       - name: Check build outputs
         run: npm run check-build
 
+  docs-validation:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate documentation
+        run: npm run validate-docs
+
   publish-check:
     name: Publish Simulation
     runs-on: ubuntu-latest
-    needs: [format-check, type-check, test, build]
+    needs: [format-check, type-check, test, build, docs-validation]
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout code
