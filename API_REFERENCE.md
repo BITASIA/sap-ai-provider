@@ -915,19 +915,30 @@ const settings: SAPAISettings = {
 
 ## Error Codes
 
-Common HTTP status codes returned by SAP AI Core:
+Complete reference for HTTP status codes returned by SAP AI Core. For detailed troubleshooting of each error, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
-| Code | Description           | Retryable | Common Causes                         |
-| ---- | --------------------- | --------- | ------------------------------------- |
-| 400  | Bad Request           | No        | Invalid parameters, malformed request |
-| 401  | Unauthorized          | No        | Invalid/expired token                 |
-| 403  | Forbidden             | No        | Insufficient permissions              |
-| 404  | Not Found             | No        | Invalid model ID or deployment        |
-| 429  | Too Many Requests     | Yes       | Rate limit exceeded                   |
-| 500  | Internal Server Error | Yes       | Service issue                         |
-| 502  | Bad Gateway           | Yes       | Network/proxy issue                   |
-| 503  | Service Unavailable   | Yes       | Service temporarily down              |
-| 504  | Gateway Timeout       | Yes       | Request timeout                       |
+### Error Code Reference Table
+
+| Code | Description           | Type            | Retryable | Common Causes                         | Quick Fix                                       | Details                                                                               |
+| ---- | --------------------- | --------------- | --------- | ------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 400  | Bad Request           | APICallError    | No        | Invalid parameters, malformed request | Validate configuration against TypeScript types | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-400-bad-request)                     |
+| 401  | Unauthorized          | LoadAPIKeyError | No        | Invalid/expired token                 | Check AICORE_SERVICE_KEY environment variable   | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-authentication-failed-or-401-errors) |
+| 403  | Forbidden             | APICallError    | No        | Insufficient permissions              | Verify service key has required roles           | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-403-forbidden)                       |
+| 404  | Not Found             | APICallError    | No        | Invalid model ID or deployment        | Verify deployment ID and model name             | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-404-modeldeployment-not-found)       |
+| 429  | Too Many Requests     | APICallError    | Yes       | Rate limit exceeded                   | Automatic retry with exponential backoff        | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-429-rate-limit-exceeded)             |
+| 500  | Internal Server Error | APICallError    | Yes       | Service issue                         | Automatic retry, check SAP AI Core status       | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| 502  | Bad Gateway           | APICallError    | Yes       | Network/proxy issue                   | Automatic retry                                 | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| 503  | Service Unavailable   | APICallError    | Yes       | Service temporarily down              | Automatic retry                                 | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| 504  | Gateway Timeout       | APICallError    | Yes       | Request timeout                       | Automatic retry, reduce request complexity      | [→ Troubleshooting](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+
+### Error Handling Strategy
+
+The provider automatically handles retryable errors (429, 500-504) with exponential backoff. For non-retryable errors, your application should handle them appropriately.
+
+**See also:**
+
+- [Error Handling Examples](#error-handling) - Code examples for catching and handling errors
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Detailed solutions for each error type
 
 ---
 

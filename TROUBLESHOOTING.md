@@ -98,21 +98,15 @@ Place this at the top of your entry file (before any other imports).
 
 ## API Errors
 
-For detailed error codes and their meanings, see [API Reference - Error Codes](./API_REFERENCE.md#error-codes).
+This section provides detailed troubleshooting steps for common API errors. For a complete error code reference with quick fixes, see [API Reference - Error Codes](./API_REFERENCE.md#error-codes).
 
-### HTTP Status Codes
+**Common Error Categories:**
 
-| Code | Description           | Retryable | Common Causes                         |
-| ---- | --------------------- | --------- | ------------------------------------- |
-| 400  | Bad Request           | No        | Invalid parameters, malformed request |
-| 401  | Unauthorized          | No        | Invalid/expired token                 |
-| 403  | Forbidden             | No        | Insufficient permissions              |
-| 404  | Not Found             | No        | Invalid model ID or deployment        |
-| 429  | Too Many Requests     | Yes       | Rate limit exceeded                   |
-| 500  | Internal Server Error | Yes       | Service issue                         |
-| 502  | Bad Gateway           | Yes       | Network/proxy issue                   |
-| 503  | Service Unavailable   | Yes       | Service temporarily down              |
-| 504  | Gateway Timeout       | Yes       | Request timeout                       |
+- [400 Bad Request](#problem-400-bad-request) - Invalid configuration or request
+- [401 Unauthorized](#problem-authentication-failed-or-401-errors) / [403 Forbidden](#problem-403-forbidden) - Authentication issues
+- [404 Not Found](#problem-404-modeldeployment-not-found) - Model or deployment doesn't exist
+- [429 Rate Limit](#problem-429-rate-limit-exceeded) - Too many requests
+- [500-504 Server Errors](#problem-500502503504-server-errors) - Service or network issues
 
 ### Problem: 400 Bad Request
 
