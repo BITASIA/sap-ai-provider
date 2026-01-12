@@ -187,15 +187,11 @@ const result = await generateText({
 
 ## Supported Models
 
-This provider works with models available via SAP AI Core Orchestration including:
+This provider supports all models available in your SAP AI Core tenant, including:
 
-- **OpenAI**: GPT-4o, GPT-4.1, o1/o3 series
-- **Anthropic**: Claude 3.x/4.x family
-- **Google**: Gemini 2.x series
-- **Amazon**: Nova family, Titan models
-- **Open Source**: Mistral, Llama, and others
+**Popular models:** GPT-4o, GPT-4.1, Claude 3.5 Sonnet, Gemini 2.0, Amazon Nova
 
-**Note:** Model availability varies by tenant, region, and subscription.
+**Model availability** varies by tenant, region, and subscription. Some models have specific limitations (e.g., Gemini supports only one tool per request).
 
 For the complete list of model identifiers and capabilities, see **[API Reference: SAPAIModelId](./API_REFERENCE.md#sapaimodelid)**.
 

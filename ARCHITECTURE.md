@@ -137,53 +137,6 @@ sequenceDiagram
 
 ## Component Architecture
 
-### Core Components Structure
-
-```mermaid
-graph LR
-    subgraph "Public API"
-        Index[index.ts<br/>Exports]
-    end
-
-    subgraph "Provider Layer"
-        Provider[sap-ai-provider.ts<br/>Factory & Auth]
-        Model[sap-ai-chat-language-model.ts<br/>LanguageModelV2 Implementation]
-    end
-
-    subgraph "Utilities"
-        Settings[sap-ai-chat-settings.ts<br/>Type Definitions]
-        Error[sap-ai-error.ts<br/>Error Handling]
-        Convert[convert-to-sap-messages.ts<br/>Message Transformation]
-    end
-
-    subgraph "Type System"
-        ReqTypes[types/completion-request.ts<br/>Request Schemas]
-        ResTypes[types/completion-response.ts<br/>Response Schemas]
-    end
-
-    Index --> Provider
-    Index --> Model
-    Index --> Settings
-    Index --> Error
-
-    Provider --> Model
-    Provider --> Settings
-
-    Model --> Convert
-    Model --> Error
-    Model --> ReqTypes
-    Model --> ResTypes
-    Model --> Settings
-
-    Convert --> Settings
-
-    style Index fill:#e1f5ff
-    style Provider fill:#fff4e1
-    style Model fill:#ffe1f5
-    style Utilities fill:#f0f0f0
-    style Type System fill:#f5f5f5
-```
-
 ### Component Interaction Map
 
 ```mermaid
@@ -832,43 +785,14 @@ try {
 
 ### Error Response Processing
 
-```typescript
-export function convertToAISDKError(
-  error: unknown,
-  context?: { operation?: string; url?: string; requestBody?: unknown }
-): APICallError | LoadAPIKeyError {
-  // 1. Already AI SDK error? Return as-is
-  if (error instanceof APICallError || error instanceof LoadAPIKeyError) {
-    return error;
-  }
+The `convertToAISDKError()` function handles error conversion with a clear priority:
 
-  // 2. SAP Orchestration error? Convert with details
-  if (isOrchestrationErrorResponse(error)) {
-    return convertSAPErrorToAPICallError(error, context);
-  }
+1. **Already AI SDK error?** → Return as-is
+2. **SAP Orchestration error?** → Convert with details extracted from response
+3. **Network/auth errors?** → Classify as `LoadAPIKeyError` or `APICallError` with appropriate status code
+4. **Unknown error?** → Generic `APICallError` with status 500
 
-  // 3. Network/auth errors? Classify appropriately
-  if (error instanceof Error) {
-    if (isAuthenticationError(error)) {
-      return new LoadAPIKeyError({ message: /* helpful message */ });
-    }
-    if (isNetworkError(error)) {
-      return new APICallError({
-        statusCode: 503,
-        isRetryable: true,
-        // ... details
-      });
-    }
-  }
-
-  // 4. Unknown error? Generic APICallError
-  return new APICallError({
-    statusCode: 500,
-    isRetryable: false,
-    // ... details
-  });
-}
-```
+All errors include helpful context (operation, URL, request body) for debugging.
 
 ### Retry Logic
 
@@ -907,63 +831,23 @@ enhancedMessage +=
 
 ### Model Configuration Types
 
-```typescript
-// Model identifiers with string union for type safety
-type SAPAIModelId =
-  | "gpt-4o"
-  | "claude-3.5-sonnet"
-  | "gemini-1.5-pro"
-  // ... other models
-  | (string & {}); // Allow custom models
+Key types for model configuration:
 
-// Comprehensive settings interface
-interface SAPAISettings {
-  modelVersion?: string;
-  modelParams?: {
-    maxTokens?: number;
-    temperature?: number;
-    topP?: number;
-    frequencyPenalty?: number;
-    presencePenalty?: number;
-    n?: number;
-  };
-  safePrompt?: boolean;
-  structuredOutputs?: boolean;
-}
-```
+- **`SAPAIModelId`**: String union of supported models (e.g., "gpt-4o", "claude-3.5-sonnet", "gemini-1.5-pro") with flexibility for custom models
+- **`SAPAISettings`**: Interface with `modelVersion`, `modelParams` (maxTokens, temperature, topP, etc.), `safePrompt`, and `structuredOutputs` options
+
+See `src/sap-ai-chat-settings.ts` for complete type definitions.
 
 ### Request/Response Schemas
 
-All API interactions are validated using Zod schemas:
+All API interactions are validated using Zod schemas for type safety and runtime validation. Key schemas include:
 
-```typescript
-// Request validation
-export const sapAIRequestSchema = z.object({
-  orchestration_config: z.object({
-    module_configurations: z.object({
-      llm_module_config: sapAILLMConfigSchema,
-    }),
-  }),
-  input_params: z.object({
-    messages: z.array(sapAIMessageSchema),
-  }),
-});
+- `sapAIRequestSchema`: Validates orchestration config and input parameters
+- `sapAIResponseSchema`: Validates API responses with module results
+- `sapAIMessageSchema`: Validates message format (role, content, tool calls)
+- `sapAIToolSchema`: Validates function definitions and parameters
 
-// Response validation
-export const sapAIResponseSchema = z.object({
-  request_id: z.string(),
-  module_results: z.object({
-    llm: sapAILLMResultSchema,
-    templating: sapAITemplatingResultSchema,
-  }),
-  orchestration_results: z
-    .object({
-      choices: z.array(sapAIChoiceSchema),
-      usage: sapAIUsageSchema,
-    })
-    .optional(),
-});
-```
+See `src/types/` for complete schema definitions.
 
 ## Integration Patterns
 
@@ -983,52 +867,11 @@ interface SAPAIProvider extends ProviderV2 {
 
 ### Adapter Pattern
 
-The message conversion system adapts between different formats:
-
-```typescript
-// Vercel AI SDK format
-type LanguageModelV2Prompt = Array<{
-  role: "system" | "user" | "assistant" | "tool";
-  content: string | Array<ContentPart>;
-}>;
-
-// SAP AI Core format
-type SAPMessage = {
-  role: "system" | "user" | "assistant" | "tool";
-  content:
-    | string
-    | Array<{
-        type: "text" | "image_url";
-        text?: string;
-        image_url?: { url: string };
-      }>;
-};
-
-// Conversion function
-export function convertToSAPMessages(
-  prompt: LanguageModelV2Prompt,
-): SAPMessage[] {
-  // Implementation handles format transformation
-}
-```
+The message conversion system adapts between Vercel AI SDK format and SAP AI Core format. The `convertToSAPMessages()` function transforms prompt arrays, handling text content, images, tool calls, and tool results across different message formats.
 
 ### Strategy Pattern
 
-Different models may require different handling strategies:
-
-```typescript
-class SAPAIChatLanguageModel {
-  private getModelStrategy(modelId: string) {
-    if (modelId.startsWith("anthropic--")) {
-      return new AnthropicStrategy();
-    } else if (modelId.startsWith("gemini-")) {
-      return new GeminiStrategy();
-    } else {
-      return new OpenAIStrategy();
-    }
-  }
-}
-```
+Different AI models may require different handling strategies based on their specific requirements and formats. The implementation can adapt behavior based on model identifiers (e.g., `anthropic--*`, `gemini-*`, etc.).
 
 ## Performance Considerations
 
@@ -1047,58 +890,19 @@ class SAPAIChatLanguageModel {
 
 ### Monitoring and Observability
 
-```typescript
-// Request tracking
-const requestMetrics = {
-  totalRequests: 0,
-  successfulRequests: 0,
-  failedRequests: 0,
-  averageResponseTime: 0,
-  tokensUsed: 0,
-};
+Consider tracking:
 
-// Performance monitoring
-function trackRequest(startTime: number, success: boolean, tokens?: number) {
-  const duration = Date.now() - startTime;
-  requestMetrics.totalRequests++;
-
-  if (success) {
-    requestMetrics.successfulRequests++;
-    if (tokens) requestMetrics.tokensUsed += tokens;
-  } else {
-    requestMetrics.failedRequests++;
-  }
-
-  requestMetrics.averageResponseTime =
-    (requestMetrics.averageResponseTime + duration) / 2;
-}
-```
+- Request counts (total, successful, failed)
+- Response times and token usage
+- Error rates by status code
+- Authentication token refresh frequency
 
 ### Scalability Patterns
 
 1. **Horizontal Scaling**: Support for multiple instances
 2. **Load Balancing**: Distribute requests across deployments
 3. **Circuit Breaker**: Prevent cascade failures
-4. **Rate Limiting**: Client-side rate limiting to prevent 429s
-
-```typescript
-class RateLimiter {
-  private requests: number[] = [];
-
-  async acquire(): Promise<void> {
-    const now = Date.now();
-    this.requests = this.requests.filter((time) => now - time < 60000); // 1 minute window
-
-    if (this.requests.length >= this.maxRequestsPerMinute) {
-      const oldestRequest = Math.min(...this.requests);
-      const waitTime = 60000 - (now - oldestRequest);
-      await new Promise((resolve) => setTimeout(resolve, waitTime));
-    }
-
-    this.requests.push(now);
-  }
-}
-```
+4. **Rate Limiting**: Client-side rate limiting to prevent 429s (e.g., token bucket or sliding window algorithm)
 
 This architecture ensures the SAP AI Core Provider is robust, scalable, and maintainable while providing a seamless integration experience with the Vercel AI SDK.
 

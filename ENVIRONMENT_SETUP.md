@@ -33,8 +33,8 @@ AICORE_SERVICE_KEY={"serviceurls":{"AI_API_URL":"https://api.ai.prod.eu-central-
 With the environment variable set, the provider will automatically authenticate:
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
-import "dotenv/config";
 
 // Authentication is automatic via AICORE_SERVICE_KEY environment variable
 const provider = createSAPAIProvider();
