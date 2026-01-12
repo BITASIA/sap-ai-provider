@@ -83,7 +83,7 @@ const provider = createSAPAIProvider();
 - Provider creation is now synchronous (no `await` needed)
 - Authentication handled automatically by SAP AI SDK
 
-For detailed authentication setup instructions, see **[Environment Setup Guide](./ENVIRONMENT_SETUP.md#setting-up-aicore_service_key-v20)**.
+**For complete authentication setup instructions, environment variables, troubleshooting, and security best practices, see the [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
 
 #### 3. Update Code (Remove await)
 
@@ -257,62 +257,48 @@ const provider = createSAPAIProvider({
 
 ### 2.0.x Features
 
+V2.0 introduces several powerful features built on top of the official SAP AI SDK. For detailed API documentation and complete examples, see [API_REFERENCE.md](./API_REFERENCE.md).
+
 #### 1. SAP AI SDK Integration
 
-Full integration with the official SAP AI SDK for authentication and API communication:
+Full integration with `@sap-ai-sdk/orchestration` for authentication and API communication. Authentication is now automatic via `AICORE_SERVICE_KEY` environment variable or `VCAP_SERVICES` service binding.
 
 ```typescript
-// Automatic authentication via environment variable
-const provider = createSAPAIProvider();
-
-// Or with specific configuration
 const provider = createSAPAIProvider({
   resourceGroup: "production",
-  deploymentId: "d65d81e7c077e583",
+  deploymentId: "d65d81e7c077e583", // Optional - auto-resolved if omitted
 });
 ```
 
+**See:** [API_REFERENCE.md - SAPAIProviderSettings](./API_REFERENCE.md#sapaiprovidersettings)
+
 #### 2. Data Masking (DPI)
 
-Automatically anonymize or pseudonymize sensitive information using helper functions:
+Automatically anonymize or pseudonymize sensitive information (emails, phone numbers, names) using SAP's Data Privacy Integration:
 
 ```typescript
-import "dotenv/config"; // Load environment variables
-import {
-  createSAPAIProvider,
-  buildDpiMaskingProvider,
-} from "@mymediset/sap-ai-provider";
+import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
 
 const model = provider("gpt-4o", {
   masking: {
     masking_providers: [
       buildDpiMaskingProvider({
         method: "anonymization",
-        entities: [
-          "profile-email",
-          "profile-person",
-          {
-            type: "profile-phone",
-            replacement_strategy: { method: "constant", value: "REDACTED" },
-          },
-        ],
-        allowlist: ["SAP", "BTP"],
+        entities: ["profile-email", "profile-person", "profile-phone"],
       }),
     ],
   },
 });
 ```
 
+**See:** [API_REFERENCE.md - Data Masking](./API_REFERENCE.md#data-masking-dpi), [example-data-masking.ts](./examples/example-data-masking.ts)
+
 #### 3. Content Filtering
 
-Filter harmful content using Azure Content Safety or Llama Guard:
+Filter harmful content using Azure Content Safety or Llama Guard for input/output safety:
 
 ```typescript
-import "dotenv/config"; // Load environment variables
-import {
-  createSAPAIProvider,
-  buildAzureContentSafetyFilter,
-} from "@mymediset/sap-ai-provider";
+import { buildAzureContentSafetyFilter } from "@mymediset/sap-ai-provider";
 
 const provider = createSAPAIProvider({
   defaultSettings: {
@@ -322,8 +308,6 @@ const provider = createSAPAIProvider({
           buildAzureContentSafetyFilter("input", {
             hate: "ALLOW_SAFE",
             violence: "ALLOW_SAFE_LOW_MEDIUM",
-            selfHarm: "ALLOW_SAFE",
-            sexual: "ALLOW_SAFE",
           }),
         ],
       },
@@ -332,34 +316,29 @@ const provider = createSAPAIProvider({
 });
 ```
 
+**See:** [API_REFERENCE.md - Content Filtering](./API_REFERENCE.md#content-filtering)
+
 #### 4. Response Format Control
 
-Specify desired response format for structured outputs:
+Specify structured output formats including JSON schema for deterministic responses:
 
 ```typescript
-// Text response (default when no tools)
-const model1 = provider("gpt-4o", {
-  responseFormat: { type: "text" },
-});
-
 // JSON object response
-const model2 = provider("gpt-4o", {
+const model1 = provider("gpt-4o", {
   responseFormat: { type: "json_object" },
 });
 
-// JSON schema response (structured output)
-const model3 = provider("gpt-4o", {
+// JSON schema response (structured output with validation)
+const model2 = provider("gpt-4o", {
   responseFormat: {
     type: "json_schema",
     json_schema: {
       name: "user_profile",
-      description: "User profile data",
       schema: {
         type: "object",
         properties: {
           name: { type: "string" },
           age: { type: "number" },
-          email: { type: "string", format: "email" },
         },
         required: ["name"],
       },
@@ -369,17 +348,16 @@ const model3 = provider("gpt-4o", {
 });
 ```
 
+**See:** [API_REFERENCE.md - Response Format](./API_REFERENCE.md#response-format)
+
 #### 5. Default Settings
 
-Apply settings to all models created by a provider:
+Apply consistent settings across all models created by a provider instance:
 
 ```typescript
 const provider = createSAPAIProvider({
   defaultSettings: {
-    modelParams: {
-      temperature: 0.7,
-      maxTokens: 2000,
-    },
+    modelParams: { temperature: 0.7, maxTokens: 2000 },
     masking: {
       /* DPI config */
     },
@@ -387,56 +365,19 @@ const provider = createSAPAIProvider({
 });
 
 // All models inherit default settings
-const model1 = provider("gpt-4o"); // Has temperature=0.7, maxTokens=2000
-const model2 = provider("anthropic--claude-3.5-sonnet"); // Same defaults
-
-// Override per model
-const model3 = provider("gpt-4o", {
-  modelParams: {
-    temperature: 0.3, // Overrides default
-  },
+const model1 = provider("gpt-4o"); // temperature=0.7
+const model2 = provider("gpt-4o", {
+  modelParams: { temperature: 0.3 }, // Override per model
 });
 ```
 
-#### 6. Enhanced Streaming
+**See:** [API_REFERENCE.md - Default Settings](./API_REFERENCE.md#default-settings)
 
-Improved streaming support with better error handling:
+#### 6. Enhanced Streaming & Error Handling
 
-```typescript
-import "dotenv/config"; // Load environment variables
-import { streamText } from "ai";
+Improved streaming support with better error recovery and detailed error messages including request IDs and error locations for debugging.
 
-const result = streamText({
-  model: provider("gpt-4o"),
-  prompt: "Write a story",
-});
-
-for await (const textPart of result.textStream) {
-  process.stdout.write(textPart);
-}
-```
-
-#### 7. Improved Error Messages
-
-More detailed error information:
-
-```typescript
-import "dotenv/config"; // Load environment variables
-import { SAPAIError } from "@mymediset/sap-ai-provider";
-
-try {
-  await generateText({ model, prompt });
-} catch (error) {
-  if (error instanceof SAPAIError) {
-    console.error({
-      code: error.code,
-      message: error.message,
-      requestId: error.requestId,
-      location: error.location,
-    });
-  }
-}
-```
+**See:** [README.md - Streaming](./README.md#streaming), [API_REFERENCE.md - Error Handling](./API_REFERENCE.md#error-handling)
 
 ---
 

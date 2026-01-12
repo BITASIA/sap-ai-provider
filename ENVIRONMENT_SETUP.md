@@ -111,7 +111,7 @@ npm install dotenv
 Ensure your code includes:
 
 ```typescript
-import "dotenv/config";
+import "dotenv/config"; // Load environment variables
 ```
 
 **Problem: "Deployment not found" or 404 errors**
@@ -137,7 +137,7 @@ echo $env:AICORE_SERVICE_KEY
 Test your service key:
 
 ```typescript
-import "dotenv/config";
+import "dotenv/config"; // Load environment variables
 
 console.log("Service key loaded:", !!process.env.AICORE_SERVICE_KEY);
 ```

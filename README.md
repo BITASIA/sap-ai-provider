@@ -93,8 +93,15 @@ Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERV
 
 **Quick Setup:**
 
-1. Set `AICORE_SERVICE_KEY` environment variable with your service key JSON
-2. Create provider: `const provider = createSAPAIProvider()`
+```bash
+# Set environment variable with your SAP AI Core service key
+export AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"..."},"clientid":"...","clientsecret":"...","url":"..."}'
+```
+
+```typescript
+// Authentication is automatic
+const provider = createSAPAIProvider();
+```
 
 For complete setup instructions, authentication methods, troubleshooting, and security best practices, see the **[Environment Setup Guide](./ENVIRONMENT_SETUP.md)**.
 
@@ -357,19 +364,30 @@ try {
 }
 ```
 
-For complete error reference, status codes, troubleshooting steps, and advanced error handling patterns, see:
+**For complete error reference, status codes, and detailed troubleshooting:**
 
-- **[API Reference - Error Handling](./API_REFERENCE.md#error-handling)** - Error types and codes
+- **[API Reference - Error Handling](./API_REFERENCE.md#error-handling)** - Error types and error codes reference table
 - **[Troubleshooting Guide](./TROUBLESHOOTING.md)** - Detailed solutions for each error type
 
 ## Troubleshooting
 
-Common issues and error codes are documented in [API Reference: Error Codes](./API_REFERENCE.md#error-codes). Quick tips:
+**Quick Reference:**
 
-- Authentication (401): Check `AICORE_SERVICE_KEY` or `VCAP_SERVICES`
-- Model not found (404): Confirm tenant/region supports the model ID
-- Rate limit (429): Use retries/backoff; prefer streaming for long outputs
-- Streaming: Iterate `textStream` as shown; don’t mix `generateText` and `streamText` in one call
+- **Authentication (401)**: Check `AICORE_SERVICE_KEY` or `VCAP_SERVICES`
+- **Model not found (404)**: Confirm tenant/region supports the model ID
+- **Rate limit (429)**: Automatic retry with exponential backoff
+- **Streaming**: Iterate `textStream` correctly; don't mix `generateText` and `streamText`
+
+**For comprehensive troubleshooting, see [Troubleshooting Guide](./TROUBLESHOOTING.md)** with detailed solutions for:
+
+- [Authentication Failed (401)](./TROUBLESHOOTING.md#problem-authentication-failed-or-401-errors)
+- [Model Not Found (404)](./TROUBLESHOOTING.md#problem-404-modeldeployment-not-found)
+- [Rate Limit (429)](./TROUBLESHOOTING.md#problem-429-rate-limit-exceeded)
+- [Server Errors (500-504)](./TROUBLESHOOTING.md#problem-500502503504-server-errors)
+- [Streaming Issues](./TROUBLESHOOTING.md#streaming-issues)
+- [Tool Calling Problems](./TROUBLESHOOTING.md#tool-calling-issues)
+
+Error code reference table: [API Reference - Error Codes](./API_REFERENCE.md#error-codes)
 
 ## Performance
 
@@ -428,11 +446,11 @@ Version 2.0 introduces breaking changes for better integration with the official
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
 
 ## License
 
-Apache License 2.0 - see [LICENSE](LICENSE.md) for details.
+Apache License 2.0 - see [LICENSE](./LICENSE.md) for details.
 
 ## Support
 

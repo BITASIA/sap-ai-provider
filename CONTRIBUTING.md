@@ -32,7 +32,7 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 
 ## Any Contributions You Make Will Be Under the Apache License 2.0
 
-In short, when you submit code changes, your submissions are understood to be under the same [Apache License 2.0](LICENSE.md) that covers the project. Feel free to contact the maintainers if that's a concern.
+In short, when you submit code changes, your submissions are understood to be under the same [Apache License 2.0](./LICENSE.md) that covers the project. Feel free to contact the maintainers if that's a concern.
 
 ## Report Bugs Using GitHub's [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues)
 
