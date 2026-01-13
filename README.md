@@ -42,7 +42,7 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 - [Configuration Options](#configuration-options)
 - [Error Handling](#error-handling)
 - [Examples](#examples)
-- [Migration Guides (v1→v2, v2→v3)](#migration-from-v1)
+- [Migration Guides (v1→v2, v2→v3)](./MIGRATION_GUIDE.md)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -457,15 +457,7 @@ npx tsx examples/example-generate-text.ts
 
 **Note:** Examples require `AICORE_SERVICE_KEY` environment variable. See [Environment Setup](./ENVIRONMENT_SETUP.md) for configuration.
 
-## Migration from v1
-
-Version 2.0 introduces breaking changes for better integration with the official SAP AI SDK. For a complete migration guide with step-by-step instructions, common issues, and troubleshooting, see the [Migration Guide](./MIGRATION_GUIDE.md).
-
-**Key Changes:**
-
-- Provider creation is now synchronous (no `await` needed)
-- Authentication via `AICORE_SERVICE_KEY` environment variable (replaces `serviceKey` parameter)
-- Helper functions like `buildDpiMaskingProvider()` for easier configuration
+**Upgrading from v1 or v2?** See the [Migration Guide](./MIGRATION_GUIDE.md) for detailed instructions (v1→v2, v2→v3).
 
 ## Important Note
 
