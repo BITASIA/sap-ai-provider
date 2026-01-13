@@ -848,62 +848,19 @@ The Vercel AI SDK handles retry logic automatically based on the `isRetryable` f
 
 ### User-Facing Error Handling (v3.0.0+)
 
-**Breaking Change in v3.0.0:** The `SAPAIError` class has been removed. All errors now use standard Vercel AI SDK error types (`APICallError`, `LoadAPIKeyError`, etc.).
+This provider converts all SAP Orchestration errors to standard Vercel AI SDK error types:
 
-**Accessing SAP-specific error details:**
+- Authentication issues → `LoadAPIKeyError`
+- API/HTTP errors → `APICallError` with SAP metadata in `responseBody`
 
-```typescript
-import { generateText } from "ai";
-import { sapai } from "@mymediset/sap-ai-provider";
-import { APICallError } from "@ai-sdk/provider";
+**Breaking change in v3.0.0:** The custom `SAPAIError` class was removed to ensure full compatibility with the AI SDK ecosystem and enable automatic retry mechanisms.
 
-try {
-  const { text } = await generateText({
-    model: sapai("gpt-4"),
-    prompt: "Hello",
-  });
-} catch (error) {
-  if (error instanceof APICallError) {
-    console.error("Status:", error.statusCode);
-    console.error("Message:", error.message);
+**For implementation details and code examples:**
 
-    // Parse SAP-specific metadata from responseBody
-    const sapError = JSON.parse(error.responseBody ?? "{}") as {
-      error?: { request_id?: string; code?: string; location?: string };
-    };
-    console.error("SAP Request ID:", sapError.error?.request_id);
-    console.error("SAP Error Code:", sapError.error?.code);
-    console.error("SAP Location:", sapError.error?.location);
-  }
-}
-```
+- [API Reference - Error Handling Examples](./API_REFERENCE.md#error-handling-examples) - Complete examples with all error types
+- [Troubleshooting Guide](./TROUBLESHOOTING.md#parsing-sap-error-metadata-v300) - Quick reference and common issues
 
-**Migration from v2.x:**
-
-```typescript
-// v2.x (OLD)
-import { SAPAIError } from "@mymediset/sap-ai-provider";
-
-if (error instanceof SAPAIError) {
-  console.error(error.requestId, error.code);
-}
-
-// v3.x (NEW)
-import { APICallError } from "@ai-sdk/provider";
-
-if (error instanceof APICallError) {
-  const sapError = JSON.parse(error.responseBody ?? "{}") as {
-    error?: { request_id?: string; code?: string };
-  };
-  console.error(sapError.error?.request_id, sapError.error?.code);
-}
-```
-
-**For complete error handling reference** (error types, status codes, examples), see [API_REFERENCE.md - Error Handling](./API_REFERENCE.md#error-handling-reference).
-
-**For troubleshooting specific errors**, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
-
-**For v2→v3 migration**, see [MIGRATION_GUIDE.md - v2 to v3](./MIGRATION_GUIDE.md#v2-to-v3).
+**For v2→v3 migration**, see [MIGRATION_GUIDE.md - v2 to v3](./MIGRATION_GUIDE.md#version-2x-to-3x-breaking-changes).
 
 ## Type System
 

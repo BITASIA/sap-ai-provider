@@ -58,46 +58,26 @@ For a complete error code reference, see [API Reference - Error Codes](./API_REF
 
 ### Parsing SAP Error Metadata (v3.0.0+)
 
-**Breaking Change in v3.0.0:** The `SAPAIError` class has been removed. All errors now use standard Vercel AI SDK types (`APICallError`, `LoadAPIKeyError`, etc.).
+**v3.0.0 Breaking Change:** `SAPAIError` removed. Use `APICallError` from `@ai-sdk/provider`.
 
-**To access SAP-specific error details**, parse the `responseBody` field:
+**Quick example:**
 
 ```typescript
-import { generateText } from "ai";
-import { sapai } from "@mymediset/sap-ai-provider";
 import { APICallError } from "@ai-sdk/provider";
 
 try {
-  const { text } = await generateText({
-    model: sapai("gpt-4"),
-    prompt: "Hello",
-  });
+  const result = await generateText({ model, prompt });
 } catch (error) {
   if (error instanceof APICallError) {
-    // Standard error info
     console.error("Status:", error.statusCode);
-    console.error("Message:", error.message);
-
-    // SAP-specific metadata
-    const sapError = JSON.parse(error.responseBody ?? "{}") as {
-      error?: { request_id?: string; code?: string; location?: string };
-    };
-    console.error("SAP Request ID:", sapError.error?.request_id);
-    console.error("SAP Error Code:", sapError.error?.code);
-    console.error("SAP Location:", sapError.error?.location);
+    // Parse SAP metadata from error.responseBody
+    const sapError = JSON.parse(error.responseBody ?? "{}");
+    console.error("Request ID:", sapError.error?.request_id);
   }
 }
 ```
 
-**Available SAP metadata fields:**
-
-- `error.request_id` - Unique identifier for support escalation
-- `error.code` - SAP-specific error code
-- `error.message` - Detailed error description
-- `error.location` - Service component that failed
-- `error.target` - Target resource (if applicable)
-
-For v2→v3 migration, see [MIGRATION_GUIDE.md - v2 to v3](./MIGRATION_GUIDE.md#v2-to-v3).
+**For complete error handling examples and all SAP metadata fields**, see [API Reference - Error Handling Examples](./API_REFERENCE.md#error-handling-examples).
 
 ### Problem: 400 Bad Request
 
