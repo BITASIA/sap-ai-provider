@@ -37,4 +37,28 @@ jobs:
           npm version $VERSION --no-git-tag-version
       - run: npm ci
       - run: npm run build
-      - run: npm publish --provenance --access public
+      - name: Determine npm tag
+        id: tag
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          if [[ "$VERSION" =~ -alpha ]]; then
+            echo "tag=alpha" >> $GITHUB_OUTPUT
+            echo "Publishing as 'alpha' tag for version $VERSION"
+          elif [[ "$VERSION" =~ -beta ]]; then
+            echo "tag=beta" >> $GITHUB_OUTPUT
+            echo "Publishing as 'beta' tag for version $VERSION"
+          elif [[ "$VERSION" =~ -rc ]]; then
+            echo "tag=next" >> $GITHUB_OUTPUT
+            echo "Publishing as 'next' tag for release candidate $VERSION"
+          elif [[ "$VERSION" =~ -canary ]]; then
+            echo "tag=canary" >> $GITHUB_OUTPUT
+            echo "Publishing as 'canary' tag for version $VERSION"
+          elif [[ "$VERSION" =~ - ]]; then
+            echo "tag=next" >> $GITHUB_OUTPUT
+            echo "Publishing as 'next' tag for prerelease version $VERSION"
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "Publishing as 'latest' tag for stable version $VERSION"
+          fi
+      - name: Publish to npm
+        run: npm publish --provenance --access public --tag ${{ steps.tag.outputs.tag }}
