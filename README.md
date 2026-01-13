@@ -2,6 +2,8 @@
 
 [![npm](https://img.shields.io/npm/v/@mymediset/sap-ai-provider/latest?label=npm&color=blue)](https://www.npmjs.com/package/@mymediset/sap-ai-provider)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![Vercel AI SDK](https://img.shields.io/badge/Vercel%20AI%20SDK-6.0+-black.svg)](https://sdk.vercel.ai/docs)
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. Built on top of the official **@sap-ai-sdk/orchestration** package, this provider enables you to use SAP's enterprise-grade AI models through the familiar Vercel AI SDK interface.
 
@@ -132,6 +134,8 @@ The `sapai` export provides a convenient default provider instance with automati
 
 ## Authentication
 
+> **📚 Complete Setup Guide:** For detailed authentication configuration, troubleshooting, and advanced scenarios, see the [Environment Setup Guide](./ENVIRONMENT_SETUP.md).
+
 Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERVICE_KEY` environment variable.
 
 **Quick Setup:**
@@ -141,7 +145,7 @@ Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERV
 export AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"..."},...}'
 ```
 
-**→ For complete setup, authentication methods, and troubleshooting, see [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
+**For SAP BTP deployment, VCAP_SERVICES, and troubleshooting, see the [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
 
 ## Basic Usage
 

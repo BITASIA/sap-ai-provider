@@ -18,14 +18,57 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Component Architecture](#component-architecture)
-- [Request/Response Flow](#requestresponse-flow)
-- [Authentication System](#authentication-system)
-- [Error Handling](#error-handling)
-- [Type System](#type-system)
-- [Integration Patterns](#integration-patterns)
-- [Performance Considerations](#performance-considerations)
+1. [Overview](#overview)
+   - [High-Level Architecture](#high-level-architecture)
+   - [Component Interaction Flow](#component-interaction-flow)
+   - [Key Design Principles](#key-design-principles)
+
+2. [Component Architecture](#component-architecture)
+   - [Component Interaction Map](#component-interaction-map)
+   - [Detailed Component Flow](#detailed-component-flow)
+   - [Component Responsibilities](#component-responsibilities)
+     - [SAPAIProvider](#sapaiprovider)
+     - [SAPAIChatLanguageModel](#sapaichatlanguagemodel)
+     - [Authentication System](#authentication-system-1)
+     - [Message Conversion](#message-conversion)
+
+3. [Request/Response Flow](#requestresponse-flow)
+   - [Standard Text Generation (Complete Flow)](#standard-text-generation-complete-flow)
+   - [Streaming Text Generation (SSE Flow)](#streaming-text-generation-sse-flow)
+   - [Orchestration v2 Endpoint](#orchestration-v2-endpoint)
+   - [Request Structure (v2)](#request-structure-v2)
+   - [Response Structure (v2)](#response-structure-v2)
+   - [Templating and Tools (v2)](#templating-and-tools-v2)
+   - [Data Masking Module (v2)](#data-masking-module-v2)
+   - [Tool Calling Flow](#tool-calling-flow)
+   - [Data Masking Flow (SAP DPI Integration)](#data-masking-flow-sap-dpi-integration)
+
+4. [Authentication System](#authentication-system)
+   - [OAuth2 Authentication Flow](#oauth2-authentication-flow)
+   - [OAuth2 Flow](#oauth2-flow)
+
+5. [Error Handling](#error-handling)
+   - [Error Conversion Architecture](#error-conversion-architecture)
+   - [Error Classification](#error-classification)
+   - [Retry Mechanism](#retry-mechanism)
+   - [User-Facing Error Handling (v3.0.0+)](#user-facing-error-handling-v300)
+
+6. [Type System](#type-system)
+   - [Model Configuration Types](#model-configuration-types)
+   - [Request/Response Schemas](#requestresponse-schemas)
+
+7. [Integration Patterns](#integration-patterns)
+   - [Provider Pattern](#provider-pattern)
+   - [Adapter Pattern](#adapter-pattern)
+   - [Strategy Pattern](#strategy-pattern)
+
+8. [Performance Considerations](#performance-considerations)
+   - [Request Optimization](#request-optimization)
+   - [Memory Management](#memory-management)
+   - [Monitoring and Observability](#monitoring-and-observability)
+   - [Scalability Patterns](#scalability-patterns)
+
+9. [See Also](#see-also)
 
 ## Overview
 
