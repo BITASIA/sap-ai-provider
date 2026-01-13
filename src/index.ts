@@ -94,15 +94,28 @@ export type { OrchestrationErrorResponse } from "./sap-ai-error";
  */
 export type {
   OrchestrationModuleConfig,
+  OrchestrationConfigRef,
   ChatCompletionRequest,
   PromptTemplatingModule,
   GroundingModule,
   TranslationModule,
+  TranslationInputParameters,
+  TranslationOutputParameters,
+  TranslationApplyToCategory,
+  DocumentTranslationApplyToSelector,
+  TranslationTargetLanguage,
   LlmModelParams,
   LlmModelDetails,
   ChatCompletionTool,
   FunctionObject,
 } from "./types/completion-request";
+
+/**
+ * Utility functions from SAP AI SDK.
+ *
+ * @see SAP AI SDK documentation for detailed usage.
+ */
+export { isConfigReference } from "./types/completion-request";
 
 /**
  * Advanced SAP AI SDK types for message and response handling.
