@@ -68,8 +68,7 @@ try {
 }
 ```
 
-> **Setup:** Create a `.env` file with your `AICORE_SERVICE_KEY`. You can copy from `.env.example`: `cp .env.example .env`  
-> **Full Setup Guide:** See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) for detailed authentication configuration.
+> **Note:** Requires `AICORE_SERVICE_KEY` environment variable. See [Environment Setup](./ENVIRONMENT_SETUP.md) for configuration.
 
 ## Quick Reference
 
@@ -265,11 +264,14 @@ This provider supports all models available through SAP AI Core Orchestration se
 
 - **OpenAI**: gpt-4o, gpt-4o-mini, gpt-4.1, o1, o3 (recommended for multi-tool apps)
 - **Anthropic Claude**: claude-3.5-sonnet, claude-4-opus
-- **Google Gemini**: gemini-2.5-pro, gemini-2.0-flash (⚠️ 1 tool limit)
+- **Google Gemini**: gemini-2.5-pro, gemini-2.0-flash
+
+⚠️ **Important:** Google Gemini models have a 1 tool limit per request.
+
 - **Amazon Nova**: nova-pro, nova-lite
 - **Open Source**: mistralai-mistral-large, llama3.1-70b
 
-**Note:** Model availability depends on your SAP AI Core tenant configuration, region, and subscription.
+> **Note:** Model availability depends on your SAP AI Core tenant configuration, region, and subscription.
 
 **To discover available models in your environment:**
 
@@ -286,6 +288,8 @@ The following helper functions are exported by this package for convenient confi
 ### Tool Calling
 
 > **Note on Terminology:** This documentation uses "tool calling" (Vercel AI SDK convention), equivalent to "function calling" in OpenAI documentation. Both terms refer to the same capability of models invoking external functions.
+
+📖 **Complete guide:** [API Reference - Tool Calling](./API_REFERENCE.md#tool-calling-function-calling)
 
 ```typescript
 import "dotenv/config"; // Load environment variables
@@ -318,7 +322,7 @@ const result = await generateText({
 console.log(result.text);
 ```
 
-> Known limitations: Gemini models currently support only one function tool per request. For multiple tools, use OpenAI models (e.g., `gpt-4o`) or consolidate tools.
+⚠️ **Important:** Gemini models support only 1 tool per request. For multi-tool applications, use GPT-4o, Claude, or Amazon Nova models. See [API Reference - Tool Calling](./API_REFERENCE.md#tool-calling-function-calling) for complete model comparison.
 
 ### Multi-modal Input (Images)
 
@@ -488,7 +492,7 @@ The `examples/` directory contains complete, runnable examples demonstrating key
 npx tsx examples/example-generate-text.ts
 ```
 
-**Note:** Examples require `AICORE_SERVICE_KEY` environment variable. See [Environment Setup](./ENVIRONMENT_SETUP.md) for configuration.
+> **Note:** Examples require `AICORE_SERVICE_KEY` environment variable. See [Environment Setup](./ENVIRONMENT_SETUP.md) for configuration.
 
 ## Migration Guides
 

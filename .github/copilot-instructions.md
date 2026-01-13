@@ -85,7 +85,7 @@ npm run validate-docs && npm run type-check && npm run test && npm run test:node
 
 - **Examples location**: `/examples` directory contains 6 example files
 - **Running examples**: `npx tsx examples/example-simple-chat-completion.ts`
-- **LIMITATION**: Examples require `AICORE_SERVICE_KEY` environment variable to work
+  ⚠️ **Important:** Examples require `AICORE_SERVICE_KEY` environment variable to work
 - **Without service key**: Examples will fail with clear error message about missing environment variable
 - **With service key**: Create `.env` file with `AICORE_SERVICE_KEY=<your-service-key-json>`
 

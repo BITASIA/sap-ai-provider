@@ -90,6 +90,8 @@ The SAP AI Core Provider is designed as a bridge between the Vercel AI SDK and S
 
 ### High-Level Architecture
 
+The diagram below illustrates the complete architecture of the SAP AI Provider, showing how it integrates your application with SAP AI Core through the Vercel AI SDK. The provider layer handles OAuth2 authentication, message transformation between AI SDK and SAP formats, and error handling. SAP AI Core routes requests to various AI models (OpenAI GPT, Anthropic Claude, Google Gemini, Amazon Nova, and open-source models).
+
 ```mermaid
 graph TB
     subgraph "Application Layer"
@@ -149,6 +151,8 @@ graph TB
 
 ### Component Interaction Flow
 
+This sequence diagram shows the complete request lifecycle from your application through the AI SDK and provider to SAP AI Core. The flow is divided into four phases: Authentication (OAuth2 token retrieval), Message Transformation (converting AI SDK format to SAP format), API Request & Response (communication with SAP AI Core and the AI model), and Response Processing (parsing and converting back to AI SDK format).
+
 ```mermaid
 sequenceDiagram
     participant App as Application
@@ -207,6 +211,8 @@ sequenceDiagram
 ## Component Architecture
 
 ### Component Interaction Map
+
+This diagram details the responsibilities of each major component in the provider architecture, including the SAPAIProvider (OAuth2 management, configuration), SAPAIChatLanguageModel (request/response handling, tool calls), Authentication System (token management), Message Transformer (format conversion), API Client (HTTP communication), and Error Handling system.
 
 ```mermaid
 graph TB
@@ -294,6 +300,8 @@ src/
 
 ### Standard Text Generation (Complete Flow)
 
+This detailed sequence diagram shows the complete flow for a standard text generation request, including all steps from application call through authentication, message transformation, SAP AI Core API communication, and response processing back to the application.
+
 ```mermaid
 sequenceDiagram
     participant App as Application
@@ -373,6 +381,8 @@ sequenceDiagram
 ```
 
 ### Streaming Text Generation (SSE Flow)
+
+This diagram illustrates the streaming text generation flow using Server-Sent Events (SSE). Unlike standard generation, streaming returns partial responses incrementally as the AI model generates content, enabling real-time display of results to users.
 
 ```mermaid
 sequenceDiagram
@@ -631,6 +641,8 @@ modules: {
 
 ### Tool Calling Flow
 
+This diagram shows how tool calling (function calling) works. When the AI model needs to call a tool, it returns structured tool call requests. Your application executes the tools and provides results back, which the model uses to generate the final response.
+
 ```mermaid
 sequenceDiagram
     participant App as Application
@@ -700,6 +712,8 @@ sequenceDiagram
 
 ### Data Masking Flow (SAP DPI Integration)
 
+This diagram illustrates how SAP Data Privacy Integration (DPI) works. When enabled, sensitive data in prompts is automatically masked before being sent to AI models, and the masked entities are tracked and unmasked in responses.
+
 ```mermaid
 sequenceDiagram
     participant App as Application
@@ -746,6 +760,8 @@ sequenceDiagram
 ## Authentication System
 
 ### OAuth2 Authentication Flow
+
+This diagram shows how OAuth2 authentication works with token caching. The provider checks for a valid cached token first; if expired or missing, it requests a new token using client credentials, caches it, and uses it for API requests.
 
 ```mermaid
 sequenceDiagram

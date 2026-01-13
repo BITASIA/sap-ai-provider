@@ -455,7 +455,7 @@ If you need to rollback to a previous version:
 npm install @mymediset/sap-ai-provider@2.1.0
 ```
 
-**Note:** Version 2.x exports `SAPAIError` class for error handling.
+> **Note:** Version 2.x exports `SAPAIError` class for error handling.
 
 ### Rollback to 1.x
 
@@ -463,7 +463,7 @@ npm install @mymediset/sap-ai-provider@2.1.0
 npm install @mymediset/sap-ai-provider@1.0.3 ai@5
 ```
 
-**Note:** Version 1.x uses a different authentication approach and async provider creation.
+> **Note:** Version 1.x uses a different authentication approach and async provider creation.
 
 ### Verify Installation
 

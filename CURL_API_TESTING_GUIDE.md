@@ -38,7 +38,7 @@ Complete OAuth2 authentication → API call → Tool calling flow.
 
 Service key contains: `clientid`, `clientsecret`, `url` (auth server), `serviceurls.AI_API_URL`
 
-⚠️ Never commit credentials. Use environment variables.
+⚠️ **Important:** Never commit credentials. Use environment variables.
 
 ### Step 2: Get OAuth Token
 
@@ -80,7 +80,7 @@ echo "✅ OAuth token obtained"
 
 **Endpoint:** `https://{AI_API_URL}/v2/inference/deployments/{DEPLOYMENT_ID}/v2/completion`
 
-⚠️ Note the `/v2` appears **twice** (base path + completion endpoint).
+> **Note:** The `/v2` appears **twice** (base path + completion endpoint).
 
 ```bash
 # Configuration
@@ -155,6 +155,8 @@ The SAP AI Core v2 API uses a modular configuration structure with `prompt` (mes
 ---
 
 ## Tool Calling Example
+
+For complete tool calling documentation including all models, parallel execution, error handling, and best practices, see [API Reference - Tool Calling](./API_REFERENCE.md#tool-calling-function-calling).
 
 ### ⚠️ Model-Specific Limitations
 

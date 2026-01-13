@@ -125,7 +125,7 @@ try {
 
 The SAP AI Core Provider supports all models available through SAP AI Core's Orchestration service via the `@sap-ai-sdk/orchestration` package.
 
-**Note:** The models listed below are representative examples. Actual model availability depends on your SAP AI Core tenant configuration, region, and subscription. Refer to your SAP AI Core configuration or the [SAP AI Core documentation](https://help.sap.com/docs/ai-core) for the definitive list of models available in your environment.
+> **Note:** The models listed below are representative examples. Actual model availability depends on your SAP AI Core tenant configuration, region, and subscription. Refer to your SAP AI Core configuration or the [SAP AI Core documentation](https://help.sap.com/docs/ai-core) for the definitive list of models available in your environment.
 
 **About Model Availability:**
 
@@ -254,6 +254,263 @@ Quick reference for selecting models based on your application requirements:
 | **Mini/Lite** (GPT-4o-mini, Gemini Flash, Nova-lite) | ⚡⚡⚡   | ⭐⭐⭐     | 💰💰     | Production apps, chat, summaries |
 | **Standard** (GPT-4o, Claude 3.5, Gemini Pro)        | ⚡⚡     | ⭐⭐⭐⭐   | 💰💰💰   | Complex reasoning, analysis      |
 | **Premium** (Claude 4 Opus, GPT-4.1, o3)             | ⚡       | ⭐⭐⭐⭐⭐ | 💰💰💰💰 | Research, critical decisions     |
+
+---
+
+## Tool Calling (Function Calling)
+
+Tool calling enables AI models to invoke functions and use external tools during text generation. This is essential for building agentic AI applications that can perform actions like database queries, API calls, calculations, or data retrieval.
+
+### Overview
+
+When you provide tools to the model, it can decide to call one or more tools based on the conversation context. The provider handles:
+
+- Converting tool definitions to SAP AI Core format
+- Parsing tool call responses from the AI model
+- Managing multi-turn conversations with tool results
+- Handling parallel tool calls (model-dependent)
+
+### Basic Tool Calling Example
+
+```typescript
+import { generateText } from "ai";
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+import { z } from "zod";
+
+const provider = createSAPAIProvider();
+
+const result = await generateText({
+  model: provider("gpt-4o"),
+  prompt: "What's the weather in Tokyo and 5+3?",
+  tools: {
+    getWeather: {
+      description: "Get weather for a city",
+      parameters: z.object({
+        city: z.string().describe("City name"),
+      }),
+      execute: async ({ city }) => {
+        // Your implementation
+        return { temp: 72, conditions: "sunny" };
+      },
+    },
+    calculator: {
+      description: "Perform calculations",
+      parameters: z.object({
+        expression: z.string().describe("Math expression"),
+      }),
+      execute: async ({ expression }) => {
+        return { result: eval(expression) };
+      },
+    },
+  },
+});
+
+console.log(result.text); // "It's sunny and 72°F in Tokyo. 5+3 equals 8."
+console.log(result.toolCalls); // Array of tool invocations
+console.log(result.toolResults); // Array of tool results
+```
+
+### Model-Specific Tool Limitations
+
+⚠️ **Important:** Not all models support tool calling equally:
+
+| Model Family   | Tool Support | Max Tools  | Parallel Calls | Notes                                   |
+| -------------- | ------------ | ---------- | -------------- | --------------------------------------- |
+| GPT-4o/4.1     | ✅ Full      | Unlimited  | ✅ Yes         | Recommended for multi-tool applications |
+| GPT-4o-mini    | ✅ Full      | Unlimited  | ✅ Yes         | Cost-effective with full tool support   |
+| Claude 3.5/4   | ✅ Full      | Unlimited  | ✅ Yes         | Excellent tool calling accuracy         |
+| Amazon Nova    | ✅ Full      | Unlimited  | ✅ Yes         | Full support across all Nova variants   |
+| **Gemini 1.5** | ⚠️ Limited   | **1 only** | ❌ No          | Single tool per request limitation      |
+| **Gemini 2.0** | ⚠️ Limited   | **1 only** | ❌ No          | Single tool per request limitation      |
+| Llama 3.1      | ✅ Full      | Unlimited  | ⚠️ Limited     | Varies by deployment                    |
+| Mistral        | ✅ Full      | Unlimited  | ✅ Yes         | Good tool calling support               |
+| o1/o3          | ⚠️ Limited   | Limited    | ❌ No          | Reasoning models have tool restrictions |
+
+**Key Takeaway:** For applications requiring multiple tools, use **GPT-4o**, **Claude**, or **Amazon Nova** models. Avoid Gemini for multi-tool scenarios.
+
+### Tool Definition Format
+
+Tools are defined using Zod schemas (recommended) or JSON Schema:
+
+```typescript
+import { z } from "zod";
+
+// Zod schema (recommended)
+const weatherTool = {
+  description: "Get current weather for a location",
+  parameters: z.object({
+    city: z.string().describe("City name"),
+    units: z.enum(["celsius", "fahrenheit"]).optional(),
+  }),
+  execute: async ({ city, units }) => {
+    // Implementation
+  },
+};
+
+// JSON Schema (alternative)
+const calculatorTool = {
+  type: "function",
+  function: {
+    name: "calculator",
+    description: "Perform mathematical calculations",
+    parameters: {
+      type: "object",
+      properties: {
+        expression: {
+          type: "string",
+          description: "Math expression to evaluate",
+        },
+      },
+      required: ["expression"],
+    },
+  },
+  execute: async (params) => {
+    // Implementation
+  },
+};
+```
+
+### Parallel Tool Calls
+
+Some models (GPT-4o, Claude, Amazon Nova) can call multiple tools simultaneously:
+
+```typescript
+const result = await generateText({
+  model: provider("gpt-4o"),
+  prompt: "What's the weather in Tokyo, London, and Paris?",
+  tools: { getWeather },
+  modelParams: {
+    parallel_tool_calls: true, // Enable parallel execution
+  },
+});
+
+// Model can call getWeather 3 times in parallel
+```
+
+⚠️ **Important:** Set `parallel_tool_calls: false` when using Gemini models or when tool execution order matters.
+
+### Multi-Turn Tool Conversations
+
+The AI SDK automatically handles multi-turn conversations when tools are involved:
+
+```typescript
+const result = await generateText({
+  model: provider("gpt-4o"),
+  messages: [
+    { role: "user", content: "Book a flight to Paris" },
+  ],
+  tools: {
+    searchFlights: {
+      description: "Search for available flights",
+      parameters: z.object({
+        destination: z.string(),
+        date: z.string(),
+      }),
+      execute: async ({ destination, date }) => {
+        return { flights: [...] };
+      },
+    },
+    bookFlight: {
+      description: "Book a specific flight",
+      parameters: z.object({
+        flightId: z.string(),
+      }),
+      execute: async ({ flightId }) => {
+        return { confirmation: "ABC123" };
+      },
+    },
+  },
+});
+
+// Conversation flow:
+// 1. User: "Book a flight to Paris"
+// 2. Model calls: searchFlights({ destination: "Paris", date: "..." })
+// 3. Model receives: { flights: [...] }
+// 4. Model calls: bookFlight({ flightId: "..." })
+// 5. Model receives: { confirmation: "ABC123" }
+// 6. Model responds: "Your flight is booked. Confirmation: ABC123"
+```
+
+### Error Handling with Tools
+
+Handle tool execution errors gracefully:
+
+```typescript
+const result = await generateText({
+  model: provider("gpt-4o"),
+  prompt: "What's the weather?",
+  tools: {
+    getWeather: {
+      description: "Get weather",
+      parameters: z.object({ city: z.string() }),
+      execute: async ({ city }) => {
+        try {
+          const response = await fetch(`https://api.weather.com/${city}`);
+          if (!response.ok) {
+            throw new Error(`Weather API error: ${response.status}`);
+          }
+          return await response.json();
+        } catch (error) {
+          // Return error message that the model can understand
+          return {
+            error: true,
+            message: `Failed to get weather: ${error.message}`,
+          };
+        }
+      },
+    },
+  },
+});
+```
+
+### Streaming with Tools
+
+Tool calls work with streaming responses:
+
+```typescript
+const result = await streamText({
+  model: provider("gpt-4o"),
+  prompt: "Calculate 5+3 and tell me about it",
+  tools: { calculator },
+});
+
+for await (const part of result.textStream) {
+  process.stdout.write(part); // Stream text as it's generated
+}
+
+console.log(result.toolCalls); // Available after stream completes
+```
+
+### Advanced: Tool Choice Control
+
+Control when the model should use tools:
+
+```typescript
+const result = await generateText({
+  model: provider("gpt-4o"),
+  prompt: "What's 5+3?",
+  tools: { calculator },
+  toolChoice: "required", // Force tool usage
+  // toolChoice: "auto" // (default) Let model decide
+  // toolChoice: "none" // Disable tools for this request
+});
+```
+
+### Best Practices
+
+1. **Model Selection:** Use GPT-4o, Claude, or Amazon Nova for multi-tool applications
+2. **Tool Descriptions:** Write clear, specific descriptions of what each tool does
+3. **Parameter Schemas:** Use descriptive field names and include descriptions
+4. **Error Handling:** Return error objects that models can interpret, not just throw exceptions
+5. **Tool Naming:** Use camelCase names (e.g., `getWeather`, not `get_weather`)
+6. **Parallel Calls:** Enable only when tool execution order doesn't matter
+7. **Testing:** Test with Gemini to ensure your app works with the 1-tool limitation
+
+### Related Documentation
+
+- [CURL_API_TESTING_GUIDE.md - Tool Calling Examples](./CURL_API_TESTING_GUIDE.md#tool-calling-example) - Direct API testing
+- [ARCHITECTURE.md - Tool Calling Flow](./ARCHITECTURE.md#tool-calling-flow) - Internal implementation details
+- [Vercel AI SDK - Tool Calling Docs](https://sdk.vercel.ai/docs/ai-sdk-core/tools-and-tool-calling) - Upstream documentation
 
 ---
 
@@ -408,7 +665,7 @@ Note: Many parameters are model/provider-specific. Some models may ignore or onl
 
 SAP BTP service key structure.
 
-**Note:** In v2.0+, the service key is provided via the `AICORE_SERVICE_KEY` environment variable (as a JSON string), not as a parameter to `createSAPAIProvider()`.
+> **Note:** In v2.0+, the service key is provided via the `AICORE_SERVICE_KEY` environment variable (as a JSON string), not as a parameter to `createSAPAIProvider()`.
 
 **Properties:**
 
