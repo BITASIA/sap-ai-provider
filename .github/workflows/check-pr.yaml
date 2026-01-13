@@ -108,7 +108,7 @@ jobs:
         run: npm ci
       - name: Build package
         run: npm run build
-      - name: Simulate npm publish (dry run)
+      - name: Simulate npm publish
         run: npm publish --dry-run
       - name: Check publishable files
         run: |
