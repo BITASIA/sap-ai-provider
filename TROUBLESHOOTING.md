@@ -111,7 +111,7 @@ try {
 }
 ```
 
-**For complete error handling examples and all SAP metadata fields**, see [API Reference - Error Handling Examples](./API_REFERENCE.md#error-handling-examples).
+**For complete error handling with all error properties and SAP metadata fields**, see [API Reference - Error Handling Examples](./API_REFERENCE.md#error-handling-examples).
 
 ### Problem: 400 Bad Request
 

@@ -134,18 +134,15 @@ The `sapai` export provides a convenient default provider instance with automati
 
 ## Authentication
 
-> **📚 Complete Setup Guide:** For detailed authentication configuration, troubleshooting, and advanced scenarios, see the [Environment Setup Guide](./ENVIRONMENT_SETUP.md).
-
 Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERVICE_KEY` environment variable.
 
 **Quick Setup:**
 
-```bash
-# Set environment variable
-export AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"..."},...}'
-```
+1. Create a `.env` file: `cp .env.example .env`
+2. Add your SAP AI Core service key JSON to `AICORE_SERVICE_KEY`
+3. Import in code: `import "dotenv/config";`
 
-**For SAP BTP deployment, VCAP_SERVICES, and troubleshooting, see the [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
+**For complete setup instructions, SAP BTP deployment, troubleshooting, and advanced scenarios, see the [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
 
 ## Basic Usage
 
@@ -364,7 +361,7 @@ For complete configuration reference including all available options, types, and
 
 The provider uses standard Vercel AI SDK error types for consistent error handling.
 
-**Basic Error Handling:**
+**Quick Example:**
 
 ```typescript
 import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
@@ -379,21 +376,17 @@ try {
     console.error("Authentication issue:", error.message);
   } else if (error instanceof APICallError) {
     console.error("API error:", error.statusCode, error.message);
-
-    // Parse SAP-specific metadata from responseBody
-    const sapError = JSON.parse(error.responseBody ?? "{}") as {
-      error?: { request_id?: string; code?: string };
-    };
-    console.error("SAP Request ID:", sapError.error?.request_id);
-    console.error("SAP Error Code:", sapError.error?.code);
+    // SAP-specific metadata in responseBody
+    const sapError = JSON.parse(error.responseBody ?? "{}");
+    console.error("Request ID:", sapError.error?.request_id);
   }
 }
 ```
 
 **Complete reference:**
 
-- **[API Reference - Error Handling](./API_REFERENCE.md#error-handling-examples)** - Detailed error handling with SAP error parsing
-- **[API Reference - HTTP Status Codes](./API_REFERENCE.md#http-status-code-reference)** - Complete status code reference table
+- **[API Reference - Error Handling](./API_REFERENCE.md#error-handling-examples)** - Complete examples with all error properties
+- **[API Reference - HTTP Status Codes](./API_REFERENCE.md#http-status-code-reference)** - Status code reference table
 - **[Troubleshooting Guide](./TROUBLESHOOTING.md)** - Detailed solutions for each error type
 
 ## Troubleshooting
@@ -414,7 +407,7 @@ try {
 - [Streaming Issues](./TROUBLESHOOTING.md#streaming-issues)
 - [Tool Calling Problems](./TROUBLESHOOTING.md#tool-calling-issues)
 
-Error code reference table: [API Reference - Error Codes](./API_REFERENCE.md#error-codes)
+Error code reference table: [API Reference - HTTP Status Codes](./API_REFERENCE.md#http-status-code-reference)
 
 ## Performance
 

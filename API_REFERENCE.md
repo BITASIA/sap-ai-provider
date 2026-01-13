@@ -435,6 +435,30 @@ Quick reference for choosing the right model for your use case:
 - **Maximum context?** → Use Gemini (32k tokens)
 - **Open source?** → Use Llama or Mistral
 
+### Model Selection Guide by Use Case
+
+Quick reference for selecting models based on your application requirements:
+
+| Use Case                      | Recommended Models                            | Avoid                         | Notes                                |
+| ----------------------------- | --------------------------------------------- | ----------------------------- | ------------------------------------ |
+| **Multi-tool applications**   | GPT-4o, GPT-4.1, Claude 3.5+, Amazon Nova     | Gemini (all versions)         | Gemini limited to 1 tool per request |
+| **Vision + multi-modal**      | GPT-4o, GPT-4.1, Gemini 2.0, Claude 3.5+      | Llama, o1/o3 reasoning models | Best image understanding             |
+| **Cost-effective production** | GPT-4o-mini, Gemini 2.0 Flash, Claude 3 Haiku | GPT-4.1, Claude 4 Opus        | Balance of quality and cost          |
+| **Long context (>8k tokens)** | Gemini 1.5/2.0 (32k), GPT-4o/4.1 (16k)        | Older GPT-4, Amazon models    | Check token limits                   |
+| **Reasoning-heavy tasks**     | o1, o3, Claude 4 Opus, GPT-4.1                | Fast/Mini variants            | Slower but higher quality            |
+| **Real-time streaming**       | GPT-4o-mini, Gemini Flash, Claude Haiku       | o1/o3 reasoning models        | Optimized for low latency            |
+| **Open-source/self-hosted**   | Llama 3.1, Mistral Large                      | Proprietary models            | Deployment flexibility               |
+| **Enterprise compliance**     | Amazon Nova, Claude 4, GPT-4.1                | Community models              | Better audit trails                  |
+
+### Performance vs Quality Trade-offs
+
+| Model Tier                                           | Speed    | Quality    | Cost     | Best For                         |
+| ---------------------------------------------------- | -------- | ---------- | -------- | -------------------------------- |
+| **Nano/Micro** (GPT-4.1-nano, Nova-micro)            | ⚡⚡⚡⚡ | ⭐⭐       | 💰       | Simple classification, keywords  |
+| **Mini/Lite** (GPT-4o-mini, Gemini Flash, Nova-lite) | ⚡⚡⚡   | ⭐⭐⭐     | 💰💰     | Production apps, chat, summaries |
+| **Standard** (GPT-4o, Claude 3.5, Gemini Pro)        | ⚡⚡     | ⭐⭐⭐⭐   | 💰💰💰   | Complex reasoning, analysis      |
+| **Premium** (Claude 4 Opus, GPT-4.1, o3)             | ⚡       | ⭐⭐⭐⭐⭐ | 💰💰💰💰 | Research, critical decisions     |
+
 ---
 
 ### `DpiEntities`

@@ -7,174 +7,190 @@ Complete guide for setting up authentication and environment configuration for t
 
 ## Table of Contents
 
-- [Setting up AICORE_SERVICE_KEY (v2.0+)](#setting-up-aicore_service_key-v20)
-- [Authentication Methods](#authentication-methods)
-- [On SAP BTP (Cloud Foundry)](#on-sap-btp-cloud-foundry)
+- [Quick Setup (Local Development)](#quick-setup-local-development)
+- [SAP BTP Deployment](#sap-btp-deployment)
+- [Advanced Configuration](#advanced-configuration)
 - [Troubleshooting](#troubleshooting)
-- [Security Note](#security-note)
-- [Related Documentation](#related-documentation)
+- [Security Best Practices](#security-best-practices)
 
-## Setting up AICORE_SERVICE_KEY (v2.0+)
+---
 
-Starting with version 2.0, the SAP AI provider uses the **SAP AI SDK** for authentication, which automatically handles credentials from environment variables or SAP BTP service bindings.
+## Quick Setup (Local Development)
 
-### 1. Create a .env file
+**For v2.0+**, authentication uses the `AICORE_SERVICE_KEY` environment variable (changed from `SAP_AI_SERVICE_KEY` in v1.x).
 
-Create a `.env` file in your project root (or copy from `.env.example`):
+### Step 1: Get Your Service Key
+
+1. Log into SAP BTP Cockpit
+2. Navigate to your subaccount → AI Core service instance
+3. Create or view a service key
+4. Copy the complete JSON
+
+### Step 2: Configure Environment
+
+Create a `.env` file in your project root:
 
 ```bash
 cp .env.example .env
 ```
 
-Then edit `.env` with your actual service key:
+Add your service key:
 
 ```bash
 # .env
-AICORE_SERVICE_KEY='{
-  "serviceurls": {
-    "AI_API_URL": "https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com"
-  },
-  "appname": "your-app-name",
-  "clientid": "your-client-id",
-  "clientsecret": "your-client-secret",
-  "identityzone": "your-identity-zone",
-  "identityzoneid": "your-identity-zone-id",
-  "url": "https://your-auth-url.authentication.region.hana.ondemand.com",
-  "credential-type": "binding-secret"
-}'
+AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"https://..."},"clientid":"...","clientsecret":"...","url":"https://...","credential-type":"binding-secret"}'
 ```
 
-**Important:** The environment variable name changed from `SAP_AI_SERVICE_KEY` (v1.x) to `AICORE_SERVICE_KEY` (v2.0+) to align with SAP AI SDK conventions.
-
-### 2. Get your service key from SAP BTP
-
-1. Go to your SAP BTP cockpit
-2. Navigate to your subaccount
-3. Find your AI Core service instance
-4. Create or view a service key
-5. Copy the entire JSON and set it as the value of `AICORE_SERVICE_KEY` in your `.env` file
-
-### 3. Use in your code
-
-With the environment variable set, the provider will automatically authenticate:
+### Step 3: Use in Code
 
 ```typescript
 import "dotenv/config"; // Load environment variables
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 
-// Authentication is automatic via AICORE_SERVICE_KEY environment variable
+// Authentication is automatic via AICORE_SERVICE_KEY
 const provider = createSAPAIProvider();
-
-// Use with any model
 const model = provider("gpt-4o");
 ```
 
-**Key changes in v2.0:**
+**Key v2.0 changes:** Provider creation is synchronous (no `await`), no `serviceKey` parameter needed.
 
-- Provider creation is **synchronous** (no `await` needed)
-- No need to pass `serviceKey` as a parameter
-- Authentication is handled automatically by SAP AI SDK
+### Running Examples
 
-### 4. Examples
-
-All example files use the automatic authentication approach:
-
-- `example-generate-text.ts` - Basic text generation
-- `example-simple-chat-completion.ts` - Simple chat completion
-- `example-streaming-chat.ts` - Streaming responses
-- `example-chat-completion-tool.ts` - Advanced tool calling and debugging
-- `example-image-recognition.ts` - Image analysis with vision models
-- `example-data-masking.ts` - Data masking with DPI
-
-Simply set your `AICORE_SERVICE_KEY` and run any example:
+All examples in `examples/` use this authentication method:
 
 ```bash
 npx tsx examples/example-generate-text.ts
-npx tsx examples/example-image-recognition.ts
+npx tsx examples/example-streaming-chat.ts
 ```
 
-## Authentication Methods
+---
 
-The SAP AI SDK checks for credentials in this order:
+## SAP BTP Deployment
 
-1. **`AICORE_SERVICE_KEY`** environment variable (recommended for local development)
-2. **`VCAP_SERVICES`** environment variable (automatic on SAP BTP with service bindings)
-3. **Destination configuration** (if provided to the provider)
-
-## On SAP BTP (Cloud Foundry)
-
-When running on SAP BTP with a service binding, authentication is **completely automatic** - no environment variables needed:
+When deployed on SAP BTP with service bindings, authentication is **fully automatic** via `VCAP_SERVICES`:
 
 ```typescript
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 
-// Automatically uses VCAP_SERVICES from service binding
+// No environment variables needed - uses VCAP_SERVICES binding
 const provider = createSAPAIProvider();
 const model = provider("gpt-4o");
 ```
 
+**Authentication priority:** The SAP AI SDK checks credentials in this order:
+
+1. `AICORE_SERVICE_KEY` environment variable
+2. `VCAP_SERVICES` (SAP BTP service binding)
+3. Custom destination configuration
+
+---
+
+## Advanced Configuration
+
+### Custom Resource Groups
+
+```typescript
+const provider = createSAPAIProvider({
+  resourceGroup: "production", // Default: "default"
+});
+```
+
+### Custom Deployment IDs
+
+```typescript
+const provider = createSAPAIProvider({
+  deploymentId: "d65d81e7c077e583", // Auto-resolved if omitted
+});
+```
+
+### Destination Configuration
+
+For advanced scenarios with custom HTTP destinations:
+
+```typescript
+const provider = createSAPAIProvider({
+  destination: {
+    // Custom destination configuration
+  },
+});
+```
+
+---
+
 ## Troubleshooting
 
-### Common Authentication Issues
+### ❌ Authentication Failed (401)
 
-**Problem: "Authentication failed" or 401 errors**
+**Symptoms:** "Invalid token", "Authentication failed", HTTP 401
 
-Solutions:
+**Solutions:**
 
-- Verify `AICORE_SERVICE_KEY` is set correctly in `.env`
-- Ensure the JSON is valid (use a JSON validator)
-- Check that the service key hasn't expired
-- On SAP BTP, verify the service binding is active
+1. Verify `AICORE_SERVICE_KEY` is set: `echo $AICORE_SERVICE_KEY`
+2. Validate JSON syntax (use a JSON validator)
+3. Check service key hasn't expired in SAP BTP Cockpit
+4. Ensure `import "dotenv/config";` is at the top of your entry file
 
-**Problem: "Cannot find module 'dotenv'"**
+### ❌ Cannot Find Module 'dotenv'
 
-Solution:
+**Solution:**
 
 ```bash
 npm install dotenv
 ```
 
-Ensure your code includes:
+### ❌ Deployment Not Found (404)
+
+**Solutions:**
+
+1. Verify deployment is running in SAP BTP Cockpit
+2. Check `resourceGroup` matches your deployment
+3. Confirm model ID is available in your region
+
+### ✅ Verify Configuration
+
+Check environment variable is loaded:
 
 ```typescript
-import "dotenv/config"; // Load environment variables
-```
-
-**Problem: "Deployment not found" or 404 errors**
-
-Solutions:
-
-- Verify your SAP AI Core deployment is running
-- Check the `resourceGroup` matches your deployment
-- Confirm the model ID is available in your region
-
-### Checking Your Configuration
-
-Verify environment variable is set:
-
-```bash
-# On macOS/Linux
-echo $AICORE_SERVICE_KEY
-
-# On Windows (PowerShell)
-echo $env:AICORE_SERVICE_KEY
-```
-
-Test your service key:
-
-```typescript
-import "dotenv/config"; // Load environment variables
-
+import "dotenv/config";
 console.log("Service key loaded:", !!process.env.AICORE_SERVICE_KEY);
 ```
 
-## Security Note
+Verify service key structure:
 
-- Never commit your `.env` file to version control
-- Add `.env` to your `.gitignore` file
-- Use proper secrets management in production environments
-- Rotate service keys regularly
-- Use separate service keys for development and production
+```typescript
+const key = JSON.parse(process.env.AICORE_SERVICE_KEY || "{}");
+console.log("OAuth URL:", key.url);
+console.log("AI API URL:", key.serviceurls?.AI_API_URL);
+```
+
+**For complete troubleshooting guide:** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+
+---
+
+## Security Best Practices
+
+🔒 **Protect Credentials:**
+
+- Never commit `.env` files to version control
+- Add `.env` to `.gitignore`
+- Use secrets management in production (AWS Secrets Manager, Azure Key Vault, etc.)
+
+🔄 **Rotate Keys Regularly:**
+
+- Rotate service keys every 90 days
+- Use separate keys for development and production
+
+🚫 **Avoid Logging Secrets:**
+
+- Never log `AICORE_SERVICE_KEY` values
+- Redact credentials from error reports and crash logs
+
+✅ **Validate Configuration:**
+
+- Check service key format before deployment
+- Test authentication in staging environment first
+
+---
 
 ## Related Documentation
 

@@ -149,13 +149,13 @@ npm install @mymediset/sap-ai-provider@latest ai@latest
 
 #### 2. Update Authentication
 
-| Aspect                   | v1.x                                        | v2.x                                  |
-| ------------------------ | ------------------------------------------- | ------------------------------------- |
-| **Environment variable** | `SAP_AI_SERVICE_KEY`                        | `AICORE_SERVICE_KEY`                  |
-| **Provider creation**    | `await createSAPAIProvider({ serviceKey })` | `createSAPAIProvider()` (synchronous) |
-| **Token management**     | Manual                                      | Automatic (SAP AI SDK)                |
+**Key Changes:**
 
-**For complete authentication setup, see [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
+- Environment variable: `SAP_AI_SERVICE_KEY` → `AICORE_SERVICE_KEY`
+- Provider creation: Now synchronous (remove `await`)
+- Token management: Automatic (SAP AI SDK handles OAuth2)
+
+**Complete setup instructions:** [Environment Setup Guide](./ENVIRONMENT_SETUP.md)
 
 #### 3. Update Code (Remove await)
 
