@@ -46,7 +46,7 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 
 ## Features
 
-- 🔐 **Automatic Authentication** - Uses SAP AI SDK's built-in credential handling
+- 🔐 **Simplified Authentication** - Uses SAP AI SDK's built-in credential handling
 - 🎯 **Tool Calling Support** - Full tool/function calling capabilities
 - 🧠 **Reasoning-Safe by Default** - Assistant reasoning parts are not forwarded unless enabled
 - 🖼️ **Multi-modal Input** - Support for text and image inputs
@@ -137,11 +137,8 @@ Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERV
 **Quick Setup:**
 
 ```bash
+# Set environment variable
 export AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"..."},...}'
-```
-
-```typescript
-const provider = createSAPAIProvider();
 ```
 
 **→ For complete setup, authentication methods, and troubleshooting, see [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**

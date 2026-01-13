@@ -358,10 +358,10 @@ type SAPAIModelId =
   | "o4-mini" // Latest reasoning mini
 
   // Google Gemini Series
-  | "gemini-1.5-pro" // Large context (vision, tools)
-  | "gemini-1.5-flash" // Fast (vision, tools)
-  | "gemini-2.0-pro" // Latest pro (vision, tools)
-  | "gemini-2.0-flash" // Latest flash (vision, tools)
+  | "gemini-1.5-pro" // Large context (vision, tools) ⚠️ Only 1 tool/request
+  | "gemini-1.5-flash" // Fast (vision, tools) ⚠️ Only 1 tool/request
+  | "gemini-2.0-pro" // Latest pro (vision, tools) ⚠️ Only 1 tool/request
+  | "gemini-2.0-flash" // Latest flash (vision, tools) ⚠️ Only 1 tool/request
   | "gemini-2.0-flash-thinking" // With reasoning
   | "gemini-2.0-flash-lite" // Lightweight
   | "gemini-2.5-pro" // Newest pro
@@ -394,6 +394,43 @@ type SAPAIModelId =
   | "alephalpha-pharia-1-7b-control" // Aleph Alpha
   | (string & {}); // Allow custom model IDs
 ```
+
+**⚠️ Important Model Limitations:**
+
+- **Gemini models** (gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-pro, gemini-2.0-flash): Support **only 1 tool per request**. For applications requiring multiple tools, use OpenAI models (gpt-4o, gpt-4.1-mini) or Claude models instead.
+- See [CURL_API_TESTING_GUIDE.md - Tool Calling](./CURL_API_TESTING_GUIDE.md#tool-calling-example) for complete model capabilities comparison.
+
+### Model Capabilities Comparison
+
+Quick reference for choosing the right model for your use case:
+
+| Model Family    | Tool Calling | Vision | Streaming | Max Tools  | Max Tokens | Notes                           |
+| --------------- | ------------ | ------ | --------- | ---------- | ---------- | ------------------------------- |
+| **GPT-4o**      | ✅           | ✅     | ✅        | Unlimited  | 16,384     | **Recommended** - Full features |
+| **GPT-4o-mini** | ✅           | ✅     | ✅        | Unlimited  | 16,384     | Fast, cost-effective            |
+| **GPT-4.1**     | ✅           | ✅     | ✅        | Unlimited  | 16,384     | Latest GPT-4                    |
+| **Gemini 2.0**  | ⚠️           | ✅     | ✅        | **1 only** | 32,768     | Tool limitation                 |
+| **Gemini 1.5**  | ⚠️           | ✅     | ✅        | **1 only** | 32,768     | Tool limitation                 |
+| **Claude 3.5**  | ✅           | ✅     | ✅        | Unlimited  | 8,192      | High quality                    |
+| **Claude 4**    | ✅           | ✅     | ✅        | Unlimited  | 8,192      | Latest Claude                   |
+| **Amazon Nova** | ✅           | ✅     | ✅        | Unlimited  | 8,192      | No `n` parameter support        |
+| **o1/o3**       | ⚠️           | ❌     | ✅        | Limited    | 16,384     | Reasoning models                |
+| **Llama 3.1**   | ✅           | ❌     | ✅        | Unlimited  | 8,192      | Open source                     |
+| **Mistral**     | ✅           | ⚠️     | ✅        | Unlimited  | 8,192      | Pixtral has vision              |
+
+**Legend:**
+
+- ✅ Fully supported
+- ⚠️ Limited support (see notes)
+- ❌ Not supported
+
+**Choosing a model:**
+
+- **Multiple tools required?** → Use GPT-4o, Claude, or Amazon Nova (avoid Gemini)
+- **Vision needed?** → Use GPT-4o, Gemini, Claude, or Pixtral
+- **Cost-sensitive?** → Use GPT-4o-mini or Gemini Flash
+- **Maximum context?** → Use Gemini (32k tokens)
+- **Open source?** → Use Llama or Mistral
 
 ---
 

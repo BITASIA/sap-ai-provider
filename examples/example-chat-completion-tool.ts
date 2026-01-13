@@ -6,7 +6,7 @@
  * This example demonstrates tool/function calling with the SAP AI Provider
  * using the Vercel AI SDK's generateText function with tools.
  *
- * Due to AI SDK v5's Zod schema conversion issues, we define tool schemas
+ * Due to AI SDK v6's Zod schema conversion issues, we define tool schemas
  * directly in SAP AI SDK format via provider settings.
  *
  * Authentication:

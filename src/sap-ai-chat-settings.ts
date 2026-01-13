@@ -64,8 +64,36 @@ export interface SAPAISettings {
   /**
    * Whether to include assistant reasoning parts in the SAP prompt conversion.
    *
-   * Reasoning parts may contain internal model reasoning that you may not want
-   * to persist or show to users
+   * Reasoning parts contain internal model chain-of-thought reasoning that may not be
+   * suitable for end-user display or persistence. When disabled (default), only the
+   * final response content is forwarded.
+   *
+   * **Default:** `false` (recommended for production)
+   *
+   * **When to enable:**
+   * - Debugging model behavior
+   * - Analyzing reasoning patterns
+   * - Research and development
+   *
+   * **When to keep disabled:**
+   * - Production applications
+   * - User-facing chatbots
+   * - When storing conversation history
+   *
+   * @example
+   * ```typescript
+   * // Enable for debugging (see model's reasoning)
+   * const debugModel = provider('gpt-4o', {
+   *   includeReasoning: true
+   * });
+   *
+   * // Disabled by default (production use)
+   * const prodModel = provider('gpt-4o');
+   * // or explicitly:
+   * const prodModel2 = provider('gpt-4o', {
+   *   includeReasoning: false
+   * });
+   * ```
    */
   includeReasoning?: boolean;
 
