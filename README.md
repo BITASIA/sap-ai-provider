@@ -300,38 +300,15 @@ const result = await generateText({
 Use SAP's Data Privacy Integration to mask sensitive data:
 
 ```typescript
-import "dotenv/config"; // Load environment variables
-import {
-  createSAPAIProvider,
-  buildDpiMaskingProvider,
-} from "@mymediset/sap-ai-provider";
-import { generateText } from "ai";
+import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
 
 const dpiConfig = buildDpiMaskingProvider({
   method: "anonymization",
-  entities: [
-    "profile-email",
-    "profile-person",
-    {
-      type: "profile-phone",
-      replacement_strategy: { method: "constant", value: "REDACTED" },
-    },
-  ],
-});
-
-const provider = createSAPAIProvider({
-  defaultSettings: {
-    masking: {
-      masking_providers: [dpiConfig],
-    },
-  },
-});
-
-const result = await generateText({
-  model: provider("gpt-4o"),
-  prompt: "Email john@example.com about the meeting.",
+  entities: ["profile-email", "profile-person", "profile-phone"],
 });
 ```
+
+**Full documentation:** [API_REFERENCE.md - Data Masking](./API_REFERENCE.md#builddpimaskingproviderconfig)
 
 ### Content Filtering
 
@@ -395,9 +372,10 @@ try {
 }
 ```
 
-**For complete error reference, status codes, and detailed troubleshooting:**
+**Complete reference:**
 
-- **[API Reference - Error Handling](./API_REFERENCE.md#error-handling)** - Error types and error codes reference table
+- **[API Reference - Error Handling](./API_REFERENCE.md#error-handling-examples)** - Detailed error handling with SAP error parsing
+- **[API Reference - HTTP Status Codes](./API_REFERENCE.md#http-status-code-reference)** - Complete status code reference table
 - **[Troubleshooting Guide](./TROUBLESHOOTING.md)** - Detailed solutions for each error type
 
 ## Troubleshooting

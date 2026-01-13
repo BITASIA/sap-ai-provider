@@ -154,19 +154,13 @@ Automatically anonymize or pseudonymize sensitive information (emails, phone num
 ```typescript
 import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
 
-const model = provider("gpt-4o", {
-  masking: {
-    masking_providers: [
-      buildDpiMaskingProvider({
-        method: "anonymization",
-        entities: ["profile-email", "profile-person", "profile-phone"],
-      }),
-    ],
-  },
+const dpiConfig = buildDpiMaskingProvider({
+  method: "anonymization",
+  entities: ["profile-email", "profile-person", "profile-phone"],
 });
 ```
 
-**See:** [API_REFERENCE.md - Data Masking](./API_REFERENCE.md#data-masking-dpi), [example-data-masking.ts](./examples/example-data-masking.ts)
+**Full documentation:** [API_REFERENCE.md - Data Masking](./API_REFERENCE.md#builddpimaskingproviderconfig), [example-data-masking.ts](./examples/example-data-masking.ts)
 
 #### 3. Content Filtering
 
@@ -191,7 +185,7 @@ const provider = createSAPAIProvider({
 });
 ```
 
-**See:** [API_REFERENCE.md - Content Filtering](./API_REFERENCE.md#content-filtering)
+**Full documentation:** [API_REFERENCE.md - Content Filtering](./API_REFERENCE.md#buildazurecontentsafetyfiltertype-config)
 
 #### 4. Response Format Control
 
