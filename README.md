@@ -7,28 +7,6 @@
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. Built on top of the official **@sap-ai-sdk/orchestration** package, this provider enables you to use SAP's enterprise-grade AI models through the familiar Vercel AI SDK interface.
 
-> **Note on Terminology:** This documentation uses "tool calling" (Vercel AI SDK convention), equivalent to "function calling" in OpenAI documentation. Both terms refer to the same capability of models invoking external functions.
-
-## ⚠️ Breaking Changes in v3.0.0-rc.1
-
-Version 3.0 standardizes error handling to use Vercel AI SDK native error types. **See the [Migration Guide](./MIGRATION_GUIDE.md#v2x--v30) for complete upgrade instructions.**
-
-**Key changes:**
-
-- `SAPAIError` removed → Use `APICallError` from `@ai-sdk/provider`
-- Error properties: `error.code` → `error.statusCode`
-- Automatic retries for rate limits (429) and server errors (5xx)
-
-## ⚠️ Breaking Changes in v2.0
-
-Version 2.0 uses the official SAP AI SDK. **See the [Migration Guide](./MIGRATION_GUIDE.md#v1x--v20) for complete upgrade instructions.**
-
-**Key changes:**
-
-- Authentication via `AICORE_SERVICE_KEY` environment variable
-- Synchronous provider creation: `createSAPAIProvider()` (no await)
-- Helper functions from SAP AI SDK
-
 ## Table of Contents
 
 - [Features](#features)
@@ -41,7 +19,7 @@ Version 2.0 uses the official SAP AI SDK. **See the [Migration Guide](./MIGRATIO
 - [Configuration Options](#configuration-options)
 - [Error Handling](#error-handling)
 - [Examples](#examples)
-- [Migration Guides (v1→v2, v2→v3)](./MIGRATION_GUIDE.md)
+- [Migration Guides](#migration-guides)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -258,6 +236,8 @@ The following helper functions are exported by this package for convenient confi
 
 ### Tool Calling
 
+> **Note on Terminology:** This documentation uses "tool calling" (Vercel AI SDK convention), equivalent to "function calling" in OpenAI documentation. Both terms refer to the same capability of models invoking external functions.
+
 ```typescript
 import "dotenv/config"; // Load environment variables
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
@@ -461,7 +441,29 @@ npx tsx examples/example-generate-text.ts
 
 **Note:** Examples require `AICORE_SERVICE_KEY` environment variable. See [Environment Setup](./ENVIRONMENT_SETUP.md) for configuration.
 
-**Upgrading from v1 or v2?** See the [Migration Guide](./MIGRATION_GUIDE.md) for detailed instructions (v1→v2, v2→v3).
+## Migration Guides
+
+### Upgrading from v2.x to v3.x
+
+Version 3.0 standardizes error handling to use Vercel AI SDK native error types. **See the [Migration Guide](./MIGRATION_GUIDE.md#v2x--v30) for complete upgrade instructions.**
+
+**Key changes:**
+
+- `SAPAIError` removed → Use `APICallError` from `@ai-sdk/provider`
+- Error properties: `error.code` → `error.statusCode`
+- Automatic retries for rate limits (429) and server errors (5xx)
+
+### Upgrading from v1.x to v2.x
+
+Version 2.0 uses the official SAP AI SDK. **See the [Migration Guide](./MIGRATION_GUIDE.md#v1x--v20) for complete upgrade instructions.**
+
+**Key changes:**
+
+- Authentication via `AICORE_SERVICE_KEY` environment variable
+- Synchronous provider creation: `createSAPAIProvider()` (no await)
+- Helper functions from SAP AI SDK
+
+**For detailed migration instructions with code examples, see the [complete Migration Guide](./MIGRATION_GUIDE.md).**
 
 ## Important Note
 

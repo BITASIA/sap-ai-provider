@@ -7,11 +7,6 @@ Guide for migrating between versions of the SAP AI Core Provider.
 - [Overview](#overview)
 - [Version 2.x to 3.x (Breaking Changes)](#version-2x-to-3x-breaking-changes)
 - [Version 1.x to 2.x (Breaking Changes)](#version-1x-to-2x-breaking-changes)
-- [Breaking Changes](#breaking-changes)
-- [Deprecations](#deprecations)
-- [New Features](#new-features)
-- [API Changes](#api-changes)
-- [Migration Checklist](#migration-checklist)
 
 ---
 

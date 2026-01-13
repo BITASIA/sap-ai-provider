@@ -17,16 +17,16 @@ Complete guide for setting up authentication and environment configuration for t
 
 ## Quick Setup (Local Development)
 
-**For v2.0+**, authentication uses the `AICORE_SERVICE_KEY` environment variable (changed from `SAP_AI_SERVICE_KEY` in v1.x).
+> ⚠️ **v2.0+ Change:** Authentication uses `AICORE_SERVICE_KEY` environment variable (changed from `SAP_AI_SERVICE_KEY` in v1.x).
 
-### Step 1: Get Your Service Key
+### 1️⃣ Get Your Service Key
 
 1. Log into SAP BTP Cockpit
 2. Navigate to your subaccount → AI Core service instance
 3. Create or view a service key
 4. Copy the complete JSON
 
-### Step 2: Configure Environment
+### 2️⃣ Configure Environment
 
 Create a `.env` file in your project root:
 
@@ -41,7 +41,7 @@ Add your service key:
 AICORE_SERVICE_KEY='{"serviceurls":{"AI_API_URL":"https://..."},"clientid":"...","clientsecret":"...","url":"https://...","credential-type":"binding-secret"}'
 ```
 
-### Step 3: Use in Code
+### 3️⃣ Use in Code
 
 ```typescript
 import "dotenv/config"; // Load environment variables
@@ -52,7 +52,7 @@ const provider = createSAPAIProvider();
 const model = provider("gpt-4o");
 ```
 
-**Key v2.0 changes:** Provider creation is synchronous (no `await`), no `serviceKey` parameter needed.
+> 💡 **Key v2.0 changes:** Provider creation is synchronous (no `await`), no `serviceKey` parameter needed.
 
 ### Running Examples
 

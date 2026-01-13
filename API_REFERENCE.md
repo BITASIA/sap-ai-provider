@@ -9,7 +9,7 @@ To avoid confusion, this documentation uses the following terminology consistent
 - **SAP AI Core** - The SAP BTP service that provides AI model hosting and orchestration (the cloud service)
 - **SAP AI SDK** - The official `@sap-ai-sdk/orchestration` npm package used for API communication
 - **SAP AI Core Provider** or **this provider** - This npm package (`@mymediset/sap-ai-provider`)
-- **Tool calling** - The capability of models to invoke external functions. This provider uses "tool calling" (Vercel AI SDK convention), equivalent to "function calling" in OpenAI documentation. Both terms refer to the same capability.
+- **Tool calling** - The capability of models to invoke external functions (equivalent to "function calling")
 
 ## Table of Contents
 
