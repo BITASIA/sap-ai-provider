@@ -29,7 +29,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org/
       - name: Set package version and scope from release
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
