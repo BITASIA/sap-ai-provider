@@ -67,14 +67,14 @@
   "dependencies": {
     "@ai-sdk/provider": "^3.0.2",
     "@ai-sdk/provider-utils": "^4.0.5",
-    "@sap-ai-sdk/orchestration": "^2.4.0",
+    "@sap-ai-sdk/orchestration": "^2.5.0",
     "zod": "^4.3.5",
     "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
     "@eslint/js": "^9.39.2",
-    "@types/node": "^25.0.6",
+    "@types/node": "^25.0.8",
     "dotenv": "^17.2.3",
     "eslint": "^9.39.2",
     "globals": "^17.0.0",
