@@ -56,6 +56,49 @@ This guide helps diagnose and resolve common issues when using the SAP AI Core P
 
 For a complete error code reference, see [API Reference - Error Codes](./API_REFERENCE.md#error-codes).
 
+### Parsing SAP Error Metadata (v3.0.0+)
+
+**Breaking Change in v3.0.0:** The `SAPAIError` class has been removed. All errors now use standard Vercel AI SDK types (`APICallError`, `LoadAPIKeyError`, etc.).
+
+**To access SAP-specific error details**, parse the `responseBody` field:
+
+```typescript
+import { generateText } from "ai";
+import { sapai } from "@mymediset/sap-ai-provider";
+import { APICallError } from "@ai-sdk/provider";
+
+try {
+  const { text } = await generateText({
+    model: sapai("gpt-4"),
+    prompt: "Hello",
+  });
+} catch (error) {
+  if (error instanceof APICallError) {
+    // Standard error info
+    console.error("Status:", error.statusCode);
+    console.error("Message:", error.message);
+
+    // SAP-specific metadata
+    const sapError = JSON.parse(error.responseBody ?? "{}") as {
+      error?: { request_id?: string; code?: string; location?: string };
+    };
+    console.error("SAP Request ID:", sapError.error?.request_id);
+    console.error("SAP Error Code:", sapError.error?.code);
+    console.error("SAP Location:", sapError.error?.location);
+  }
+}
+```
+
+**Available SAP metadata fields:**
+
+- `error.request_id` - Unique identifier for support escalation
+- `error.code` - SAP-specific error code
+- `error.message` - Detailed error description
+- `error.location` - Service component that failed
+- `error.target` - Target resource (if applicable)
+
+For v2→v3 migration, see [MIGRATION_GUIDE.md - v2 to v3](./MIGRATION_GUIDE.md#v2-to-v3).
+
 ### Problem: 400 Bad Request
 
 **Common Causes:** Invalid model parameters (temperature, maxTokens), malformed request, incompatible features

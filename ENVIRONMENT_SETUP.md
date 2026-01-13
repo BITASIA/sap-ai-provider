@@ -5,6 +5,15 @@ Complete guide for setting up authentication and environment configuration for t
 > **Quick Start:** For a shorter introduction, see the [README Quick Start](./README.md#quick-start).
 > **API Details:** For configuration options, see [API Reference - SAPAIProviderSettings](./API_REFERENCE.md#sapaiprovidersettings).
 
+## Table of Contents
+
+- [Setting up AICORE_SERVICE_KEY (v2.0+)](#setting-up-aicore_service_key-v20)
+- [Authentication Methods](#authentication-methods)
+- [On SAP BTP (Cloud Foundry)](#on-sap-btp-cloud-foundry)
+- [Troubleshooting](#troubleshooting)
+- [Security Note](#security-note)
+- [Related Documentation](#related-documentation)
+
 ## Setting up AICORE_SERVICE_KEY (v2.0+)
 
 Starting with version 2.0, the SAP AI provider uses the **SAP AI SDK** for authentication, which automatically handles credentials from environment variables or SAP BTP service bindings.

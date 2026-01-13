@@ -40,7 +40,7 @@ Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
 - [Configuration Options](#configuration-options)
 - [Error Handling](#error-handling)
 - [Examples](#examples)
-- [Migration from v1](#migration-from-v1)
+- [Migration Guides (v1→v2, v2→v3)](#migration-from-v1)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -378,6 +378,13 @@ try {
     console.error("Authentication issue:", error.message);
   } else if (error instanceof APICallError) {
     console.error("API error:", error.statusCode, error.message);
+
+    // Parse SAP-specific metadata from responseBody
+    const sapError = JSON.parse(error.responseBody ?? "{}") as {
+      error?: { request_id?: string; code?: string };
+    };
+    console.error("SAP Request ID:", sapError.error?.request_id);
+    console.error("SAP Error Code:", sapError.error?.code);
   }
 }
 ```

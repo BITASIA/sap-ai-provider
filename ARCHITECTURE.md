@@ -803,9 +803,64 @@ The provider marks errors as retryable based on HTTP status codes:
 
 The Vercel AI SDK handles retry logic automatically based on the `isRetryable` flag.
 
+### User-Facing Error Handling (v3.0.0+)
+
+**Breaking Change in v3.0.0:** The `SAPAIError` class has been removed. All errors now use standard Vercel AI SDK error types (`APICallError`, `LoadAPIKeyError`, etc.).
+
+**Accessing SAP-specific error details:**
+
+```typescript
+import { generateText } from "ai";
+import { sapai } from "@mymediset/sap-ai-provider";
+import { APICallError } from "@ai-sdk/provider";
+
+try {
+  const { text } = await generateText({
+    model: sapai("gpt-4"),
+    prompt: "Hello",
+  });
+} catch (error) {
+  if (error instanceof APICallError) {
+    console.error("Status:", error.statusCode);
+    console.error("Message:", error.message);
+
+    // Parse SAP-specific metadata from responseBody
+    const sapError = JSON.parse(error.responseBody ?? "{}") as {
+      error?: { request_id?: string; code?: string; location?: string };
+    };
+    console.error("SAP Request ID:", sapError.error?.request_id);
+    console.error("SAP Error Code:", sapError.error?.code);
+    console.error("SAP Location:", sapError.error?.location);
+  }
+}
+```
+
+**Migration from v2.x:**
+
+```typescript
+// v2.x (OLD)
+import { SAPAIError } from "@mymediset/sap-ai-provider";
+
+if (error instanceof SAPAIError) {
+  console.error(error.requestId, error.code);
+}
+
+// v3.x (NEW)
+import { APICallError } from "@ai-sdk/provider";
+
+if (error instanceof APICallError) {
+  const sapError = JSON.parse(error.responseBody ?? "{}") as {
+    error?: { request_id?: string; code?: string };
+  };
+  console.error(sapError.error?.request_id, sapError.error?.code);
+}
+```
+
 **For complete error handling reference** (error types, status codes, examples), see [API_REFERENCE.md - Error Handling](./API_REFERENCE.md#error-handling-reference).
 
 **For troubleshooting specific errors**, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
+
+**For v2→v3 migration**, see [MIGRATION_GUIDE.md - v2 to v3](./MIGRATION_GUIDE.md#v2-to-v3).
 
 ## Type System
 

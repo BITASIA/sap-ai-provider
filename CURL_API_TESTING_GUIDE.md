@@ -4,6 +4,21 @@ This guide shows how to make direct API calls to SAP AI Core using curl for test
 
 ---
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Step-by-Step Guide](#step-by-step-guide)
+- [Request Body Structure (Orchestration v2)](#request-body-structure-orchestration-v2)
+- [Tool Calling Example](#tool-calling-example)
+- [Complete Working Example](#complete-working-example)
+- [Response Format](#response-format)
+- [Common Issues](#common-issues)
+- [Debugging Tips](#debugging-tips)
+- [Security Best Practices](#security-best-practices)
+- [Additional Resources](#additional-resources)
+- [TypeScript Examples](#typescript-examples)
+
 ## Overview
 
 Complete OAuth2 authentication → API call → Tool calling flow.

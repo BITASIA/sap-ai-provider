@@ -8,6 +8,22 @@ We love your input! We want to make contributing to SAP AI Provider as easy and 
 - Proposing new features
 - Becoming a maintainer
 
+## Table of Contents
+
+- [Development Process](#development-process)
+- [Development Setup](#development-setup)
+- [Pull Request Process](#pull-request-process)
+- [Coding Standards](#coding-standards)
+- [Testing Guidelines](#testing-guidelines)
+- [Architecture Guidelines](#architecture-guidelines)
+- [Advanced: Detailed Developer Instructions](#advanced-detailed-developer-instructions)
+- [Report Bugs](#report-bugs)
+- [Request Features](#request-features)
+- [License](#license)
+- [Code of Conduct](#code-of-conduct)
+- [Getting Help](#getting-help)
+- [Recognition](#recognition)
+
 ## Development Process
 
 We use GitHub to host code, to track issues and feature requests, as well as accept pull requests.

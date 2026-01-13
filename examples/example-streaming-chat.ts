@@ -15,6 +15,7 @@
 import "dotenv/config";
 import { createSAPAIProvider } from "../src/index";
 import { streamText } from "ai";
+import { APICallError } from "@ai-sdk/provider";
 
 async function streamingChatExample() {
   console.log("🧪 Streaming Chat with Vercel AI SDK (streamText)\n");
@@ -58,8 +59,22 @@ async function streamingChatExample() {
       `${String(finalUsage.inputTokens)} prompt + ${String(finalUsage.outputTokens)} completion tokens`,
     );
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("❌ Streaming example failed:", errorMessage);
+    if (error instanceof APICallError) {
+      console.error("❌ API Call Error:", error.statusCode, error.message);
+
+      // Parse SAP-specific metadata
+      const sapError = JSON.parse(error.responseBody ?? "{}") as {
+        error?: { request_id?: string; code?: string };
+      };
+      if (sapError.error?.request_id) {
+        console.error("   SAP Request ID:", sapError.error.request_id);
+        console.error("   SAP Error Code:", sapError.error.code);
+      }
+    } else {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error("❌ Streaming example failed:", errorMessage);
+    }
 
     console.error("\n💡 Troubleshooting tips:");
     console.error(

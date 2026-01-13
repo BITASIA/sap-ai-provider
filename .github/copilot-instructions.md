@@ -4,6 +4,13 @@ SAP AI Provider is a TypeScript/Node.js library that provides seamless integrati
 
 Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
+## Table of Contents
+
+- [Working Effectively](#working-effectively)
+- [Validation](#validation)
+- [Common Tasks](#common-tasks)
+- [Pull Request Review Guidelines](#pull-request-review-guidelines)
+
 ## Working Effectively
 
 ### Bootstrap and Install Dependencies
