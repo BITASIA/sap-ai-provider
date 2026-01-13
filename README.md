@@ -2,7 +2,6 @@
 
 [![npm](https://img.shields.io/npm/v/@mymediset/sap-ai-provider/latest?label=npm&color=blue)](https://www.npmjs.com/package/@mymediset/sap-ai-provider)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Vercel AI SDK](https://img.shields.io/badge/Vercel%20AI%20SDK-6.0+-black.svg)](https://sdk.vercel.ai/docs)
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. Built on top of the official **@sap-ai-sdk/orchestration** package, this provider enables you to use SAP's enterprise-grade AI models through the familiar Vercel AI SDK interface.
@@ -11,6 +10,7 @@ A community provider for SAP AI Core that integrates seamlessly with the Vercel 
 
 - [Features](#features)
 - [Quick Start](#quick-start)
+- [Quick Reference](#quick-reference)
 - [Installation](#installation)
 - [Authentication](#authentication)
 - [Basic Usage](#basic-usage)
@@ -45,21 +45,44 @@ npm install @mymediset/sap-ai-provider ai
 import "dotenv/config"; // Load environment variables
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 import { generateText } from "ai";
+import { APICallError } from "@ai-sdk/provider";
 
 // Create provider (authentication via AICORE_SERVICE_KEY env var)
 const provider = createSAPAIProvider();
 
-// Generate text with gpt-4o
-const result = await generateText({
-  model: provider("gpt-4o"),
-  prompt: "Explain quantum computing in simple terms.",
-});
+try {
+  // Generate text with gpt-4o
+  const result = await generateText({
+    model: provider("gpt-4o"),
+    prompt: "Explain quantum computing in simple terms.",
+  });
 
-console.log(result.text);
+  console.log(result.text);
+} catch (error) {
+  if (error instanceof APICallError) {
+    console.error("SAP AI Core API error:", error.message);
+    console.error("Status:", error.statusCode);
+  } else {
+    console.error("Unexpected error:", error);
+  }
+}
 ```
 
 > **Setup:** Create a `.env` file with your `AICORE_SERVICE_KEY`. You can copy from `.env.example`: `cp .env.example .env`  
 > **Full Setup Guide:** See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) for detailed authentication configuration.
+
+## Quick Reference
+
+| Task                | Code Pattern                                          | Documentation                                                 |
+| ------------------- | ----------------------------------------------------- | ------------------------------------------------------------- |
+| **Install**         | `npm install @mymediset/sap-ai-provider ai`           | [Installation](#installation)                                 |
+| **Auth Setup**      | Add `AICORE_SERVICE_KEY` to `.env`                    | [Environment Setup](./ENVIRONMENT_SETUP.md)                   |
+| **Create Provider** | `createSAPAIProvider()` or use `sapai`                | [Provider Creation](#provider-creation)                       |
+| **Text Generation** | `generateText({ model: provider("gpt-4o"), prompt })` | [Basic Usage](#text-generation)                               |
+| **Streaming**       | `streamText({ model: provider("gpt-4o"), prompt })`   | [Streaming](#streaming-responses)                             |
+| **Tool Calling**    | `generateText({ tools: { myTool: tool({...}) } })`    | [Tool Calling](#tool-calling)                                 |
+| **Error Handling**  | `catch (error instanceof APICallError)`               | [API Reference](./API_REFERENCE.md#error-handling--reference) |
+| **Choose Model**    | See 80+ models (GPT, Claude, Gemini, Llama)           | [Models](./API_REFERENCE.md#models)                           |
 
 ## Installation
 
@@ -86,6 +109,7 @@ You can create an SAP AI provider in two ways:
 ### Option 1: Factory Function (Recommended for Custom Configuration)
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 
 const provider = createSAPAIProvider({
@@ -97,6 +121,7 @@ const provider = createSAPAIProvider({
 ### Option 2: Default Instance (Quick Start)
 
 ```typescript
+import "dotenv/config"; // Load environment variables
 import { sapai } from "@mymediset/sap-ai-provider";
 import { generateText } from "ai";
 
@@ -129,15 +154,23 @@ Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERV
 import "dotenv/config"; // Load environment variables
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 import { generateText } from "ai";
+import { APICallError } from "@ai-sdk/provider";
 
 const provider = createSAPAIProvider();
 
-const result = await generateText({
-  model: provider("gpt-4o"),
-  prompt: "Write a short story about a robot learning to paint.",
-});
+try {
+  const result = await generateText({
+    model: provider("gpt-4o"),
+    prompt: "Write a short story about a robot learning to paint.",
+  });
 
-console.log(result.text);
+  console.log(result.text);
+} catch (error) {
+  if (error instanceof APICallError) {
+    console.error("API error:", error.message, "- Status:", error.statusCode);
+  }
+  throw error;
+}
 ```
 
 ### Chat Conversations
@@ -148,19 +181,27 @@ Note: assistant `reasoning` parts are dropped by default. Set `includeReasoning:
 import "dotenv/config"; // Load environment variables
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 import { generateText } from "ai";
+import { APICallError } from "@ai-sdk/provider";
 
 const provider = createSAPAIProvider();
 
-const result = await generateText({
-  model: provider("anthropic--claude-3.5-sonnet"),
-  messages: [
-    { role: "system", content: "You are a helpful coding assistant." },
-    {
-      role: "user",
-      content: "How do I implement binary search in TypeScript?",
-    },
-  ],
-});
+try {
+  const result = await generateText({
+    model: provider("anthropic--claude-3.5-sonnet"),
+    messages: [
+      { role: "system", content: "You are a helpful coding assistant." },
+      {
+        role: "user",
+        content: "How do I implement binary search in TypeScript?",
+      },
+    ],
+  });
+} catch (error) {
+  if (error instanceof APICallError) {
+    console.error("API error:", error.message, "- Status:", error.statusCode);
+  }
+  throw error;
+}
 ```
 
 ### Streaming Responses
@@ -169,16 +210,24 @@ const result = await generateText({
 import "dotenv/config"; // Load environment variables
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 import { streamText } from "ai";
+import { APICallError } from "@ai-sdk/provider";
 
 const provider = createSAPAIProvider();
 
-const result = streamText({
-  model: provider("gpt-4o"),
-  prompt: "Explain machine learning concepts.",
-});
+try {
+  const result = streamText({
+    model: provider("gpt-4o"),
+    prompt: "Explain machine learning concepts.",
+  });
 
-for await (const delta of result.textStream) {
-  process.stdout.write(delta);
+  for await (const delta of result.textStream) {
+    process.stdout.write(delta);
+  }
+} catch (error) {
+  if (error instanceof APICallError) {
+    console.error("API error:", error.message, "- Status:", error.statusCode);
+  }
+  throw error;
 }
 ```
 

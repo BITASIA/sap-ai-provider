@@ -14,6 +14,7 @@ To avoid confusion, this documentation uses the following terminology consistent
 ## Table of Contents
 
 - [Provider Factory Functions](#provider-factory-functions)
+- [Models](#models)
 - [Interfaces](#interfaces)
 - [Types](#types)
 - [Classes](#classes)
@@ -83,14 +84,22 @@ This is the quickest way to get started without explicit provider creation.
 import "dotenv/config"; // Load environment variables
 import { sapai } from "@mymediset/sap-ai-provider";
 import { generateText } from "ai";
+import { APICallError } from "@ai-sdk/provider";
 
-// Use directly without creating a provider
-const result = await generateText({
-  model: sapai("gpt-4o"),
-  prompt: "Explain quantum computing",
-});
+try {
+  // Use directly without creating a provider
+  const result = await generateText({
+    model: sapai("gpt-4o"),
+    prompt: "Explain quantum computing",
+  });
 
-console.log(result.text);
+  console.log(result.text);
+} catch (error) {
+  if (error instanceof APICallError) {
+    console.error("API error:", error.message, "- Status:", error.statusCode);
+  }
+  throw error;
+}
 ```
 
 **When to use:**
@@ -104,6 +113,147 @@ console.log(result.text);
 - Need custom `resourceGroup` or `deploymentId`
 - Want explicit configuration control
 - Need multiple provider instances with different settings
+
+---
+
+## Models
+
+> **Architecture Context:** For model integration and message conversion details,
+> see [Architecture - Model Support](./ARCHITECTURE.md#model-support).
+
+### Supported Models
+
+The SAP AI Core Provider supports all models available through SAP AI Core's Orchestration service via the `@sap-ai-sdk/orchestration` package.
+
+**Note:** The models listed below are representative examples. Actual model availability depends on your SAP AI Core tenant configuration, region, and subscription. Refer to your SAP AI Core configuration or the [SAP AI Core documentation](https://help.sap.com/docs/ai-core) for the definitive list of models available in your environment.
+
+**About Model Availability:**
+
+This library re-exports the `ChatModel` type from `@sap-ai-sdk/orchestration`, which is dynamically maintained by SAP AI SDK. The actual list of available models depends on:
+
+- Your SAP AI Core tenant configuration
+- Your region and subscription
+- Currently deployed models in your environment
+
+**Representative Model Examples** (non-exhaustive):
+
+**OpenAI (Azure):**
+
+- `gpt-4o`, `gpt-4o-mini` - Latest GPT-4 with vision & tools (recommended)
+- `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano` - Latest GPT-4 variants
+- `o1`, `o3`, `o3-mini`, `o4-mini` - Reasoning models
+
+**Google Vertex AI:**
+
+- `gemini-2.0-flash`, `gemini-2.0-flash-lite` - Fast inference
+- `gemini-2.5-flash`, `gemini-2.5-pro` - Latest Gemini
+- ⚠️ **Important**: Gemini models support **only 1 tool per request**
+
+**Anthropic (AWS Bedrock):**
+
+- `anthropic--claude-3.5-sonnet`, `anthropic--claude-3.7-sonnet` - Enhanced Claude 3
+- `anthropic--claude-4-sonnet`, `anthropic--claude-4-opus` - Latest Claude 4
+
+**Amazon Bedrock:**
+
+- `amazon--nova-pro`, `amazon--nova-lite`, `amazon--nova-micro`, `amazon--nova-premier`
+
+**Open Source (AI Core):**
+
+- `mistralai--mistral-large-instruct`, `mistralai--mistral-small-instruct`
+- `meta--llama3.1-70b-instruct`
+- `cohere--command-a-reasoning`
+
+**Discovering Available Models:**
+
+To list models available in your SAP AI Core tenant:
+
+```bash
+# Get access token
+export TOKEN=$(curl -X POST "https://<AUTH_URL>/oauth/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=<CLIENT_ID>" \
+  -d "client_secret=<CLIENT_SECRET>" | jq -r '.access_token')
+
+# List deployments
+curl "https://<AI_API_URL>/v2/lm/deployments" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "AI-Resource-Group: default" | jq '.resources[].details.resources.backend_details.model.name'
+```
+
+Or use **SAP AI Launchpad UI**:
+
+1. Navigate to ML Operations → Deployments
+2. Filter by "Orchestration" scenario
+3. View available model configurations
+
+**See Also:**
+
+- [SAP AI Core Models Documentation](https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/models-and-scenarios)
+- [Model Capabilities Comparison](#model-capabilities-comparison) (below)
+
+**⚠️ Important Model Limitations:**
+
+- **Gemini models** (all versions): Support **only 1 tool per request**. For applications requiring multiple tools, use OpenAI models (gpt-4o, gpt-4.1) or Claude models instead.
+- **Amazon models**: Do not support the `n` parameter (number of completions).
+- See [CURL_API_TESTING_GUIDE.md - Tool Calling](./CURL_API_TESTING_GUIDE.md#tool-calling-example) for complete model capabilities comparison.
+
+### Model Capabilities Comparison
+
+Quick reference for choosing the right model for your use case:
+
+| Model Family    | Tool Calling | Vision | Streaming | Max Tools  | Max Tokens | Notes                           |
+| --------------- | ------------ | ------ | --------- | ---------- | ---------- | ------------------------------- |
+| **GPT-4o**      | ✅           | ✅     | ✅        | Unlimited  | 16,384     | **Recommended** - Full features |
+| **GPT-4o-mini** | ✅           | ✅     | ✅        | Unlimited  | 16,384     | Fast, cost-effective            |
+| **GPT-4.1**     | ✅           | ✅     | ✅        | Unlimited  | 16,384     | Latest GPT-4                    |
+| **Gemini 2.0**  | ⚠️           | ✅     | ✅        | **1 only** | 32,768     | Tool limitation                 |
+| **Gemini 1.5**  | ⚠️           | ✅     | ✅        | **1 only** | 32,768     | Tool limitation                 |
+| **Claude 3.5**  | ✅           | ✅     | ✅        | Unlimited  | 8,192      | High quality                    |
+| **Claude 4**    | ✅           | ✅     | ✅        | Unlimited  | 8,192      | Latest Claude                   |
+| **Amazon Nova** | ✅           | ✅     | ✅        | Unlimited  | 8,192      | No `n` parameter support        |
+| **o1/o3**       | ⚠️           | ❌     | ✅        | Limited    | 16,384     | Reasoning models                |
+| **Llama 3.1**   | ✅           | ❌     | ✅        | Unlimited  | 8,192      | Open source                     |
+| **Mistral**     | ✅           | ⚠️     | ✅        | Unlimited  | 8,192      | Pixtral has vision              |
+
+**Legend:**
+
+- ✅ Fully supported
+- ⚠️ Limited support (see notes)
+- ❌ Not supported
+
+**Choosing a model:**
+
+- **Multiple tools required?** → Use GPT-4o, Claude, or Amazon Nova (avoid Gemini)
+- **Vision needed?** → Use GPT-4o, Gemini, Claude, or Pixtral
+- **Cost-sensitive?** → Use GPT-4o-mini or Gemini Flash
+- **Maximum context?** → Use Gemini (32k tokens)
+- **Open source?** → Use Llama or Mistral
+
+### Model Selection Guide by Use Case
+
+Quick reference for selecting models based on your application requirements:
+
+| Use Case                      | Recommended Models                            | Avoid                         | Notes                                |
+| ----------------------------- | --------------------------------------------- | ----------------------------- | ------------------------------------ |
+| **Multi-tool applications**   | GPT-4o, GPT-4.1, Claude 3.5+, Amazon Nova     | Gemini (all versions)         | Gemini limited to 1 tool per request |
+| **Vision + multi-modal**      | GPT-4o, GPT-4.1, Gemini 2.0, Claude 3.5+      | Llama, o1/o3 reasoning models | Best image understanding             |
+| **Cost-effective production** | GPT-4o-mini, Gemini 2.0 Flash, Claude 3 Haiku | GPT-4.1, Claude 4 Opus        | Balance of quality and cost          |
+| **Long context (>8k tokens)** | Gemini 1.5/2.0 (32k), GPT-4o/4.1 (16k)        | Older GPT-4, Amazon models    | Check token limits                   |
+| **Reasoning-heavy tasks**     | o1, o3, Claude 4 Opus, GPT-4.1                | Fast/Mini variants            | Slower but higher quality            |
+| **Real-time streaming**       | GPT-4o-mini, Gemini Flash, Claude Haiku       | o1/o3 reasoning models        | Optimized for low latency            |
+| **Open-source/self-hosted**   | Llama 3.1, Mistral Large                      | Proprietary models            | Deployment flexibility               |
+| **Enterprise compliance**     | Amazon Nova, Claude 4, GPT-4.1                | Community models              | Better audit trails                  |
+
+### Performance vs Quality Trade-offs
+
+| Model Tier                                           | Speed    | Quality    | Cost     | Best For                         |
+| ---------------------------------------------------- | -------- | ---------- | -------- | -------------------------------- |
+| **Nano/Micro** (GPT-4.1-nano, Nova-micro)            | ⚡⚡⚡⚡ | ⭐⭐       | 💰       | Simple classification, keywords  |
+| **Mini/Lite** (GPT-4o-mini, Gemini Flash, Nova-lite) | ⚡⚡⚡   | ⭐⭐⭐     | 💰💰     | Production apps, chat, summaries |
+| **Standard** (GPT-4o, Claude 3.5, Gemini Pro)        | ⚡⚡     | ⭐⭐⭐⭐   | 💰💰💰   | Complex reasoning, analysis      |
+| **Premium** (Claude 4 Opus, GPT-4.1, o3)             | ⚡       | ⭐⭐⭐⭐⭐ | 💰💰💰💰 | Research, critical decisions     |
 
 ---
 
@@ -337,9 +487,7 @@ const masking: MaskingModuleConfig = {
 
 ### `SAPAIModelId`
 
-Supported model identifiers.
-
-**Note:** The models listed below are representative examples. Actual model availability depends on your SAP AI Core tenant configuration, region, and subscription. Refer to your SAP AI Core configuration or the [SAP AI Core documentation](https://help.sap.com/docs/ai-core) for the definitive list of models available in your environment.
+Model identifier type for SAP AI Core models.
 
 **Type:**
 
@@ -347,133 +495,16 @@ Supported model identifiers.
 export type SAPAIModelId = ChatModel; // Re-exported from @sap-ai-sdk/orchestration
 ```
 
-**About Model Availability:**
+**Description:**
 
-This library re-exports the `ChatModel` type from `@sap-ai-sdk/orchestration`, which is dynamically maintained by SAP AI SDK. The actual list of available models depends on:
+Re-exports the `ChatModel` type from `@sap-ai-sdk/orchestration`, which is dynamically maintained by SAP AI SDK.
 
-- Your SAP AI Core tenant configuration
-- Your region and subscription
-- Currently deployed models in your environment
+**For complete model information, see the [Models](#models) section above**, including:
 
-**Representative Model Examples** (non-exhaustive):
-
-**OpenAI (Azure):**
-
-- `gpt-4o`, `gpt-4o-mini` - Latest GPT-4 with vision & tools (recommended)
-- `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano` - Latest GPT-4 variants
-- `o1`, `o3`, `o3-mini`, `o4-mini` - Reasoning models
-
-**Google Vertex AI:**
-
-- `gemini-2.0-flash`, `gemini-2.0-flash-lite` - Fast inference
-- `gemini-2.5-flash`, `gemini-2.5-pro` - Latest Gemini
-- ⚠️ **Important**: Gemini models support **only 1 tool per request**
-
-**Anthropic (AWS Bedrock):**
-
-- `anthropic--claude-3.5-sonnet`, `anthropic--claude-3.7-sonnet` - Enhanced Claude 3
-- `anthropic--claude-4-sonnet`, `anthropic--claude-4-opus` - Latest Claude 4
-
-**Amazon Bedrock:**
-
-- `amazon--nova-pro`, `amazon--nova-lite`, `amazon--nova-micro`, `amazon--nova-premier`
-
-**Open Source (AI Core):**
-
-- `mistralai--mistral-large-instruct`, `mistralai--mistral-small-instruct`
-- `meta--llama3.1-70b-instruct`
-- `cohere--command-a-reasoning`
-
-**Discovering Available Models:**
-
-To list models available in your SAP AI Core tenant:
-
-```bash
-# Get access token
-export TOKEN=$(curl -X POST "https://<AUTH_URL>/oauth/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials" \
-  -d "client_id=<CLIENT_ID>" \
-  -d "client_secret=<CLIENT_SECRET>" | jq -r '.access_token')
-
-# List deployments
-curl "https://<AI_API_URL>/v2/lm/deployments" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "AI-Resource-Group: default" | jq '.resources[].details.resources.backend_details.model.name'
-```
-
-Or use **SAP AI Launchpad UI**:
-
-1. Navigate to ML Operations → Deployments
-2. Filter by "Orchestration" scenario
-3. View available model configurations
-
-**See Also:**
-
-- [SAP AI Core Models Documentation](https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/models-and-scenarios)
-- [Model Capabilities Comparison](#model-capabilities-comparison) (below)
-
-**⚠️ Important Model Limitations:**
-
-- **Gemini models** (all versions): Support **only 1 tool per request**. For applications requiring multiple tools, use OpenAI models (gpt-4o, gpt-4.1) or Claude models instead.
-- **Amazon models**: Do not support the `n` parameter (number of completions).
-- See [CURL_API_TESTING_GUIDE.md - Tool Calling](./CURL_API_TESTING_GUIDE.md#tool-calling-example) for complete model capabilities comparison.
-
-### Model Capabilities Comparison
-
-Quick reference for choosing the right model for your use case:
-
-| Model Family    | Tool Calling | Vision | Streaming | Max Tools  | Max Tokens | Notes                           |
-| --------------- | ------------ | ------ | --------- | ---------- | ---------- | ------------------------------- |
-| **GPT-4o**      | ✅           | ✅     | ✅        | Unlimited  | 16,384     | **Recommended** - Full features |
-| **GPT-4o-mini** | ✅           | ✅     | ✅        | Unlimited  | 16,384     | Fast, cost-effective            |
-| **GPT-4.1**     | ✅           | ✅     | ✅        | Unlimited  | 16,384     | Latest GPT-4                    |
-| **Gemini 2.0**  | ⚠️           | ✅     | ✅        | **1 only** | 32,768     | Tool limitation                 |
-| **Gemini 1.5**  | ⚠️           | ✅     | ✅        | **1 only** | 32,768     | Tool limitation                 |
-| **Claude 3.5**  | ✅           | ✅     | ✅        | Unlimited  | 8,192      | High quality                    |
-| **Claude 4**    | ✅           | ✅     | ✅        | Unlimited  | 8,192      | Latest Claude                   |
-| **Amazon Nova** | ✅           | ✅     | ✅        | Unlimited  | 8,192      | No `n` parameter support        |
-| **o1/o3**       | ⚠️           | ❌     | ✅        | Limited    | 16,384     | Reasoning models                |
-| **Llama 3.1**   | ✅           | ❌     | ✅        | Unlimited  | 8,192      | Open source                     |
-| **Mistral**     | ✅           | ⚠️     | ✅        | Unlimited  | 8,192      | Pixtral has vision              |
-
-**Legend:**
-
-- ✅ Fully supported
-- ⚠️ Limited support (see notes)
-- ❌ Not supported
-
-**Choosing a model:**
-
-- **Multiple tools required?** → Use GPT-4o, Claude, or Amazon Nova (avoid Gemini)
-- **Vision needed?** → Use GPT-4o, Gemini, Claude, or Pixtral
-- **Cost-sensitive?** → Use GPT-4o-mini or Gemini Flash
-- **Maximum context?** → Use Gemini (32k tokens)
-- **Open source?** → Use Llama or Mistral
-
-### Model Selection Guide by Use Case
-
-Quick reference for selecting models based on your application requirements:
-
-| Use Case                      | Recommended Models                            | Avoid                         | Notes                                |
-| ----------------------------- | --------------------------------------------- | ----------------------------- | ------------------------------------ |
-| **Multi-tool applications**   | GPT-4o, GPT-4.1, Claude 3.5+, Amazon Nova     | Gemini (all versions)         | Gemini limited to 1 tool per request |
-| **Vision + multi-modal**      | GPT-4o, GPT-4.1, Gemini 2.0, Claude 3.5+      | Llama, o1/o3 reasoning models | Best image understanding             |
-| **Cost-effective production** | GPT-4o-mini, Gemini 2.0 Flash, Claude 3 Haiku | GPT-4.1, Claude 4 Opus        | Balance of quality and cost          |
-| **Long context (>8k tokens)** | Gemini 1.5/2.0 (32k), GPT-4o/4.1 (16k)        | Older GPT-4, Amazon models    | Check token limits                   |
-| **Reasoning-heavy tasks**     | o1, o3, Claude 4 Opus, GPT-4.1                | Fast/Mini variants            | Slower but higher quality            |
-| **Real-time streaming**       | GPT-4o-mini, Gemini Flash, Claude Haiku       | o1/o3 reasoning models        | Optimized for low latency            |
-| **Open-source/self-hosted**   | Llama 3.1, Mistral Large                      | Proprietary models            | Deployment flexibility               |
-| **Enterprise compliance**     | Amazon Nova, Claude 4, GPT-4.1                | Community models              | Better audit trails                  |
-
-### Performance vs Quality Trade-offs
-
-| Model Tier                                           | Speed    | Quality    | Cost     | Best For                         |
-| ---------------------------------------------------- | -------- | ---------- | -------- | -------------------------------- |
-| **Nano/Micro** (GPT-4.1-nano, Nova-micro)            | ⚡⚡⚡⚡ | ⭐⭐       | 💰       | Simple classification, keywords  |
-| **Mini/Lite** (GPT-4o-mini, Gemini Flash, Nova-lite) | ⚡⚡⚡   | ⭐⭐⭐     | 💰💰     | Production apps, chat, summaries |
-| **Standard** (GPT-4o, Claude 3.5, Gemini Pro)        | ⚡⚡     | ⭐⭐⭐⭐   | 💰💰💰   | Complex reasoning, analysis      |
-| **Premium** (Claude 4 Opus, GPT-4.1, o3)             | ⚡       | ⭐⭐⭐⭐⭐ | 💰💰💰💰 | Research, critical decisions     |
+- Available model list (OpenAI, Google, Anthropic, Amazon, Open Source)
+- Model capabilities comparison
+- Selection guide by use case
+- Performance trade-offs
 
 ---
 

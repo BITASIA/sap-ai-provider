@@ -37,6 +37,14 @@ This repository provides an SAP AI Core provider compatible with the Vercel AI S
 ## Examples and Docs
 
 - README with usage and configuration: [README.md](mdc:README.md)
+- Complete API reference: [API_REFERENCE.md](mdc:API_REFERENCE.md)
+- Architecture documentation: [ARCHITECTURE.md](mdc:ARCHITECTURE.md)
+- Contribution guidelines: [CONTRIBUTING.md](mdc:CONTRIBUTING.md)
+- Environment setup guide: [ENVIRONMENT_SETUP.md](mdc:ENVIRONMENT_SETUP.md)
+- Troubleshooting guide: [TROUBLESHOOTING.md](mdc:TROUBLESHOOTING.md)
+- Migration guide: [MIGRATION_GUIDE.md](mdc:MIGRATION_GUIDE.md)
+- cURL API testing guide: [CURL_API_TESTING_GUIDE.md](mdc:CURL_API_TESTING_GUIDE.md)
+- AI agent instructions: [AGENTS.md](mdc:AGENTS.md)
 - Examples: [examples/](mdc:examples/)
   - Chat completion: [examples/example-simple-chat-completion.ts](mdc:examples/example-simple-chat-completion.ts)
   - Tool calling: [examples/example-chat-completion-tool.ts](mdc:examples/example-chat-completion-tool.ts)

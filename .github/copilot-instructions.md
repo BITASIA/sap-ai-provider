@@ -81,6 +81,8 @@ npm run validate-docs && npm run type-check && npm run test && npm run test:node
 
 ### Manual Testing with Examples
 
+**For environment setup and authentication**, see [ENVIRONMENT_SETUP.md](../ENVIRONMENT_SETUP.md)
+
 - **Examples location**: `/examples` directory contains 6 example files
 - **Running examples**: `npx tsx examples/example-simple-chat-completion.ts`
 - **LIMITATION**: Examples require `AICORE_SERVICE_KEY` environment variable to work
@@ -130,16 +132,37 @@ This should complete in under 15 seconds total and all commands should pass.
 ├── tsup.config.ts        # Build configuration
 ├── vitest.node.config.js # Node.js test configuration
 ├── vitest.edge.config.js # Edge runtime test configuration
-└── README.md             # Project documentation
+├── README.md             # Getting started and usage guide
+├── API_REFERENCE.md      # Complete API documentation
+├── ARCHITECTURE.md       # Technical architecture and design
+├── CONTRIBUTING.md       # Contribution guidelines and standards
+├── ENVIRONMENT_SETUP.md  # Authentication and environment configuration
+├── TROUBLESHOOTING.md    # Common issues and solutions
+├── MIGRATION_GUIDE.md    # Version migration instructions
+├── CURL_API_TESTING_GUIDE.md # Direct SAP AI Core API testing
+└── AGENTS.md             # AI agent instructions
 ```
 
 ### Key Files to Understand
+
+**Core Source Code:**
 
 - **`src/index.ts`**: Main export file - start here to understand the public API
 - **`src/sap-ai-provider.ts`**: Core provider implementation
 - **`src/sap-ai-chat-language-model.ts`**: Main language model logic
 - **`package.json`**: All available npm scripts and dependencies
 - **`examples/`**: Working examples of how to use the library
+
+**Documentation:**
+
+- **`README.md`**: Quick start guide and basic usage
+- **`API_REFERENCE.md`**: Complete API documentation with all exports, types, and models
+- **`ARCHITECTURE.md`**: System architecture and design decisions
+- **`CONTRIBUTING.md`**: Development workflow, coding standards, and guidelines
+- **`ENVIRONMENT_SETUP.md`**: Authentication setup and SAP AI Core configuration
+- **`TROUBLESHOOTING.md`**: Common problems and their solutions
+- **`MIGRATION_GUIDE.md`**: Version migration instructions (v1.x → v2.x → v3.x)
+- **`CURL_API_TESTING_GUIDE.md`**: Direct API testing without the SDK
 
 ### CI/CD Pipeline
 
@@ -193,6 +216,10 @@ npx tsx examples/example-data-masking.ts
 
 ### Troubleshooting
 
+**For comprehensive troubleshooting guide**, see [TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
+
+**Quick fixes:**
+
 - **Build fails**: Check TypeScript errors with `npm run type-check`
 - **Tests fail**: Run `npm run test:watch` for detailed test output
 - **Formatting issues**: Use `npm run prettier-fix` to auto-fix
@@ -209,7 +236,11 @@ When acting as a PR reviewer, you must first thoroughly analyze and understand t
 
 **ALWAYS start by understanding the codebase:**
 
-1. **Read core architecture**: Review `ARCHITECTURE.md`, `README.md`, and `CONTRIBUTING.md`
+1. **Read core architecture and guidelines**:
+   - `ARCHITECTURE.md` - System design and component interactions
+   - `README.md` - Quick start and usage patterns
+   - `CONTRIBUTING.md` - Development workflow and coding standards
+   - `API_REFERENCE.md` - Complete API documentation
 2. **Understand the API surface**: Start with `src/index.ts` to see public exports
 3. **Study key components**: Review `src/sap-ai-provider.ts` and `src/sap-ai-chat-language-model.ts`
 4. **Check existing patterns**: Look at test files (`*.test.ts`) to understand testing patterns

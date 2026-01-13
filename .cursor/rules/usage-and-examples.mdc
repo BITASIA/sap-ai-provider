@@ -11,6 +11,8 @@ Start with the README’s Quick Start and Advanced sections: [README.md](mdc:REA
 - Tool calling: [examples/example-chat-completion-tool.ts](mdc:examples/example-chat-completion-tool.ts)
 - Image recognition: [examples/example-image-recognition.ts](mdc:examples/example-image-recognition.ts)
 - Text generation: [examples/example-generate-text.ts](mdc:examples/example-generate-text.ts)
+- Data masking: [examples/example-data-masking.ts](mdc:examples/example-data-masking.ts)
+- Streaming chat: [examples/example-streaming-chat.ts](mdc:examples/example-streaming-chat.ts)
 
 ## Common Patterns
 
