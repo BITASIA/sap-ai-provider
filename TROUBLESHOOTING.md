@@ -16,6 +16,37 @@ This guide helps diagnose and resolve common issues when using the SAP AI Core P
 | Stream issues         | [Streaming Issues](#problem-streaming-not-working-or-incomplete)      |
 | Slow responses        | [Performance Issues](#problem-slow-response-times)                    |
 
+## Common Problems (Top 5)
+
+Quick solutions for the most frequent issues:
+
+1. **🔴 401 Unauthorized**
+   - **Cause:** Missing or invalid `AICORE_SERVICE_KEY`
+   - **Fix:** [Authentication Setup Guide](./ENVIRONMENT_SETUP.md)
+   - **ETA:** 2 minutes
+
+2. **🟠 404 Model Not Found**
+   - **Cause:** Model not available in your tenant/region
+   - **Fix:** [Model Availability Guide](#problem-404-modeldeployment-not-found)
+   - **ETA:** 5 minutes
+
+3. **🟡 429 Rate Limit Exceeded**
+   - **Cause:** Too many requests
+   - **Fix:** Automatic retry enabled (no action needed)
+   - **ETA:** Resolves automatically
+
+4. **🟢 Streaming Not Working**
+   - **Cause:** Incorrect iteration pattern
+   - **Fix:** [Streaming Guide](#problem-streaming-not-working-or-incomplete)
+   - **ETA:** 2 minutes
+
+5. **🔵 Tools Not Being Called**
+   - **Cause:** Vague tool descriptions
+   - **Fix:** [Tool Calling Guide](#problem-tools-not-being-called)
+   - **ETA:** 5 minutes
+
+**For other issues**, see the detailed [Table of Contents](#table-of-contents) below.
+
 ## Table of Contents
 
 - [Authentication Issues](#authentication-issues)
@@ -57,6 +88,9 @@ This guide helps diagnose and resolve common issues when using the SAP AI Core P
 For a complete error code reference, see [API Reference - Error Codes](./API_REFERENCE.md#error-codes).
 
 ### Parsing SAP Error Metadata (v3.0.0+)
+
+> **Architecture Details:** For OAuth2 authentication flow and token management,
+> see [Architecture - Authentication System](./ARCHITECTURE.md#authentication-system).
 
 **v3.0.0 Breaking Change:** `SAPAIError` removed. Use `APICallError` from `@ai-sdk/provider`.
 
@@ -134,6 +168,9 @@ try {
 3. Remove unsupported features or use alternatives (JSON mode instead of structured outputs)
 
 ## Streaming Issues
+
+> **Architecture Details:** For streaming implementation and SSE flow diagrams,
+> see [Architecture - Streaming Text Generation](./ARCHITECTURE.md#streaming-text-generation-sse-flow).
 
 ### Problem: Streaming not working or incomplete
 

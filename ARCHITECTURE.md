@@ -18,6 +18,18 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
 
 ## Table of Contents
 
+**Main Sections:**
+
+1. **[Overview](#overview)** - High-level architecture and design principles
+2. **[Component Architecture](#component-architecture)** - Internal components and responsibilities
+3. **[Request/Response Flow](#requestresponse-flow)** - Complete flow diagrams with tool calling and data masking
+4. **[Authentication System](#authentication-system)** - OAuth2 flow and token management
+5. **[Error Handling](#error-handling)** - Error conversion and retry mechanisms
+6. **[Advanced Topics](#type-system)** - Type system, integration patterns, and performance
+
+<details>
+<summary>📖 <strong>Detailed Table of Contents</strong> (Click to expand)</summary>
+
 1. [Overview](#overview)
    - [High-Level Architecture](#high-level-architecture)
    - [Component Interaction Flow](#component-interaction-flow)
@@ -69,6 +81,8 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
    - [Scalability Patterns](#scalability-patterns)
 
 9. [See Also](#see-also)
+
+</details>
 
 ## Overview
 
@@ -945,8 +959,9 @@ This architecture ensures the SAP AI Core Provider is robust, scalable, and main
 
 ## See Also
 
-- [API Reference](./API_REFERENCE.md) - Complete API documentation including types, interfaces, and configuration options
-- [README](./README.md) - Getting started guide and basic usage examples
-- [Migration Guide](./MIGRATION_GUIDE.md) - Upgrading from v1.x to v2.0
-- [Environment Setup](./ENVIRONMENT_SETUP.md) - Authentication and configuration setup
-- [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) - Low-level API testing and debugging
+**For getting started and basic usage**, see the [README](./README.md).
+
+**Related Technical Documentation:**
+
+- [API Reference](./API_REFERENCE.md) - Complete type definitions and interfaces referenced in this architecture document
+- [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) - Low-level API debugging to understand request/response flows described above

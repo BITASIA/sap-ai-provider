@@ -7,7 +7,7 @@
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. Built on top of the official **@sap-ai-sdk/orchestration** package, this provider enables you to use SAP's enterprise-grade AI models through the familiar Vercel AI SDK interface.
 
-> **Note on Terminology:** This documentation uses "tool calling" to align with Vercel AI SDK conventions. This is equivalent to "function calling" - both terms refer to the same capability of models invoking external functions.
+> **Note on Terminology:** This documentation uses "tool calling" (Vercel AI SDK convention), equivalent to "function calling" in OpenAI documentation. Both terms refer to the same capability of models invoking external functions.
 
 ## ⚠️ Breaking Changes in v3.0.0-rc.1
 

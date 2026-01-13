@@ -9,7 +9,7 @@ To avoid confusion, this documentation uses the following terminology consistent
 - **SAP AI Core** - The SAP BTP service that provides AI model hosting and orchestration (the cloud service)
 - **SAP AI SDK** - The official `@sap-ai-sdk/orchestration` npm package used for API communication
 - **SAP AI Core Provider** or **this provider** - This npm package (`@mymediset/sap-ai-provider`)
-- **Tool calling** and **Function calling** - These terms are used interchangeably in AI contexts. This provider uses "tool calling" to align with Vercel AI SDK terminology, but the concepts are identical.
+- **Tool calling** - The capability of models to invoke external functions. This provider uses "tool calling" (Vercel AI SDK convention), equivalent to "function calling" in OpenAI documentation. Both terms refer to the same capability.
 
 ## Table of Contents
 
@@ -22,6 +22,9 @@ To avoid confusion, this documentation uses the following terminology consistent
 ---
 
 ## Provider Factory Functions
+
+> **Architecture Context:** For provider factory pattern implementation details,
+> see [Architecture - Provider Pattern](./ARCHITECTURE.md#provider-pattern).
 
 ### `createSAPAIProvider(options?)`
 
@@ -532,6 +535,9 @@ const { stream } = await model.doStream({
 
 ### Error Handling & Reference
 
+> **Architecture Details:** For internal error conversion logic and retry mechanisms,
+> see [Architecture - Error Handling](./ARCHITECTURE.md#error-handling).
+
 The provider uses standard Vercel AI SDK error types for consistent error handling across providers.
 
 #### Error Types
@@ -654,6 +660,9 @@ This type is primarily used internally for error conversion but is exported for 
 ---
 
 ## Utility Functions
+
+> **Architecture Context:** For message transformation flow and format details,
+> see [Architecture - Message Conversion](./ARCHITECTURE.md#message-conversion).
 
 ### `convertToSAPMessages(prompt)`
 
