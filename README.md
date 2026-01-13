@@ -7,6 +7,16 @@ A community provider for SAP AI Core that integrates seamlessly with the Vercel 
 
 > **Note on Terminology:** This documentation uses "tool calling" to align with Vercel AI SDK conventions. This is equivalent to "function calling" - both terms refer to the same capability of models invoking external functions.
 
+## ⚠️ Breaking Changes in v3.0.0-rc.1
+
+Version 3.0 standardizes error handling to use Vercel AI SDK native error types:
+
+- **`SAPAIError` removed**: Use `APICallError` from `@ai-sdk/provider` instead
+- **Error properties changed**: `error.code` → `error.statusCode`, SAP metadata in `error.responseBody`
+- **Automatic retries**: Rate limits (429) and server errors (500, 503) now retry automatically
+
+**Upgrading from v2.x?** See the [Migration Guide](./MIGRATION_GUIDE.md#version-2x-to-3x-breaking-changes) for detailed instructions.
+
 ## ⚠️ Breaking Changes in v2.0
 
 Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
@@ -415,7 +425,7 @@ Error code reference table: [API Reference - Error Codes](./API_REFERENCE.md#err
 ## Debug Mode
 
 - Use the curl guide `CURL_API_TESTING_GUIDE.md` to diagnose raw API behavior independent of the SDK.
-- Log request IDs from `SAPAIError` to correlate with backend traces.
+- Log request IDs from `error.responseBody` (parse JSON for `request_id`) to correlate with backend traces.
 - Temporarily enable verbose logging in your app around provider calls; redact secrets.
 
 ## Examples

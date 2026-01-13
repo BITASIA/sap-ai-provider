@@ -5,6 +5,7 @@ Guide for migrating between versions of the SAP AI Core Provider.
 ## Table of Contents
 
 - [Overview](#overview)
+- [Version 2.x to 3.x (Breaking Changes)](#version-2x-to-3x-breaking-changes)
 - [Version 1.x to 2.x (Breaking Changes)](#version-1x-to-2x-breaking-changes)
 - [Breaking Changes](#breaking-changes)
 - [Deprecations](#deprecations)
@@ -17,6 +18,93 @@ Guide for migrating between versions of the SAP AI Core Provider.
 ## Overview
 
 This guide helps you migrate your application when upgrading to newer versions of the SAP AI Core Provider. It covers breaking changes, deprecations, and new features.
+
+---
+
+## Version 2.x to 3.x (Breaking Changes)
+
+**Version 3.0 standardizes error handling to use Vercel AI SDK native error types.**
+
+### Summary of Changes
+
+**Breaking Changes:**
+
+- `SAPAIError` class removed from exports
+- All errors now use `APICallError` from `@ai-sdk/provider`
+- Error handling is now fully compatible with AI SDK ecosystem
+
+**Benefits:**
+
+- Automatic retry with exponential backoff for rate limits and server errors
+- Consistent error handling across all AI SDK providers
+- Better integration with AI SDK tooling and frameworks
+- Improved error messages with SAP-specific metadata preserved
+
+### Migration Steps
+
+#### 1. Update Package
+
+```bash
+npm install @mymediset/sap-ai-provider@3.0.0-rc.1
+```
+
+#### 2. Update Error Handling
+
+**Before (v2.x):**
+
+```typescript
+import { SAPAIError } from "@mymediset/sap-ai-provider";
+
+try {
+  const result = await generateText({ model, prompt });
+} catch (error) {
+  if (error instanceof SAPAIError) {
+    console.error("SAP AI Error:", error.code, error.message);
+    console.error("Request ID:", error.requestId);
+  }
+}
+```
+
+**After (v3.x):**
+
+```typescript
+import { APICallError } from "@ai-sdk/provider";
+
+try {
+  const result = await generateText({ model, prompt });
+} catch (error) {
+  if (error instanceof APICallError) {
+    console.error("API Error:", error.statusCode, error.message);
+    console.error("Response:", error.responseBody);
+    // SAP-specific metadata is in responseBody JSON
+    const sapError = JSON.parse(error.responseBody || "{}");
+    console.error("Request ID:", sapError.error?.request_id);
+  }
+}
+```
+
+#### 3. SAP Error Metadata Access
+
+SAP AI Core error metadata (request ID, code, location) is preserved in the `responseBody` field:
+
+```typescript
+catch (error) {
+  if (error instanceof APICallError) {
+    const sapError = JSON.parse(error.responseBody || '{}');
+    console.error({
+      statusCode: error.statusCode,
+      message: sapError.error?.message,
+      code: sapError.error?.code,
+      location: sapError.error?.location,
+      requestId: sapError.error?.request_id
+    });
+  }
+}
+```
+
+#### 4. Automatic Retries
+
+V3 now leverages AI SDK's built-in retry mechanism for transient errors (429, 500, 503). No code changes needed - retries happen automatically with exponential backoff.
 
 ---
 
@@ -106,6 +194,14 @@ For detailed examples, see the [New Features](#new-features) section below.
 ---
 
 ## Breaking Changes
+
+### Version 3.0.x
+
+| Change                 | Details                                                                                | Migration                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **SAPAIError Removed** | `SAPAIError` class no longer exported                                                  | Use `APICallError` from `@ai-sdk/provider` instead. SAP metadata preserved in `responseBody`. |
+| **Error Types**        | All errors now use AI SDK standard types                                               | Import `APICallError` from `@ai-sdk/provider`, not from this package.                         |
+| **Error Properties**   | `error.code` → `error.statusCode`, `error.requestId` → parse from `error.responseBody` | Access SAP metadata via `JSON.parse(error.responseBody)`.                                     |
 
 ### Version 2.0.x
 
@@ -302,6 +398,16 @@ createSAPAIProvider({
 
 ## Migration Checklist
 
+### Upgrading from 2.x to 3.x
+
+- [ ] Update package: `npm install @mymediset/sap-ai-provider@3.0.0-rc.1`
+- [ ] Replace `SAPAIError` imports with `APICallError` from `@ai-sdk/provider`
+- [ ] Update error handling code to use `error.statusCode` instead of `error.code`
+- [ ] Update error metadata access to parse `error.responseBody` JSON for SAP details
+- [ ] Remove any custom retry logic (now automatic with AI SDK)
+- [ ] Run tests to verify error handling works correctly
+- [ ] Test automatic retry behavior with rate limits (429) and server errors (500, 503)
+
 ### Upgrading from 1.x to 2.x
 
 - [ ] Update packages: `npm install @mymediset/sap-ai-provider@latest ai@latest`
@@ -347,6 +453,14 @@ For detailed troubleshooting, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 ## Rollback Instructions
 
 If you need to rollback to a previous version:
+
+### Rollback to 2.x
+
+```bash
+npm install @mymediset/sap-ai-provider@2.1.0
+```
+
+**Note:** Version 2.x exports `SAPAIError` class for error handling.
 
 ### Rollback to 1.x
 
