@@ -18,7 +18,16 @@
 import "dotenv/config";
 import { generateText, tool, stepCountIs } from "ai";
 import { z } from "zod";
+
+// ============================================================================
+// NOTE: Import Path for Development vs Production
+// ============================================================================
+// This example uses relative imports for local development within this repo:
 import { createSAPAIProvider } from "../src/index";
+// In YOUR production project, use the published package instead:
+// import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+// ============================================================================
+
 import type { ChatCompletionTool } from "@sap-ai-sdk/orchestration";
 
 // Define tool schemas in SAP AI SDK format (proper JSON Schema)

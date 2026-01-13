@@ -16,9 +16,10 @@ description: Build, type-check, test, and publish workflow for the package
 - Type-check: `npm run type-check`
 - Lint: `npm run lint`
 - Prettier check/fix: `npm run prettier-check` / `npm run prettier-fix`
-- Test (all): `npm test`
+- Validate documentation: `npm run validate-docs`
+- Test: `npm test`
 
-`prepublishOnly` enforces type-check, tests, and build before publish (see [package.json](mdc:package.json)).
+`prepublishOnly` enforces validate-docs, type-check, tests, and build before publish (see [package.json](mdc:package.json)).
 
 ## Node Engine
 

@@ -204,6 +204,74 @@ Version bumping is handled by maintainers during release process.
 - Update README.md for user-facing changes
 - Update API_REFERENCE.md for API changes
 - Keep documentation concise and precise
+- **Run documentation verification before committing**: `npm run validate-docs`
+
+#### Documentation Guidelines
+
+When adding new features or changing APIs, follow these guidelines to maintain documentation quality:
+
+**1. Single Source of Truth**
+
+Each piece of information should have ONE authoritative location:
+
+- **API details** → `API_REFERENCE.md`
+- **Setup instructions** → `ENVIRONMENT_SETUP.md`
+- **Error solutions** → `TROUBLESHOOTING.md`
+- **Architecture decisions** → `ARCHITECTURE.md`
+- **Breaking changes** → `MIGRATION_GUIDE.md`
+- **Quick start** → `README.md` (with links to detailed docs)
+
+**2. Avoid Duplication**
+
+When referencing information from another doc, use links instead of copying:
+
+```markdown
+<!-- ❌ BAD: Duplicating content -->
+
+To set up authentication, create a service key in SAP BTP...
+
+<!-- ✅ GOOD: Linking to source of truth -->
+
+See [Environment Setup Guide](./ENVIRONMENT_SETUP.md#authentication) for authentication setup.
+```
+
+**3. Update Checklist for New Features**
+
+- [ ] Add to `API_REFERENCE.md` with TypeScript signatures and examples
+- [ ] Update `README.md` if user-facing (keep concise, link to API_REFERENCE)
+- [ ] Create example in `examples/` directory if significant feature
+- [ ] Update `MIGRATION_GUIDE.md` if breaking change
+- [ ] Run `npm run validate-docs` to check consistency
+- [ ] Run `npm run build` to ensure TypeScript compiles
+
+**4. Example Code Guidelines**
+
+- Use relative imports (`../src/index`) for repo examples
+- Add comment explaining production import path:
+  ```typescript
+  // NOTE: This example uses relative imports for local development
+  // In your project, use: import { ... } from "@mymediset/sap-ai-provider"
+  ```
+
+**5. Documentation Verification**
+
+Before submitting a PR, run:
+
+```bash
+npm run validate-docs  # Comprehensive documentation checks
+npm run build         # Ensures TypeScript compiles
+npm test             # Runs test suite
+```
+
+The `validate-docs` script checks:
+
+- All public exports are documented in API_REFERENCE.md
+- No broken internal markdown links
+- No excessive hardcoded model lists
+- Dotenv imports in code examples
+- Link format consistency (./path vs path)
+- Required documentation files exist
+- Version consistency across docs
 
 ## Testing Guidelines
 

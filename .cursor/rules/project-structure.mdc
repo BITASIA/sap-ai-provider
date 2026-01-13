@@ -25,6 +25,7 @@ This repository provides an SAP AI Core provider compatible with the Vercel AI S
 - TypeScript config: [tsconfig.json](mdc:tsconfig.json)
 - Build config (CJS+ESM+DTS): [tsup.config.ts](mdc:tsup.config.ts)
 - ESLint config: [eslint.config.mjs](mdc:eslint.config.mjs)
+- Documentation validation script: [scripts/validate-docs.ts](mdc:scripts/validate-docs.ts)
 - Output: [dist/](mdc:dist/) produces `index.js`, `index.cjs`, `index.d.ts` with sourcemaps.
 - `package.json` exports are aligned for Node and ESM: [package.json](mdc:package.json)
 

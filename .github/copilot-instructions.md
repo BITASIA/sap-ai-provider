@@ -47,6 +47,15 @@ Always reference these instructions first and fallback to search or bash command
 - **Linting**: `npm run lint` -- takes ~1 second. Set timeout to 15+ seconds.
 - **Auto-fix linting issues**: `npm run lint-fix`
 
+### Documentation Validation
+
+- **Validate documentation**: `npm run validate-docs` -- takes ~1 second. Set timeout to 10+ seconds.
+  - Checks all public exports are documented
+  - Detects broken internal markdown links
+  - Validates dotenv imports in code examples
+  - Ensures version consistency across docs
+  - Verifies required documentation files exist
+
 ### Development Workflow
 
 **For comprehensive workflow and standards**, see [CONTRIBUTING.md](../CONTRIBUTING.md#development-workflow)
@@ -55,7 +64,7 @@ Always reference these instructions first and fallback to search or bash command
 
 1. **Bootstrap**: `npm ci` (always first)
 2. **Make changes** in `/src`
-3. **Validate**: `npm run type-check && npm run test && npm run prettier-check`
+3. **Validate**: `npm run validate-docs && npm run type-check && npm run test && npm run prettier-check`
 4. **Build**: `npm run build && npm run check-build`
 
 ## Validation
@@ -65,7 +74,7 @@ Always reference these instructions first and fallback to search or bash command
 **ALWAYS run this command before committing (CI will fail otherwise):**
 
 ```bash
-npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
+npm run validate-docs && npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
 ```
 
 **Detailed checklist and standards**: See [CONTRIBUTING.md - Pre-Commit Checklist](../CONTRIBUTING.md#pre-commit-checklist)
@@ -83,17 +92,18 @@ npm run type-check && npm run test && npm run test:node && npm run test:edge && 
 Since full example testing requires SAP credentials, validate changes using this comprehensive approach:
 
 1. **Install and setup**: `npm install` (or `npm ci` if lock file exists)
-2. **Run all tests**: `npm run test && npm run test:node && npm run test:edge`
-3. **Build successfully**: `npm run build && npm run check-build`
-4. **Type check passes**: `npm run type-check`
-5. **Formatting is correct**: `npm run prettier-check`
-6. **Try running an example**: `npx tsx examples/example-simple-chat-completion.ts`
-7. **Expected result**: Clear error message about missing `AICORE_SERVICE_KEY`
+2. **Validate documentation**: `npm run validate-docs`
+3. **Run all tests**: `npm run test && npm run test:node && npm run test:edge`
+4. **Build successfully**: `npm run build && npm run check-build`
+5. **Type check passes**: `npm run type-check`
+6. **Formatting is correct**: `npm run prettier-check`
+7. **Try running an example**: `npx tsx examples/example-simple-chat-completion.ts`
+8. **Expected result**: Clear error message about missing `AICORE_SERVICE_KEY`
 
 **Complete CI-like validation command:**
 
 ```bash
-npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
+npm run validate-docs && npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
 ```
 
 This should complete in under 15 seconds total and all commands should pass.
@@ -105,7 +115,7 @@ This should complete in under 15 seconds total and all commands should pass.
 ```
 .
 ├── .github/               # GitHub Actions workflows and configs
-├── examples/              # Example usage files (4 examples)
+├── examples/              # Example usage files (6 examples)
 ├── src/                   # TypeScript source code
 │   ├── types/            # Type definitions
 │   ├── index.ts          # Main exports
@@ -154,6 +164,7 @@ npm install               # ~25s - Install deps + auto-build
 npm ci                    # ~15s - Clean install + auto-build
 
 # Development
+npm run validate-docs     # ~1s - Documentation validation
 npm run type-check        # ~2s - TypeScript validation
 npm run test             # ~1s - Run all tests
 npm run test:node        # ~1s - Node.js environment tests
@@ -163,8 +174,8 @@ npm run check-build      # <1s - Verify build outputs
 npm run prettier-check   # ~1s - Check formatting
 
 # Complete validation (CI-like)
-npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
-# Total time: ~15s
+npm run validate-docs && npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
+# Total time: ~16s
 
 # Examples (requires SAP service key)
 npx tsx examples/example-generate-text.ts
@@ -259,6 +270,7 @@ When acting as a PR reviewer, you must first thoroughly analyze and understand t
 Before approving any PR, verify ALL of these pass:
 
 ```bash
+npm run validate-docs &&
 npm run type-check &&
 npm run test &&
 npm run test:node &&

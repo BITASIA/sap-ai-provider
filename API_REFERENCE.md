@@ -344,63 +344,79 @@ Supported model identifiers.
 **Type:**
 
 ```typescript
-type SAPAIModelId =
-  // OpenAI GPT-4 Series
-  | "gpt-4" // Legacy GPT-4
-  | "gpt-4o" // GPT-4o (Recommended - vision, tools)
-  | "gpt-4o-mini" // Fast, cost-effective (vision, tools)
-  | "gpt-4.1" // Latest GPT-4 (vision, tools)
-  | "gpt-4.1-mini" // Latest GPT-4 mini (vision, tools)
-  | "gpt-4.1-nano" // Smallest GPT-4 variant
-
-  // OpenAI Reasoning Models
-  | "o1" // Extended reasoning
-  | "o1-mini" // Faster reasoning
-  | "o3" // Advanced reasoning
-  | "o3-mini" // Efficient reasoning
-  | "o4-mini" // Latest reasoning mini
-
-  // Google Gemini Series
-  | "gemini-1.5-pro" // Large context (vision, tools) ⚠️ Only 1 tool/request
-  | "gemini-1.5-flash" // Fast (vision, tools) ⚠️ Only 1 tool/request
-  | "gemini-2.0-pro" // Latest pro (vision, tools) ⚠️ Only 1 tool/request
-  | "gemini-2.0-flash" // Latest flash (vision, tools) ⚠️ Only 1 tool/request
-  | "gemini-2.0-flash-thinking" // With reasoning
-  | "gemini-2.0-flash-lite" // Lightweight
-  | "gemini-2.5-pro" // Newest pro
-  | "gemini-2.5-flash" // Newest flash
-
-  // Anthropic Claude Series
-  | "anthropic--claude-3-haiku" // Fast, affordable
-  | "anthropic--claude-3-sonnet" // Balanced
-  | "anthropic--claude-3-opus" // Most capable
-  | "anthropic--claude-3.5-sonnet" // Enhanced sonnet (vision, tools)
-  | "anthropic--claude-3.7-sonnet" // Latest sonnet
-  | "anthropic--claude-4-sonnet" // Claude 4 balanced
-  | "anthropic--claude-4-opus" // Claude 4 most capable
-
-  // Amazon Bedrock Models
-  | "amazon--nova-premier" // Premier tier
-  | "amazon--nova-pro" // Professional tier
-  | "amazon--nova-lite" // Lite tier
-  | "amazon--nova-micro" // Micro tier
-  | "amazon--titan-text-lite" // Titan lite
-  | "amazon--titan-text-express" // Titan express
-
-  // Open Source Models
-  | "meta--llama3-70b-instruct" // Meta Llama 3
-  | "meta--llama3.1-70b-instruct" // Meta Llama 3.1
-  | "mistralai--mistral-large-instruct" // Mistral large
-  | "mistralai--mistral-small-instruct" // Mistral small
-  | "mistralai--pixtral-large-instruct" // Mistral vision
-  | "ibm--granite-13b-chat" // IBM Granite
-  | "alephalpha-pharia-1-7b-control" // Aleph Alpha
-  | (string & {}); // Allow custom model IDs
+export type SAPAIModelId = ChatModel; // Re-exported from @sap-ai-sdk/orchestration
 ```
+
+**About Model Availability:**
+
+This library re-exports the `ChatModel` type from `@sap-ai-sdk/orchestration`, which is dynamically maintained by SAP AI SDK. The actual list of available models depends on:
+
+- Your SAP AI Core tenant configuration
+- Your region and subscription
+- Currently deployed models in your environment
+
+**Representative Model Examples** (non-exhaustive):
+
+**OpenAI (Azure):**
+
+- `gpt-4o`, `gpt-4o-mini` - Latest GPT-4 with vision & tools (recommended)
+- `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano` - Latest GPT-4 variants
+- `o1`, `o3`, `o3-mini`, `o4-mini` - Reasoning models
+
+**Google Vertex AI:**
+
+- `gemini-2.0-flash`, `gemini-2.0-flash-lite` - Fast inference
+- `gemini-2.5-flash`, `gemini-2.5-pro` - Latest Gemini
+- ⚠️ **Important**: Gemini models support **only 1 tool per request**
+
+**Anthropic (AWS Bedrock):**
+
+- `anthropic--claude-3.5-sonnet`, `anthropic--claude-3.7-sonnet` - Enhanced Claude 3
+- `anthropic--claude-4-sonnet`, `anthropic--claude-4-opus` - Latest Claude 4
+
+**Amazon Bedrock:**
+
+- `amazon--nova-pro`, `amazon--nova-lite`, `amazon--nova-micro`, `amazon--nova-premier`
+
+**Open Source (AI Core):**
+
+- `mistralai--mistral-large-instruct`, `mistralai--mistral-small-instruct`
+- `meta--llama3.1-70b-instruct`
+- `cohere--command-a-reasoning`
+
+**Discovering Available Models:**
+
+To list models available in your SAP AI Core tenant:
+
+```bash
+# Get access token
+export TOKEN=$(curl -X POST "https://<AUTH_URL>/oauth/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=<CLIENT_ID>" \
+  -d "client_secret=<CLIENT_SECRET>" | jq -r '.access_token')
+
+# List deployments
+curl "https://<AI_API_URL>/v2/lm/deployments" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "AI-Resource-Group: default" | jq '.resources[].details.resources.backend_details.model.name'
+```
+
+Or use **SAP AI Launchpad UI**:
+
+1. Navigate to ML Operations → Deployments
+2. Filter by "Orchestration" scenario
+3. View available model configurations
+
+**See Also:**
+
+- [SAP AI Core Models Documentation](https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/models-and-scenarios)
+- [Model Capabilities Comparison](#model-capabilities-comparison) (below)
 
 **⚠️ Important Model Limitations:**
 
-- **Gemini models** (gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-pro, gemini-2.0-flash): Support **only 1 tool per request**. For applications requiring multiple tools, use OpenAI models (gpt-4o, gpt-4.1-mini) or Claude models instead.
+- **Gemini models** (all versions): Support **only 1 tool per request**. For applications requiring multiple tools, use OpenAI models (gpt-4o, gpt-4.1) or Claude models instead.
+- **Amazon models**: Do not support the `n` parameter (number of completions).
 - See [CURL_API_TESTING_GUIDE.md - Tool Calling](./CURL_API_TESTING_GUIDE.md#tool-calling-example) for complete model capabilities comparison.
 
 ### Model Capabilities Comparison

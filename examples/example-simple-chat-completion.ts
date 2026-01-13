@@ -13,7 +13,16 @@
 
 // Load environment variables
 import "dotenv/config";
+
+// ============================================================================
+// NOTE: Import Path for Development vs Production
+// ============================================================================
+// This example uses relative imports for local development within this repo:
 import { createSAPAIProvider } from "../src/index";
+// In YOUR production project, use the published package instead:
+// import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+// ============================================================================
+
 import { APICallError } from "@ai-sdk/provider";
 
 async function simpleTest() {

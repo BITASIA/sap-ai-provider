@@ -59,9 +59,9 @@
     "test:edge": "vitest --config vitest.edge.config.ts --run",
     "test:node:watch": "vitest --config vitest.node.config.ts",
     "test:coverage": "vitest run --coverage",
-    "validate-docs": "./scripts/validate-docs.sh",
+    "validate-docs": "npx tsx scripts/validate-docs.ts",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run type-check && npm run test && npm run build",
+    "prepublishOnly": "npm run validate-docs && npm run type-check && npm run test && npm run build",
     "check-build": "ls -la dist/ && test -f dist/index.js && test -f dist/index.cjs && test -f dist/index.d.ts"
   },
   "dependencies": {

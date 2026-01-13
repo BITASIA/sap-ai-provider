@@ -11,24 +11,23 @@ A community provider for SAP AI Core that integrates seamlessly with the Vercel 
 
 ## ⚠️ Breaking Changes in v3.0.0-rc.1
 
-Version 3.0 standardizes error handling to use Vercel AI SDK native error types:
+Version 3.0 standardizes error handling to use Vercel AI SDK native error types. **See the [Migration Guide](./MIGRATION_GUIDE.md#v2x--v30) for complete upgrade instructions.**
 
-- **`SAPAIError` removed**: Use `APICallError` from `@ai-sdk/provider` instead
-- **Error properties changed**: `error.code` → `error.statusCode`, SAP metadata in `error.responseBody`
-- **Automatic retries**: Rate limits (429) and server errors (500, 503) now retry automatically
+**Key changes:**
 
-**Upgrading from v2.x?** See the [Migration Guide](./MIGRATION_GUIDE.md#version-2x-to-3x-breaking-changes) for detailed instructions.
+- `SAPAIError` removed → Use `APICallError` from `@ai-sdk/provider`
+- Error properties: `error.code` → `error.statusCode`
+- Automatic retries for rate limits (429) and server errors (5xx)
 
 ## ⚠️ Breaking Changes in v2.0
 
-Version 2.0 is a complete rewrite using the official SAP AI SDK. Key changes:
+Version 2.0 uses the official SAP AI SDK. **See the [Migration Guide](./MIGRATION_GUIDE.md#v1x--v20) for complete upgrade instructions.**
 
-- **Authentication**: Now uses `AICORE_SERVICE_KEY` environment variable (SAP AI SDK standard)
-- **Provider creation**: Now synchronous - `createSAPAIProvider()` instead of `await createSAPAIProvider()`
-- **No more `serviceKey` option**: Authentication is handled automatically by the SAP AI SDK
-- **New helper functions**: Use `buildDpiMaskingProvider()`, `buildAzureContentSafetyFilter()` etc. from the SDK
+**Key changes:**
 
-**Upgrading from v1.x?** See the [Migration Guide](./MIGRATION_GUIDE.md) for detailed instructions.
+- Authentication via `AICORE_SERVICE_KEY` environment variable
+- Synchronous provider creation: `createSAPAIProvider()` (no await)
+- Helper functions from SAP AI SDK
 
 ## Table of Contents
 
@@ -233,13 +232,25 @@ const result = await generateText({
 
 ## Supported Models
 
-This provider supports all models available in your SAP AI Core tenant, including:
+This provider supports all models available through SAP AI Core Orchestration service, including:
 
-**Popular models:** GPT-4o, GPT-4.1, Claude 3.5 Sonnet, Gemini 2.0, Amazon Nova
+**Popular models:**
 
-**Model availability** varies by tenant, region, and subscription. Some models have specific limitations (e.g., Gemini supports only one tool per request).
+- **OpenAI**: gpt-4o, gpt-4o-mini, gpt-4.1, o1, o3 (recommended for multi-tool apps)
+- **Anthropic Claude**: claude-3.5-sonnet, claude-4-opus
+- **Google Gemini**: gemini-2.5-pro, gemini-2.0-flash (⚠️ 1 tool limit)
+- **Amazon Nova**: nova-pro, nova-lite
+- **Open Source**: mistralai-mistral-large, llama3.1-70b
 
-For the complete list of model identifiers and capabilities, see **[API Reference: SAPAIModelId](./API_REFERENCE.md#sapaimodelid)**.
+**Note:** Model availability depends on your SAP AI Core tenant configuration, region, and subscription.
+
+**To discover available models in your environment:**
+
+```bash
+curl "https://<AI_API_URL>/v2/lm/deployments" -H "Authorization: Bearer $TOKEN"
+```
+
+For complete model details, capabilities comparison, and limitations, see **[API Reference: SAPAIModelId](./API_REFERENCE.md#sapaimodelid)**.
 
 ## Advanced Features
 
