@@ -30,11 +30,27 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
-      - name: Set package version from release
+      - name: Set package version and scope from release
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "Setting version to $VERSION"
           npm version $VERSION --no-git-tag-version
+
+          REPO_OWNER="${{ github.repository_owner }}"
+          echo "Repository owner: $REPO_OWNER"
+
+          if [[ "$REPO_OWNER" == "jerome-benoit" ]]; then
+            echo "📦 Publishing under @jerome-benoit scope"
+            sed -i 's/"name": "@mymediset\/sap-ai-provider"/"name": "@jerome-benoit\/sap-ai-provider"/g' package.json
+            sed -i 's/BITASIA\/sap-ai-provider/jerome-benoit\/sap-ai-provider/g' package.json
+          elif [[ "$REPO_OWNER" == "BITASIA" ]]; then
+            echo "📦 Publishing under @mymediset scope"
+          else
+            echo "⚠️ Unknown repository owner: $REPO_OWNER, keeping default @mymediset scope"
+          fi
+
+          echo "Package name:"
+          grep '"name":' package.json
       - run: npm ci
       - run: npm run build
       - name: Determine npm tag
