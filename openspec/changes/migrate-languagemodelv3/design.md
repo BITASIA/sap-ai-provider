@@ -169,7 +169,7 @@ type LanguageModelV2StreamPart =
 ```typescript
 // Structured stream parts with IDs and lifecycle
 type LanguageModelV3StreamPart =
-  | { type: "stream-start" }
+  | { type: "stream-start"; warnings: SharedV3Warning[] }
   | { type: "response-metadata"; modelId: string; timestamp: Date }
   | { type: "text-start"; id: string }
   | { type: "text-delta"; id: string; delta: string }
@@ -185,10 +185,10 @@ type LanguageModelV3StreamPart =
 
 **Key Changes**:
 
-1. **Remove warnings from stream-start**: V3 stream-start has no properties
+1. **Include warnings in stream-start**: V3 stream-start requires `warnings: Array<SharedV3Warning>` property per official specification
 2. **Add text lifecycle tracking**: Text blocks need explicit start/end with
    accumulated content
-3. **Generate unique IDs**: Each text/reasoning block needs a unique ID
+3. **Generate unique IDs**: Each text/reasoning block needs a unique RFC 4122 UUID
 
 **Implementation Strategy**:
 
@@ -252,8 +252,11 @@ class StreamIdGenerator {
 ```typescript
 const transformedStream = new ReadableStream<LanguageModelV3StreamPart>({
   async start(controller) {
-    // V3: stream-start has no properties
-    controller.enqueue({ type: "stream-start" });
+    // V3: stream-start includes warnings per spec
+    controller.enqueue({
+      type: "stream-start",
+      warnings: warningsSnapshot,
+    });
 
     const idGenerator = new StreamIdGenerator();
     const streamState: StreamState = {
@@ -502,23 +505,21 @@ type LanguageModelV3CallWarning =
 Add warnings for V3-specific unsupported features:
 
 ```typescript
-// In convertToSAPMessages
+// In convertToSAPMessages - File content validation
 if (contentPart.type === "file") {
-  warnings.push({
-    type: "unsupported-content",
-    content: contentPart,
-    message: "SAP AI Core does not support file content. This will be skipped.",
-  });
+  // V3: Only image files supported, throw error for non-images
+  if (!contentPart.mediaType.startsWith("image/")) {
+    throw new UnsupportedFunctionalityError({
+      functionality: "Only image files are supported",
+    });
+  }
 }
 
-// In buildOrchestrationConfig
-if (options.reasoning) {
-  warnings.push({
-    type: "other",
-    message:
-      "SAP AI Core does not support reasoning mode. This setting will be ignored.",
-  });
-}
+// V3 Note: Reasoning mode
+// LanguageModelV3CallOptions does NOT have an 'options.reasoning' field
+// This is a V2→V3 breaking change
+// In V3, reasoning is handled through message content with reasoning parts
+// Provider-specific reasoning support uses providerOptions.sap.includeReasoning
 ```
 
 ### 6. Generate Result Structure
@@ -737,7 +738,10 @@ it("should emit text-start, text-delta, text-end for streaming", async () => {
     chunks.push(chunk);
   }
 
-  expect(chunks).toContainEqual({ type: "stream-start" });
+  expect(chunks).toContainEqual({
+    type: "stream-start",
+    warnings: expect.any(Array),
+  });
   expect(chunks).toContainEqual(
     expect.objectContaining({ type: "text-start", id: expect.any(String) }),
   );

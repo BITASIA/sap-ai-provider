@@ -278,13 +278,17 @@ Remaining Tasks: 15 (Phase 5 - Release tasks only)
   - **Changes**: Add text block tracking map, update types to V3
 
 - [x] **Task 2.4.4**: Update stream-start emission
-  - **Files**: `src/sap-ai-chat-language-model.ts:979-983`
+  - **Files**: `src/sap-ai-chat-language-model.ts:1071-1074`
   - **Effort**: 15 minutes
   - **Dependencies**: Task 2.4.3
-  - **Changes**: Remove warnings from stream-start
+  - **Changes**: Include warnings in stream-start per V3 specification
+  - **Note**: V3 spec requires `warnings: Array<SharedV3Warning>` in stream-start
 
   ```typescript
-  controller.enqueue({ type: "stream-start" });
+  controller.enqueue({
+    type: "stream-start",
+    warnings: warningsSnapshot,
+  });
   ```
 
 - [x] **Task 2.4.5**: Implement text block lifecycle (start/delta/end)
@@ -335,11 +339,12 @@ Remaining Tasks: 15 (Phase 5 - Release tasks only)
   - **Dependencies**: Task 2.2.2
   - **Changes**: Emit warnings for unsupported file content
 
-- [x] **Task 2.5.2**: Add reasoning mode warnings
-  - **Files**: `src/sap-ai-chat-language-model.ts`
-  - **Effort**: 30 minutes
-  - **Dependencies**: Task 2.3.1
-  - **Changes**: Check for reasoning option, emit warning if present
+- [x] **Task 2.5.2**: ~~Add reasoning mode warnings~~ (N/A for V3)
+  - **Status**: Not Applicable
+  - **Reason**: V3 does not have `options.reasoning` field
+  - **Note**: V3 handles reasoning through message content (reasoning parts in prompt), not as a call option. This is a V2→V3 breaking change.
+  - **V2 Behavior**: `options.reasoning?: boolean` in CallOptions
+  - **V3 Behavior**: Reasoning parts embedded in message content as `{ type: "reasoning", text: string }`
 
 - [x] **Task 2.5.3**: Update existing warning messages
   - **Files**: `src/sap-ai-chat-language-model.ts`

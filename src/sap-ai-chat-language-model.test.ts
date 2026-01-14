@@ -1616,6 +1616,107 @@ describe("SAPAIChatLanguageModel", () => {
         expect(parts.some((p) => p.type === "tool-call")).toBe(false);
       });
 
+      it("should generate unique RFC 4122 UUIDs for text blocks", async () => {
+        // Regression test for StreamIdGenerator bug (commit 3ca38c6)
+        // Ensures text blocks get truly unique UUIDs instead of hardcoded "0"
+        await setStreamChunks([
+          {
+            getDeltaContent: () => "First text block",
+            getDeltaToolCalls: () => undefined,
+            getFinishReason: () => null,
+            getTokenUsage: () => undefined,
+          },
+          {
+            getDeltaContent: () => " continuation",
+            getDeltaToolCalls: () => undefined,
+            getFinishReason: () => "stop",
+            getTokenUsage: () => ({
+              prompt_tokens: 10,
+              completion_tokens: 5,
+              total_tokens: 15,
+            }),
+          },
+        ]);
+
+        const model = createModel();
+        const prompt = createPrompt("Test");
+
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV3StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Extract text lifecycle events
+        const textStarts = parts.filter(
+          (
+            p,
+          ): p is Extract<LanguageModelV3StreamPart, { type: "text-start" }> =>
+            p.type === "text-start",
+        );
+        const textDeltas = parts.filter(
+          (
+            p,
+          ): p is Extract<LanguageModelV3StreamPart, { type: "text-delta" }> =>
+            p.type === "text-delta",
+        );
+        const textEnds = parts.filter(
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "text-end" }> =>
+            p.type === "text-end",
+        );
+
+        // Should have exactly one text block
+        expect(textStarts).toHaveLength(1);
+        expect(textEnds).toHaveLength(1);
+        expect(textDeltas.length).toBeGreaterThan(0);
+
+        const blockId = textStarts[0]!.id;
+
+        // ID must be a valid RFC 4122 UUID v4 (format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx)
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        expect(blockId).toMatch(uuidRegex);
+
+        // Must NOT be hardcoded "0" (the bug we fixed in commit 3ca38c6)
+        expect(blockId).not.toBe("0");
+
+        // Verify all text-delta and text-end use the same UUID as text-start
+        for (const delta of textDeltas) {
+          expect(delta.id).toBe(blockId);
+        }
+        expect(textEnds[0]!.id).toBe(blockId);
+
+        // Additional verification: test multiple streams to ensure different UUIDs
+        const { stream: stream2 } = await model.doStream({ prompt });
+        const parts2: LanguageModelV3StreamPart[] = [];
+        const reader2 = stream2.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader2.read();
+          if (done) break;
+          parts2.push(value);
+        }
+
+        const textStarts2 = parts2.filter(
+          (
+            p,
+          ): p is Extract<LanguageModelV3StreamPart, { type: "text-start" }> =>
+            p.type === "text-start",
+        );
+
+        const blockId2 = textStarts2[0]!.id;
+
+        // Different stream should have different UUID (proves randomness)
+        expect(blockId2).not.toBe(blockId);
+        expect(blockId2).toMatch(uuidRegex);
+      });
+
       it("should flush unflushed tool calls at stream end (with finishReason=stop)", async () => {
         await setStreamChunks([
           {
