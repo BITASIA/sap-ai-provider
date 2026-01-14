@@ -1,31 +1,35 @@
 # Migration to LanguageModelV3 Specification
 
-**Status**: Implemented - Awaiting Release Approval  
+**Status**: RC Published - Awaiting Feedback  
 **Type**: Migration / Breaking Change  
 **Priority**: High  
 **Author**: AI Assistant  
 **Date**: 2026-01-14  
-**Last Updated**: 2026-01-14
+**Last Updated**: 2026-01-14 21:59 UTC
 
 ## Current Status
 
-As of 2026-01-14:
+As of 2026-01-14 21:59 UTC:
 
-- ✅ **Implementation**: Complete (14 commits on `feature/languagemodelv3`)
-- ✅ **Tests**: 183/183 passing (100%)
-- ✅ **Build**: Successful (ESM + DTS artifacts generated)
+- ✅ **Implementation**: Complete (155 commits on `feature/languagemodelv3`, merged to `main`)
+- ✅ **Tests**: 184/184 passing (100%)
+- ✅ **Build**: Successful (ESM + CJS + DTS artifacts generated)
 - ✅ **Type-check**: Successful (strict mode)
-- ✅ **Documentation**: Complete (README.md, MIGRATION_GUIDE.md, JSDoc)
+- ✅ **Documentation**: Complete (README.md, MIGRATION_GUIDE.md, API_REFERENCE.md, JSDoc)
 - ✅ **CI/CD Quality Gates**: All passing
-- ✅ **PR #28**: Created on upstream (BITASIA/sap-ai-provider) - Under review
-- ✅ **Technical Reviews**: Copilot review (6 comments) + Cursor review completed
-- ✅ **Pre-Release Prep**: Version bump (4.0.0), build verified, tests passing
-- ⏳ **Git Tag**: v4.0.0 not yet created (Task 5.2.2 pending)
-- ⏳ **GitHub Release**: Not yet created (awaiting approval gates 5.2.6 and 5.3.1)
-- ⏳ **npm Publication**: v4.0.0 not yet published (current: 3.0.0)
-- 📊 **Task Progress**: 76/91 tasks complete (83.5%)
+- ✅ **PR #28**: Created on upstream (BITASIA/sap-ai-provider) - Reviews completed (Copilot + Cursor)
+- ✅ **Implementation Audit**: 9.5/10 quality score - APPROVED for production
+- ✅ **Release Candidate**: v4.0.0-rc.1 published to npm
+  - 🏷️ **Git Tag**: v4.0.0-rc.1 created and pushed
+  - 📦 **npm Package**: `@jerome-benoit/sap-ai-provider@4.0.0-rc.1` (tag: `next`)
+  - 🔗 **GitHub Pre-Release**: https://github.com/jerome-benoit/sap-ai-provider/releases/tag/v4.0.0-rc.1
+- ⏳ **RC Feedback Period**: 3-7 days (Task 5.1a.7 in progress)
+- ⏳ **Final Release**: v4.0.0 pending RC feedback completion
+- 📊 **Task Progress**: 84/99 tasks complete (84.8%)
   - Phases 1-4: 68/68 (100%)
-  - Phase 5: 8/23 (35%) - Awaiting release approval
+  - Phase 5.1: 6/6 (100%)
+  - Phase 5.1a (RC): 6/7 (86%) - Gathering feedback
+  - Phase 5.2-5.4: 0/18 (0%) - Pending RC feedback
 
 ### Automated Quality Checks
 
@@ -33,7 +37,7 @@ All CI/CD checks defined in `.github/workflows/check-pr.yaml` are passing:
 
 - ✅ **format-check**: ESLint (0 errors) + Prettier (all files formatted)
 - ✅ **type-check**: TypeScript compilation with strict mode
-- ✅ **test**: 183/183 tests passing (unit + node + edge runtimes)
+- ✅ **test**: 184/184 tests passing (unit + node + edge runtimes)
 - ✅ **build**: Package compilation + output validation
 - ✅ **docs-validation**: Documentation structure and links verified
 
@@ -41,11 +45,10 @@ All CI/CD checks defined in `.github/workflows/check-pr.yaml` are passing:
 
 **Next Steps**:
 
-1. Complete Task 5.2.1 (Create release commit)
-2. Complete Task 5.2.2 (Create git tag v4.0.0)
-3. Obtain Approval Gate 1 (Task 5.2.6) - Owner pre-release approval
-4. Obtain Approval Gate 2 (Task 5.3.1) - Owner approval for npm publish
-5. Create GitHub release (triggers automated npm publish)
+1. Monitor RC feedback (GitHub issues, npm downloads, user reports)
+2. If critical issues found → Publish v4.0.0-rc.2
+3. If no blocking issues → Proceed to final v4.0.0 release (Phase 5.2)
+4. Update upstream PR #28 when final release is ready
 
 ---
 
@@ -82,7 +85,7 @@ The alternative—staying on V2—creates technical debt that will become more e
 
 ### Current State
 
-- **Package Version**: 3.0.0 → 4.0.0 (Migration Complete)
+- **Package Version**: 3.0.0 → 4.0.0-rc.1 → 4.0.0 (Migration Complete, RC Published)
 - **Implemented Interface**: `LanguageModelV3` (v3 specification) - Implementation complete
 - **Dependencies**:
   - `@ai-sdk/provider`: ^3.0.2 (provider interface package)
@@ -112,7 +115,7 @@ This dual-repository approach ensures both community contribution (via upstream)
 **Current Status**:
 
 - **Upstream** (`@mymediset/sap-ai-provider`): v2.1.0 - stable release with known issues
-- **Fork** (`@jerome-benoit/sap-ai-provider`): v3.0.0 published, v4.0.0 in development
+- **Fork** (`@jerome-benoit/sap-ai-provider`): v3.0.0 (stable), v4.0.0-rc.1 (pre-release), v4.0.0 final pending RC feedback
 - **Co-maintenance Request**: Pending response from upstream maintainers
 
 **Future Scenarios**:
@@ -177,7 +180,7 @@ The **Language Model Specification V3** (introduced in `@ai-sdk/provider` 3.0.0,
 #### Functional Requirements
 
 - [x] `LanguageModelV3` interface correctly implemented
-- [x] All existing tests pass (183/183)
+- [x] All existing tests pass (184/184)
 - [x] New content types supported (according to SAP capabilities)
 - [x] Streaming compliant with V3 spec
 - [x] Documentation updated (README, MIGRATION_GUIDE, JSDoc)
@@ -195,7 +198,8 @@ The **Language Model Specification V3** (introduced in `@ai-sdk/provider` 3.0.0,
 
 - [x] CI/CD pipeline green on feature branch
 - [x] PR opened on upstream for community review
-- [ ] Major version published (4.0.0 as `@jerome-benoit/sap-ai-provider`)
+- [x] Release Candidate published (4.0.0-rc.1 as `@jerome-benoit/sap-ai-provider`)
+- [ ] Major version published (4.0.0 stable as `@jerome-benoit/sap-ai-provider` with `latest` tag)
 
 ## Proposed Solution
 
@@ -746,7 +750,7 @@ A full audit against Vercel AI SDK v6 LanguageModelV3 specification and referenc
 **Key Findings**:
 
 - ✅ **100% V3 Specification Compliance**: All required features correctly implemented
-- ✅ **183/183 Tests Passing**: Comprehensive test coverage with 100% pass rate
+- ✅ **184/184 Tests Passing**: Comprehensive test coverage with 100% pass rate
 - ✅ **Superior Error Handling**: Enhanced messages with SAP-specific guidance
 - ✅ **Excellent Developer Experience**: Non-blocking validation, comprehensive JSDoc
 - ✅ **Performance Optimized**: Efficient streaming, minimal memory footprint
@@ -764,7 +768,7 @@ A full audit against Vercel AI SDK v6 LanguageModelV3 specification and referenc
 1. Best-in-class warning system (non-blocking parameter validation)
 2. Enhanced error messages with SAP-specific guidance and documentation links
 3. Superior abort signal handling with detailed platform limitation docs
-4. Comprehensive test suite (183 tests covering all edge cases)
+4. Comprehensive test suite (184 tests covering all edge cases)
 
 **Audit Recommendation**: **APPROVE FOR PRODUCTION RELEASE** - Implementation exceeds industry standards.
 
@@ -875,10 +879,11 @@ To ensure successful adoption of v4.0.0, we need a comprehensive communication s
    - Request early feedback from community
 
 2. **Beta/RC Phase**:
-   - Publish 4.0.0-rc.0 for early adopters
-   - Request testing and feedback
-   - Document reported issues
-   - Iterate based on feedback
+   - ✅ **COMPLETED**: Published v4.0.0-rc.1 on 2026-01-14 (npm tag: `next`)
+   - ⏳ **IN PROGRESS**: Gathering feedback from early adopters (3-7 days)
+   - Installation: `npm install @jerome-benoit/sap-ai-provider@next`
+   - GitHub Pre-Release: https://github.com/jerome-benoit/sap-ai-provider/releases/tag/v4.0.0-rc.1
+   - Next: Iterate based on feedback (v4.0.0-rc.2 if needed, or proceed to v4.0.0 stable)
 
 #### Release Day Communication
 
@@ -1043,7 +1048,7 @@ To ensure successful adoption of v4.0.0, we need a comprehensive communication s
    - Decision point: proceed to testing
 
 2. **M2: Tests Validated** (Day 6) - ✅ **COMPLETE**
-   - All tests pass (unit + integration): 183/183 passing
+   - All tests pass (unit + integration): 184/184 passing
    - Manual validation OK
    - Performance benchmarks acceptable
    - Decision point: proceed to documentation

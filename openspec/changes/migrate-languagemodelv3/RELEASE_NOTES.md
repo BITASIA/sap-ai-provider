@@ -1,6 +1,9 @@
-# Release Notes: v4.0.0
+# Release Notes: v4.0.0 (TEMPLATE FOR FINAL RELEASE)
 
-**Release Date**: January 14, 2026  
+> **Note**: This document serves as the template for the final v4.0.0 stable release.  
+> **Current Status**: v4.0.0-rc.1 published (2026-01-14) - gathering feedback  
+> **Release Date**: TBD (pending RC feedback period completion)
+
 **Type**: Major Version - Breaking Changes  
 **Specification**: LanguageModelV3 (AI SDK 6.0+)
 
@@ -10,7 +13,9 @@
 
 Version 4.0.0 migrates from `LanguageModelV2` to `LanguageModelV3` specification, ensuring compatibility with AI SDK 6+ and unlocking access to modern AI capabilities (agents, reasoning, enhanced streaming).
 
-**Quality**: 183/183 tests passing | Implementation audit: 9.5/10
+**Quality**: 184/184 tests passing | Implementation audit: 9.5/10
+
+**Pre-Release**: v4.0.0-rc.1 available now for testing (`npm install @jerome-benoit/sap-ai-provider@next`)
 
 ---
 
@@ -134,12 +139,12 @@ if (chunk.type === "text-delta") {
 - `convert-to-sap-messages.ts` - V3 message conversion
 - `sap-ai-provider.ts` - V3 interface
 
-**Tests** (183 tests, all passing):
+**Tests** (184 tests, all passing):
 
 - 85 tests for V3 language model
 - 29 tests for message conversion
 - 55 tests for error handling
-- 14 tests for provider interface
+- 15 tests for provider interface
 
 **Documentation** (Complete):
 
