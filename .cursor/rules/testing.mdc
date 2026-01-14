@@ -20,7 +20,7 @@ Use Node environment for most unit tests. Use Edge runtime when covering streami
 ## Stubbing Network
 
 - Prefer injecting a custom `fetch` via provider settings for deterministic tests (see [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)).
-- For streaming flows, assert `LanguageModelV2StreamPart` events via the `doStream` pipeline (see [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)).
+- For streaming flows, assert `LanguageModelV3StreamPart` events via the `doStream` pipeline (see [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)).
 
 ## Test Patterns
 

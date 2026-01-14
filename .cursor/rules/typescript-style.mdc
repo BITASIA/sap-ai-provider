@@ -32,5 +32,5 @@ Follow these conventions across TypeScript sources to align with the existing co
 ## Provider-specific Conventions
 
 - The provider function must not be invoked with `new` (explicitly guarded in [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)).
-- When adding model capabilities, ensure `SAPAIChatLanguageModel` maintains the `LanguageModelV2` contract (see [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)).
+- When adding model capabilities, ensure `SAPAIChatLanguageModel` maintains the `LanguageModelV3` contract (see [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)).
 

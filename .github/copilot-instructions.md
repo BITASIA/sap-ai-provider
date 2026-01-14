@@ -161,7 +161,7 @@ This should complete in under 15 seconds total and all commands should pass.
 - **`CONTRIBUTING.md`**: Development workflow, coding standards, and guidelines
 - **`ENVIRONMENT_SETUP.md`**: Authentication setup and SAP AI Core configuration
 - **`TROUBLESHOOTING.md`**: Common problems and their solutions
-- **`MIGRATION_GUIDE.md`**: Version migration instructions (v1.x → v2.x → v3.x)
+- **`MIGRATION_GUIDE.md`**: Version migration instructions (v1.x → v2.x → v3.x → v4.x)
 - **`CURL_API_TESTING_GUIDE.md`**: Direct API testing without the SDK
 
 ### CI/CD Pipeline
