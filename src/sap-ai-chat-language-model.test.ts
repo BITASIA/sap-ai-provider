@@ -1045,7 +1045,7 @@ describe("SAPAIChatLanguageModel", () => {
       // Check finish part
       const finishPart = parts.find((p) => p.type === "finish");
       expect(finishPart).toBeDefined();
-      if (finishPart && finishPart.type === "finish") {
+      if (finishPart?.type === "finish") {
         expect(finishPart.finishReason).toEqual({
           unified: "stop",
           raw: "stop",
@@ -1322,7 +1322,7 @@ describe("SAPAIChatLanguageModel", () => {
 
         const finishPart = parts.find((p) => p.type === "finish");
         expect(finishPart).toBeDefined();
-        if (finishPart && finishPart.type === "finish") {
+        if (finishPart?.type === "finish") {
           expect(finishPart.finishReason.unified).toBe(expected);
           expect(finishPart.finishReason.raw).toBe(input);
         }
