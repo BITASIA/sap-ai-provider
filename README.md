@@ -318,13 +318,13 @@ This provider supports all models available through SAP AI Core Orchestration se
 **Popular models:**
 
 - **OpenAI**: gpt-4o, gpt-4o-mini, gpt-4.1, o1, o3 (recommended for multi-tool apps)
-- **Anthropic Claude**: claude-3.5-sonnet, claude-4-opus
+- **Anthropic Claude**: anthropic--claude-3.5-sonnet, anthropic--claude-4-opus
 - **Google Gemini**: gemini-2.5-pro, gemini-2.0-flash
 
 ⚠️ **Important:** Google Gemini models have a 1 tool limit per request.
 
-- **Amazon Nova**: nova-pro, nova-lite
-- **Open Source**: mistralai-mistral-large, llama3.1-70b
+- **Amazon Nova**: amazon--nova-pro, amazon--nova-lite
+- **Open Source**: mistralai--mistral-large-instruct, meta--llama3.1-70b-instruct
 
 > **Note:** Model availability depends on your SAP AI Core tenant configuration, region, and subscription.
 
