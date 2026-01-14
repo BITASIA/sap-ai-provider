@@ -156,6 +156,7 @@ export function convertToSAPMessages(
               } else if (typeof part.data === "string") {
                 imageUrl = `data:${part.mediaType};base64,${part.data}`;
               } else if (part.data instanceof Uint8Array) {
+                // Convert Uint8Array to base64 via Node.js Buffer
                 const base64Data = Buffer.from(part.data).toString("base64");
                 imageUrl = `data:${part.mediaType};base64,${base64Data}`;
               } else if (Buffer.isBuffer(part.data)) {

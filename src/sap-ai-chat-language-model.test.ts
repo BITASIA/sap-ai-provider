@@ -789,7 +789,7 @@ describe("SAPAIChatLanguageModel", () => {
         },
         expected: {
           "x-request-id": "array-header-test",
-          "x-multi-value": "value1,value2",
+          "x-multi-value": "value1; value2",
         },
       },
       {
@@ -819,7 +819,7 @@ describe("SAPAIChatLanguageModel", () => {
           "x-mixed": ["valid", 123, null, "also-valid"],
         },
         expected: {
-          "x-mixed": "valid,also-valid",
+          "x-mixed": "valid; also-valid",
         },
       },
       {

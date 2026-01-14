@@ -326,10 +326,15 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
    * Checks if a URL is supported for file/image uploads.
    *
    * @param url - The URL to check
-   * @returns True if the URL protocol is HTTPS or data (content-type rules are enforced via supportedUrls)
+   * @returns True if the URL protocol is HTTPS or data with valid image format
    */
   supportsUrl(url: URL): boolean {
-    return url.protocol === "https:" || url.protocol === "data:";
+    if (url.protocol === "https:") return true;
+    if (url.protocol === "data:") {
+      // Validate data URL format for images
+      return /^data:image\//i.test(url.href);
+    }
+    return false;
   }
 
   /**
@@ -711,6 +716,13 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
    * - Multi-modal input (text + images)
    * - Data masking (if configured)
    * - Content filtering (if configured)
+   * - Abort signal support (via Promise.race)
+   *
+   * **Note on Abort Signal:**
+   * The abort signal implementation uses Promise.race to reject the promise when
+   * the signal is aborted. However, this does not cancel the underlying HTTP request
+   * to SAP AI Core - the request continues executing on the server. This is a
+   * limitation of the SAP AI SDK's chatCompletion API.
    *
    * @param options - Generation options including prompt, tools, and settings
    * @returns Promise resolving to the generation result with content, usage, and metadata
@@ -807,9 +819,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
             Object.entries(responseHeadersRaw).flatMap(([key, value]) => {
               if (typeof value === "string") return [[key, value]];
               if (Array.isArray(value)) {
+                // Use semicolon separator to avoid ambiguity with commas in header values
                 const strings = value
                   .filter((item): item is string => typeof item === "string")
-                  .join(",");
+                  .join("; ");
                 return strings.length > 0 ? [[key, strings]] : [];
               }
               if (typeof value === "number" || typeof value === "boolean") {
