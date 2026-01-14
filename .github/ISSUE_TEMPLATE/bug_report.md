@@ -38,7 +38,6 @@ A clear and concise description of the bug.
 - **Node.js Version:** <!-- e.g., 18.17.0 -->
 - **OS:** <!-- e.g., macOS 14.0, Ubuntu 22.04, Windows 11 -->
 - **Vercel AI SDK Version:** <!-- e.g., 6.0.0 -->
-- **SAP AI SDK Version:** <!-- e.g., 2.4.0 -->
 
 ### SAP AI Core Configuration
 
