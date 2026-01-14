@@ -13,7 +13,7 @@ This repository provides an SAP AI Core provider compatible with the Vercel AI S
   - `createSAPAIProvider(options)` returns a provider function for model creation.
   - `sapai` default instance uses default configuration (auto-detects service binding or AICORE_SERVICE_KEY env var).
 - Chat LLM implementation: [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)
-  - Implements Vercel AI SDK `LanguageModelV2` contract.
+  - Implements Vercel AI SDK `LanguageModelV3` contract (v4.0.0+).
   - Supports text, tool calls, streaming, structured outputs (varies by model family).
 - Message templating: [src/convert-to-sap-messages.ts](mdc:src/convert-to-sap-messages.ts)
 - Settings and model IDs: [src/sap-ai-chat-settings.ts](mdc:src/sap-ai-chat-settings.ts)

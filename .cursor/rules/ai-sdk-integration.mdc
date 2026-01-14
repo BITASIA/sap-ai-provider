@@ -3,7 +3,7 @@ description: Guidance for integrating with the Vercel AI SDK
 ---
 # AI SDK Integration
 
-The provider implements the `LanguageModelV2` contract and is designed to work with the Vercel AI SDK.
+The provider implements the `LanguageModelV3` contract and is designed to work with the Vercel AI SDK 6.0+.
 
 ## Key Points
 

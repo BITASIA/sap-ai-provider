@@ -40,8 +40,9 @@ jobs:
 
           if [[ "$REPO_OWNER" == "jerome-benoit" ]]; then
             echo "📦 Publishing under @jerome-benoit scope"
-            sed -i 's/"name": "@mymediset\/sap-ai-provider"/"name": "@jerome-benoit\/sap-ai-provider"/g' package.json
-            sed -i 's/BITASIA\/sap-ai-provider/jerome-benoit\/sap-ai-provider/g' package.json
+            jq '(.name, .repository.url, .bugs.url, .homepage) |= 
+                (gsub("BITASIA"; "jerome-benoit") | gsub("@mymediset"; "@jerome-benoit"))' \
+              package.json > package.json.tmp && mv package.json.tmp package.json
           elif [[ "$REPO_OWNER" == "BITASIA" ]]; then
             echo "📦 Publishing under @mymediset scope"
           else
@@ -49,7 +50,7 @@ jobs:
           fi
 
           echo "Package name:"
-          grep '"name":' package.json
+          jq -r '.name' package.json
       - run: npm ci
       - run: npm run build
       - name: Determine npm tag

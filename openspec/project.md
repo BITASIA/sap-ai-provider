@@ -71,7 +71,7 @@ This project provides a community-developed provider for SAP AI Core that integr
 
 - Factory function `createSAPAIProvider()` returns provider instance
 - Default export `sapai` for quick start scenarios
-- Provider implements Vercel AI SDK's `LanguageModelV1` interface
+- Provider implements Vercel AI SDK's `LanguageModelV3` interface
 - Separation of concerns: provider → model → API client
 
 **Error Handling:**
@@ -159,7 +159,7 @@ npm run prepublishOnly  # Runs before npm publish
 
 1. Update version in `package.json`
 2. Run `npm run prepublishOnly` to validate
-3. Create git tag: `v3.0.0`
+3. Create git tag: `v4.0.0` with appropriate version
 4. Push to GitHub with tags
 5. Publish to npm: `npm publish`
 
@@ -208,7 +208,7 @@ npm run prepublishOnly  # Runs before npm publish
 
 **Vercel AI SDK Integration:**
 
-- Must implement `LanguageModelV1` interface completely
+- Must implement `LanguageModelV3` interface completely
 - Follow Vercel AI SDK conventions for errors, streaming, tools
 - Maintain compatibility with AI SDK v6.0+
 

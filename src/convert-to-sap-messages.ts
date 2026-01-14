@@ -1,5 +1,5 @@
 import {
-  LanguageModelV2Prompt,
+  LanguageModelV3Prompt,
   UnsupportedFunctionalityError,
 } from "@ai-sdk/provider";
 import type {
@@ -28,9 +28,8 @@ interface UserContentItem {
 /**
  * Converts AI SDK prompt format to SAP AI SDK ChatMessage format.
  *
- * This function transforms the standardized LanguageModelV2Prompt format
- * used by the AI SDK into the ChatMessage format expected
- * by SAP AI SDK's OrchestrationClient.
+ * Transforms the AI SDK prompt format into the ChatMessage format
+ * expected by SAP AI SDK's OrchestrationClient.
  *
  * **Supported Features:**
  * - Text messages (system, user, assistant)
@@ -97,7 +96,7 @@ export interface ConvertToSAPMessagesOptions {
 }
 
 export function convertToSAPMessages(
-  prompt: LanguageModelV2Prompt,
+  prompt: LanguageModelV3Prompt,
   options: ConvertToSAPMessagesOptions = {},
 ): ChatMessage[] {
   const messages: ChatMessage[] = [];
@@ -157,6 +156,7 @@ export function convertToSAPMessages(
               } else if (typeof part.data === "string") {
                 imageUrl = `data:${part.mediaType};base64,${part.data}`;
               } else if (part.data instanceof Uint8Array) {
+                // Convert Uint8Array to base64 via Node.js Buffer
                 const base64Data = Buffer.from(part.data).toString("base64");
                 imageUrl = `data:${part.mediaType};base64,${base64Data}`;
               } else if (Buffer.isBuffer(part.data)) {
@@ -283,12 +283,15 @@ export function convertToSAPMessages(
 
       case "tool": {
         for (const part of message.content) {
-          const toolMessage: ToolChatMessage = {
-            role: "tool",
-            tool_call_id: part.toolCallId,
-            content: JSON.stringify(part.output),
-          };
-          messages.push(toolMessage);
+          // Only process tool-result parts (approval responses are not supported)
+          if (part.type === "tool-result") {
+            const toolMessage: ToolChatMessage = {
+              role: "tool",
+              tool_call_id: part.toolCallId,
+              content: JSON.stringify(part.output),
+            };
+            messages.push(toolMessage);
+          }
         }
         break;
       }

@@ -136,6 +136,11 @@ export function convertSAPErrorToAPICallError(
 /**
  * Type guard to check if an error is an OrchestrationErrorResponse.
  *
+ * Performs progressive validation:
+ * 1. Checks for object with 'error' property
+ * 2. Validates error is object or array
+ * 3. Checks for required 'message' property (string type)
+ *
  * @param error - Error to check
  * @returns True if error is OrchestrationErrorResponse
  * @internal

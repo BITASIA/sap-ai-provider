@@ -49,13 +49,36 @@ Quick solutions for the most frequent issues:
 
 ## Table of Contents
 
+- [Quick Reference](#quick-reference)
+- [Common Problems (Top 5)](#common-problems-top-5)
 - [Authentication Issues](#authentication-issues)
+  - [Problem: "Authentication failed" or 401 errors](#problem-authentication-failed-or-401-errors)
+  - [Problem: "Cannot find module 'dotenv'"](#problem-cannot-find-module-dotenv)
+  - [Problem: 403 Forbidden](#problem-403-forbidden)
 - [API Errors](#api-errors)
+  - [Parsing SAP Error Metadata (v3.0.0+)](#parsing-sap-error-metadata-v300)
+  - [Problem: 400 Bad Request](#problem-400-bad-request)
+  - [Problem: 429 Rate Limit Exceeded](#problem-429-rate-limit-exceeded)
+  - [Problem: 500/502/503/504 Server Errors](#problem-500502503504-server-errors)
 - [Model and Deployment Issues](#model-and-deployment-issues)
+  - [Problem: 404 Model/Deployment Not Found](#problem-404-modeldeployment-not-found)
+  - [Problem: Model doesn't support features](#problem-model-doesnt-support-features)
 - [Streaming Issues](#streaming-issues)
+  - [Problem: Streaming not working or incomplete](#problem-streaming-not-working-or-incomplete)
 - [Tool Calling Issues](#tool-calling-issues)
+  - [Problem: Tools not being called](#problem-tools-not-being-called)
+  - [Problem: Tool execution errors](#problem-tool-execution-errors)
 - [Performance Issues](#performance-issues)
+  - [Problem: Slow response times](#problem-slow-response-times)
+  - [Problem: High token usage / costs](#problem-high-token-usage-costs)
 - [Debugging Tools](#debugging-tools)
+  - [Enable Verbose Logging](#enable-verbose-logging)
+  - [Use cURL for Direct API Testing](#use-curl-for-direct-api-testing)
+  - [Check Token Validity](#check-token-validity)
+  - [Test with Minimal Request](#test-with-minimal-request)
+  - [Verify Configuration](#verify-configuration)
+- [Getting Help](#getting-help)
+- [Related Documentation](#related-documentation)
 
 ## Authentication Issues
 

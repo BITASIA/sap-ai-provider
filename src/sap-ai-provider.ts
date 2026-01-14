@@ -1,4 +1,4 @@
-import { ProviderV2 } from "@ai-sdk/provider";
+import { ProviderV3 } from "@ai-sdk/provider";
 import type { HttpDestinationOrFetchOptions } from "@sap-cloud-sdk/connectivity";
 import type {
   ResourceGroupConfig,
@@ -11,7 +11,7 @@ import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
  * SAP AI Provider interface.
  *
  * This is the main interface for creating and configuring SAP AI Core models.
- * It extends the standard AI SDK ProviderV2 interface with SAP-specific functionality.
+ * It extends the standard AI SDK ProviderV3 interface with SAP-specific functionality.
  *
  * @example
  * ```typescript
@@ -31,7 +31,7 @@ import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
  * const chatModel = provider.chat('gpt-4o');
  * ```
  */
-export interface SAPAIProvider extends ProviderV2 {
+export interface SAPAIProvider extends ProviderV3 {
   /**
    * Create a language model instance.
    *

@@ -38,7 +38,6 @@ A clear and concise description of the bug.
 - **Node.js Version:** <!-- e.g., 18.17.0 -->
 - **OS:** <!-- e.g., macOS 14.0, Ubuntu 22.04, Windows 11 -->
 - **Vercel AI SDK Version:** <!-- e.g., 6.0.0 -->
-- **SAP AI SDK Version:** <!-- e.g., 2.4.0 -->
 
 ### SAP AI Core Configuration
 
@@ -66,5 +65,5 @@ Paste error logs here
 
 - [ ] I've searched existing issues and this is not a duplicate
 - [ ] I've included a minimal code example that reproduces the issue
-- [ ] I've checked the [Troubleshooting Guide](../../TROUBLESHOOTING.md)
+- [ ] I've checked the [Troubleshooting Guide](https://github.com/jerome-benoit/sap-ai-provider/blob/main/TROUBLESHOOTING.md)
 - [ ] I've included relevant error logs

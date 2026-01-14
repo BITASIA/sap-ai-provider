@@ -5,14 +5,350 @@ Guide for migrating between versions of the SAP AI Core Provider.
 ## Table of Contents
 
 - [Overview](#overview)
+- [Version 3.x to 4.x (Breaking Changes)](#version-3x-to-4x-breaking-changes)
+  - [Summary of Changes](#summary-of-changes)
+  - [Who Is Affected?](#who-is-affected)
+  - [Migration Steps](#migration-steps)
+    - [1. Update Package](#1-update-package)
+    - [2. Update Type Imports (If Using Direct Provider Access)](#2-update-type-imports-if-using-direct-provider-access)
+    - [3. Update Stream Parsing (If Manually Parsing Streams)](#3-update-stream-parsing-if-manually-parsing-streams)
+    - [4. Update Finish Reason Access (If Accessing Directly)](#4-update-finish-reason-access-if-accessing-directly)
+    - [5. Update Usage Access (If Accessing Token Details)](#5-update-usage-access-if-accessing-token-details)
+    - [6. Update Warning Handling (If Checking Warnings)](#6-update-warning-handling-if-checking-warnings)
+  - [V3 Features Not Supported](#v3-features-not-supported)
+  - [Testing Your Migration](#testing-your-migration)
+  - [Rollback Strategy](#rollback-strategy)
+  - [Common Migration Issues](#common-migration-issues)
+    - [Issue: "Property 'textDelta' does not exist"](#issue-property-textdelta-does-not-exist)
+    - [Issue: "Cannot read property 'total' of undefined"](#issue-cannot-read-property-total-of-undefined)
+    - [Issue: TypeScript errors on LanguageModelV2 types](#issue-typescript-errors-on-languagemodelv2-types)
+  - [FAQ](#faq)
 - [Version 2.x to 3.x (Breaking Changes)](#version-2x-to-3x-breaking-changes)
+  - [Summary of Changes](#summary-of-changes-1)
+  - [Migration Steps](#migration-steps-1)
+    - [1. Update Package](#1-update-package-1)
+    - [2. Update Error Handling](#2-update-error-handling)
+    - [3. SAP Error Metadata Access](#3-sap-error-metadata-access)
+    - [4. Automatic Retries](#4-automatic-retries)
 - [Version 1.x to 2.x (Breaking Changes)](#version-1x-to-2x-breaking-changes)
-
----
+  - [Summary of Changes](#summary-of-changes-2)
+  - [Migration Steps](#migration-steps-2)
+    - [1. Update Package](#1-update-package-2)
+    - [2. Update Authentication](#2-update-authentication)
+    - [3. Update Code (Remove await)](#3-update-code-remove-await)
+    - [4. Verify Functionality](#4-verify-functionality)
+    - [5. Optional: Adopt New Features](#5-optional-adopt-new-features)
+- [Breaking Changes](#breaking-changes)
+  - [Version 3.0.x](#version-30x)
+  - [Version 2.0.x](#version-20x)
+- [Deprecations](#deprecations)
+  - [Manual OAuth2 Token Management (Removed in v2.0)](#manual-oauth2-token-management-removed-in-v20)
+- [New Features](#new-features)
+  - [2.0.x Features](#20x-features)
+    - [1. SAP AI SDK Integration](#1-sap-ai-sdk-integration)
+    - [2. Data Masking (DPI)](#2-data-masking-dpi)
+    - [3. Content Filtering](#3-content-filtering)
+    - [4. Response Format Control](#4-response-format-control)
+    - [5. Default Settings](#5-default-settings)
+    - [6. Enhanced Streaming & Error Handling](#6-enhanced-streaming-error-handling)
+- [API Changes](#api-changes)
+  - [Added APIs (v2.0+)](#added-apis-v20)
+  - [Modified APIs](#modified-apis)
+  - [Removed APIs](#removed-apis)
+- [Migration Checklist](#migration-checklist)
+  - [Upgrading from 2.x to 3.x](#upgrading-from-2x-to-3x)
+  - [Upgrading from 1.x to 2.x](#upgrading-from-1x-to-2x)
+  - [Testing Checklist](#testing-checklist)
+- [Common Migration Issues](#common-migration-issues-1)
+- [Rollback Instructions](#rollback-instructions)
+  - [Rollback to 2.x](#rollback-to-2x)
+  - [Rollback to 1.x](#rollback-to-1x)
+  - [Verify Installation](#verify-installation)
+  - [Clear Cache](#clear-cache)
+- [Getting Help](#getting-help)
+- [Related Documentation](#related-documentation)
 
 ## Overview
 
 This guide helps you migrate your application when upgrading to newer versions of the SAP AI Core Provider. It covers breaking changes, deprecations, and new features.
+
+---
+
+## Version 3.x to 4.x (Breaking Changes)
+
+**Version 4.0 migrates from LanguageModelV2 to LanguageModelV3 specification.**
+
+### Summary of Changes
+
+**Breaking Changes:**
+
+- Implements **LanguageModelV3** interface (replacing V2)
+- Finish reason changed from `string` to `{ unified: string, raw?: string }`
+- Usage structure now nested with detailed token breakdown
+- Warning types updated to V3 format with `feature` field
+- Stream structure uses explicit text block lifecycle events
+
+**Benefits:**
+
+- Future-proof compatibility with Vercel AI SDK 6+
+- Access to new V3 capabilities (agents, advanced streaming)
+- Better type safety with structured result types
+- Richer streaming with explicit block lifecycle
+- Enhanced token usage metadata
+
+### Who Is Affected?
+
+| User Type                                               | Impact         | Action Required                              |
+| ------------------------------------------------------- | -------------- | -------------------------------------------- |
+| **High-level API users** (`generateText`, `streamText`) | ✅ Minimal     | Verify code still works (likely no changes)  |
+| **Direct provider users** (type annotations)            | ⚠️ Minor       | Update import types from V2 to V3            |
+| **Custom stream parsers**                               | ⚠️ Significant | Update stream parsing logic for V3 structure |
+
+### Migration Steps
+
+#### 1. Update Package
+
+```bash
+npm install @mymediset/sap-ai-provider@^4.0.0
+```
+
+#### 2. Update Type Imports (If Using Direct Provider Access)
+
+**Before (v3.x):**
+
+```typescript
+import type { LanguageModelV2 } from "@ai-sdk/provider";
+
+const model: LanguageModelV2 = provider("gpt-4o");
+```
+
+**After (v4.x):**
+
+```typescript
+import type { LanguageModelV3 } from "@ai-sdk/provider";
+
+const model: LanguageModelV3 = provider("gpt-4o");
+```
+
+#### 3. Update Stream Parsing (If Manually Parsing Streams)
+
+**Before (v3.x - V2 Streams):**
+
+```typescript
+for await (const chunk of stream) {
+  if (chunk.type === "text-delta") {
+    process.stdout.write(chunk.textDelta); // Old property name
+  }
+}
+```
+
+**After (v4.x - V3 Streams):**
+
+```typescript
+for await (const chunk of stream) {
+  if (chunk.type === "text-delta") {
+    process.stdout.write(chunk.delta); // New property name
+  }
+
+  // V3 adds structured block lifecycle
+  if (chunk.type === "text-start") {
+    console.log("Text block started:", chunk.id);
+  }
+
+  if (chunk.type === "text-end") {
+    console.log("Text block ended:", chunk.id, chunk.text);
+  }
+}
+```
+
+#### 4. Update Finish Reason Access (If Accessing Directly)
+
+**Before (v3.x):**
+
+```typescript
+const result = await model.doGenerate(options);
+if (result.finishReason === "stop") {
+  console.log("Completed normally");
+}
+```
+
+**After (v4.x):**
+
+```typescript
+const result = await model.doGenerate(options);
+if (result.finishReason.unified === "stop") {
+  console.log("Completed normally");
+  console.log("Raw reason:", result.finishReason.raw); // Optional SAP-specific value
+}
+```
+
+#### 5. Update Usage Access (If Accessing Token Details)
+
+**Before (v3.x):**
+
+```typescript
+const result = await generateText({ model, prompt });
+console.log("Input tokens:", result.usage.inputTokens);
+console.log("Output tokens:", result.usage.outputTokens);
+```
+
+**After (v4.x):**
+
+```typescript
+const result = await generateText({ model, prompt });
+// V3 has nested structure with detailed breakdown
+console.log("Input tokens:", result.usage.inputTokens.total);
+console.log("  - No cache:", result.usage.inputTokens.noCache);
+console.log("  - Cache read:", result.usage.inputTokens.cacheRead);
+console.log("  - Cache write:", result.usage.inputTokens.cacheWrite);
+
+console.log("Output tokens:", result.usage.outputTokens.total);
+console.log("  - Text:", result.usage.outputTokens.text);
+console.log("  - Reasoning:", result.usage.outputTokens.reasoning);
+```
+
+> **Note**: SAP AI Core currently doesn't provide the detailed breakdown fields, so nested values may be `undefined`.
+
+#### 6. Update Warning Handling (If Checking Warnings)
+
+**Before (v3.x):**
+
+```typescript
+if (result.warnings) {
+  result.warnings.forEach((warning) => {
+    if (warning.type === "unsupported-setting") {
+      console.warn("Unsupported setting:", warning.setting);
+    }
+  });
+}
+```
+
+**After (v4.x):**
+
+```typescript
+if (result.warnings) {
+  result.warnings.forEach((warning) => {
+    if (warning.type === "unsupported") {
+      console.warn("Unsupported feature:", warning.feature); // New field name
+      console.warn("Details:", warning.details);
+    }
+  });
+}
+```
+
+### V3 Features Not Supported
+
+The following V3 capabilities are not currently supported by SAP AI Core:
+
+| Feature                      | Status           | Behavior                                              |
+| ---------------------------- | ---------------- | ----------------------------------------------------- |
+| **File content generation**  | ❌ Not supported | Warnings emitted if requested                         |
+| **Reasoning mode**           | ❌ Not supported | Ignored with warning                                  |
+| **Source attribution**       | ❌ Not supported | Not available in responses                            |
+| **Tool approval requests**   | ❌ Not supported | Not applicable                                        |
+| **Detailed token breakdown** | ⚠️ Partial       | Nested structure present but details may be undefined |
+
+### Testing Your Migration
+
+1. **Run your tests:**
+
+   ```bash
+   npm test
+   ```
+
+2. **Check for TypeScript errors:**
+
+   ```bash
+   npx tsc --noEmit
+   ```
+
+3. **Test streaming if used:**
+
+   ```typescript
+   import { streamText } from "ai";
+
+   const { textStream } = await streamText({
+     model: provider("gpt-4o"),
+     prompt: "Count to 5",
+   });
+
+   for await (const text of textStream) {
+     process.stdout.write(text);
+   }
+   ```
+
+### Rollback Strategy
+
+If you encounter issues, you can stay on v3.x:
+
+```bash
+npm install @mymediset/sap-ai-provider@^3.0.0
+```
+
+Version 3.x will receive security updates for 6 months after v4.0.0 release.
+
+### Common Migration Issues
+
+#### Issue: "Property 'textDelta' does not exist"
+
+**Cause**: Accessing old V2 property name in stream chunks.
+
+**Fix**: Change `textDelta` to `delta`:
+
+```typescript
+// ❌ Before
+chunk.textDelta;
+
+// ✅ After
+chunk.delta;
+```
+
+#### Issue: "Cannot read property 'total' of undefined"
+
+**Cause**: Trying to access nested usage structure that doesn't exist in your version.
+
+**Fix**: Optional chaining or fallback:
+
+```typescript
+// ✅ Safe access
+const inputTokens = result.usage.inputTokens?.total ?? result.usage.inputTokens;
+```
+
+#### Issue: TypeScript errors on LanguageModelV2 types
+
+**Cause**: Importing old V2 types.
+
+**Fix**: Update imports to V3:
+
+```typescript
+// ❌ Before
+import type { LanguageModelV2 } from "@ai-sdk/provider";
+
+// ✅ After
+import type { LanguageModelV3 } from "@ai-sdk/provider";
+```
+
+### FAQ
+
+**Q: Do I need to change my code if I only use `generateText()` and `streamText()`?**
+
+A: Probably not! The high-level APIs abstract most V2/V3 differences. Test your code to confirm.
+
+**Q: Why did the finish reason become an object?**
+
+A: V3 separates the standardized finish reason (`unified`) from provider-specific values (`raw`), improving consistency across providers.
+
+**Q: Will SAP AI Core support file generation or reasoning mode in the future?**
+
+A: We don't have information about SAP's roadmap. The provider is designed to add support when SAP AI Core makes these features available.
+
+**Q: Can I use v3.x and v4.x in the same project?**
+
+A: No, you can only use one version at a time. Choose based on your needs and migrate when ready.
+
+**Q: How long will v3.x be supported?**
+
+A: Version 3.x will receive security and critical bug fixes for 6 months after v4.0.0 release.
 
 ---
 

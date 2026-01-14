@@ -3,6 +3,7 @@
 [![npm](https://img.shields.io/npm/v/@mymediset/sap-ai-provider/latest?label=npm&color=blue)](https://www.npmjs.com/package/@mymediset/sap-ai-provider)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Vercel AI SDK](https://img.shields.io/badge/Vercel%20AI%20SDK-6.0+-black.svg)](https://sdk.vercel.ai/docs)
+[![Language Model](https://img.shields.io/badge/Language%20Model-V3-green.svg)](https://sdk.vercel.ai/docs/ai-sdk-core/provider-interfaces)
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. Built on top of the official **@sap-ai-sdk/orchestration** package, this provider enables you to use SAP's enterprise-grade AI models through the familiar Vercel AI SDK interface.
 
@@ -12,15 +13,38 @@ A community provider for SAP AI Core that integrates seamlessly with the Vercel 
 - [Quick Start](#quick-start)
 - [Quick Reference](#quick-reference)
 - [Installation](#installation)
+- [Provider Creation](#provider-creation)
+  - [Option 1: Factory Function (Recommended for Custom Configuration)](#option-1-factory-function-recommended-for-custom-configuration)
+  - [Option 2: Default Instance (Quick Start)](#option-2-default-instance-quick-start)
 - [Authentication](#authentication)
 - [Basic Usage](#basic-usage)
+  - [Text Generation](#text-generation)
+  - [Chat Conversations](#chat-conversations)
+  - [Streaming Responses](#streaming-responses)
+  - [Model Configuration](#model-configuration)
 - [Supported Models](#supported-models)
 - [Advanced Features](#advanced-features)
+  - [Tool Calling](#tool-calling)
+  - [Multi-modal Input (Images)](#multi-modal-input-images)
+  - [Data Masking (SAP DPI)](#data-masking-sap-dpi)
+  - [Content Filtering](#content-filtering)
 - [Configuration Options](#configuration-options)
 - [Error Handling](#error-handling)
+- [Troubleshooting](#troubleshooting)
+- [Performance](#performance)
+- [Security](#security)
+- [Debug Mode](#debug-mode)
 - [Examples](#examples)
 - [Migration Guides](#migration-guides)
+  - [Upgrading from v3.x to v4.x](#upgrading-from-v3x-to-v4x)
+  - [Upgrading from v2.x to v3.x](#upgrading-from-v2x-to-v3x)
+  - [Upgrading from v1.x to v2.x](#upgrading-from-v1x-to-v2x)
+- [Important Note](#important-note)
 - [Contributing](#contributing)
+- [Resources](#resources)
+  - [Documentation](#documentation)
+  - [Community](#community)
+  - [Related Projects](#related-projects)
 - [License](#license)
 
 ## Features
@@ -29,11 +53,12 @@ A community provider for SAP AI Core that integrates seamlessly with the Vercel 
 - 🎯 **Tool Calling Support** - Full tool/function calling capabilities
 - 🧠 **Reasoning-Safe by Default** - Assistant reasoning parts are not forwarded unless enabled
 - 🖼️ **Multi-modal Input** - Support for text and image inputs
-- 📡 **Streaming Support** - Real-time text generation
+- 📡 **Streaming Support** - Real-time text generation with structured V3 blocks
 - 🔒 **Data Masking** - Built-in SAP DPI integration for privacy
 - 🛡️ **Content Filtering** - Azure Content Safety and Llama Guard support
 - 🔧 **TypeScript Support** - Full type safety and IntelliSense
 - 🎨 **Multiple Models** - Support for GPT-4, Claude, Gemini, Nova, and more
+- ⚡ **Language Model V3** - Latest Vercel AI SDK specification with enhanced streaming
 
 ## Quick Start
 
@@ -263,13 +288,13 @@ This provider supports all models available through SAP AI Core Orchestration se
 **Popular models:**
 
 - **OpenAI**: gpt-4o, gpt-4o-mini, gpt-4.1, o1, o3 (recommended for multi-tool apps)
-- **Anthropic Claude**: claude-3.5-sonnet, claude-4-opus
+- **Anthropic Claude**: anthropic--claude-3.5-sonnet, anthropic--claude-4-opus
 - **Google Gemini**: gemini-2.5-pro, gemini-2.0-flash
 
 ⚠️ **Important:** Google Gemini models have a 1 tool limit per request.
 
-- **Amazon Nova**: nova-pro, nova-lite
-- **Open Source**: mistralai-mistral-large, llama3.1-70b
+- **Amazon Nova**: amazon--nova-pro, amazon--nova-lite
+- **Open Source**: mistralai--mistral-large-instruct, meta--llama3.1-70b-instruct
 
 > **Note:** Model availability depends on your SAP AI Core tenant configuration, region, and subscription.
 
@@ -496,6 +521,23 @@ npx tsx examples/example-generate-text.ts
 
 ## Migration Guides
 
+### Upgrading from v3.x to v4.x
+
+Version 4.0 migrates from **LanguageModelV2** to **LanguageModelV3** specification (AI SDK 6.0+). **See the [Migration Guide](./MIGRATION_GUIDE.md#version-3x-to-4x-breaking-changes) for complete upgrade instructions.**
+
+**Key changes:**
+
+- **Finish Reason**: Changed from string to object (`result.finishReason.unified`)
+- **Usage Structure**: Nested format with detailed token breakdown (`result.usage.inputTokens.total`)
+- **Stream Events**: Structured blocks (`text-start`, `text-delta`, `text-end`) instead of simple deltas
+- **Warning Types**: Updated format with `feature` field for categorization
+
+**Impact by user type:**
+
+- High-level API users (`generateText`/`streamText`): ✅ Minimal impact (likely no changes)
+- Direct provider users: ⚠️ Update type imports (`LanguageModelV2` → `LanguageModelV3`)
+- Custom stream parsers: ⚠️ Update parsing logic for V3 structure
+
 ### Upgrading from v2.x to v3.x
 
 Version 3.0 standardizes error handling to use Vercel AI SDK native error types. **See the [Migration Guide](./MIGRATION_GUIDE.md#v2x--v30) for complete upgrade instructions.**
@@ -526,34 +568,28 @@ Version 2.0 uses the official SAP AI SDK. **See the [Migration Guide](./MIGRATIO
 
 We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
 
-## License
+## Resources
 
-Apache License 2.0 - see [LICENSE](./LICENSE.md) for details.
+### Documentation
 
-## Support
-
-- 📖 [Documentation](https://github.com/BITASIA/sap-ai-provider)
-- 🐛 [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues)
-
-## Documentation
-
-### Guides
-
+- [Migration Guide](./MIGRATION_GUIDE.md) - Version upgrade instructions (v1.x → v2.x → v3.x → v4.x)
+- [API Reference](./API_REFERENCE.md) - Complete API documentation with all types and functions
 - [Environment Setup](./ENVIRONMENT_SETUP.md) - Authentication and configuration setup
-- [Migration Guide](./MIGRATION_GUIDE.md) - Upgrading from v1.x to v2.x with step-by-step instructions
+- [Troubleshooting](./TROUBLESHOOTING.md) - Common issues and solutions
+- [Architecture](./ARCHITECTURE.md) - Internal architecture, design decisions, and request flows
 - [curl API Testing](./CURL_API_TESTING_GUIDE.md) - Direct API testing for debugging
 
-### Reference
+### Community
 
-- [API Reference](./API_REFERENCE.md) - Complete API documentation with all types and functions
-- [Architecture](./ARCHITECTURE.md) - Internal architecture, design decisions, and request flows
+- 🐛 [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues) - Report bugs and request features
+- 💬 [Discussions](https://github.com/BITASIA/sap-ai-provider/discussions) - Ask questions and share ideas
 
-### Contributing
-
-- [Contributing Guide](./CONTRIBUTING.md) - How to contribute to this project
-
-## Related
+### Related Projects
 
 - [Vercel AI SDK](https://sdk.vercel.ai/) - The AI SDK this provider extends
 - [SAP AI SDK](https://sap.github.io/ai-sdk/) - Official SAP Cloud SDK for AI
 - [SAP AI Core Documentation](https://help.sap.com/docs/ai-core) - Official SAP AI Core docs
+
+## License
+
+Apache License 2.0 - see [LICENSE](./LICENSE.md) for details.
