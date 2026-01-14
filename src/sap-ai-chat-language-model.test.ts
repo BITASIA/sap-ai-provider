@@ -1675,7 +1675,7 @@ describe("SAPAIChatLanguageModel", () => {
         expect(textEnds).toHaveLength(1);
         expect(textDeltas.length).toBeGreaterThan(0);
 
-        const blockId = textStarts[0]!.id;
+        const blockId = textStarts[0].id;
 
         // ID must be a valid RFC 4122 UUID v4 (format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx)
         const uuidRegex =
@@ -1689,7 +1689,7 @@ describe("SAPAIChatLanguageModel", () => {
         for (const delta of textDeltas) {
           expect(delta.id).toBe(blockId);
         }
-        expect(textEnds[0]!.id).toBe(blockId);
+        expect(textEnds[0].id).toBe(blockId);
 
         // Additional verification: test multiple streams to ensure different UUIDs
         const { stream: stream2 } = await model.doStream({ prompt });
@@ -1710,7 +1710,7 @@ describe("SAPAIChatLanguageModel", () => {
             p.type === "text-start",
         );
 
-        const blockId2 = textStarts2[0]!.id;
+        const blockId2 = textStarts2[0].id;
 
         // Different stream should have different UUID (proves randomness)
         expect(blockId2).not.toBe(blockId);
