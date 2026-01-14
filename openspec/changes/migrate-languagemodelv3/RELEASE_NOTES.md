@@ -100,7 +100,7 @@ if (chunk.type === "text-delta") {
 }
 ```
 
-**Full Guide**: [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)
+**Full Guide**: [MIGRATION_GUIDE.md](../../../MIGRATION_GUIDE.md)
 
 ---
 
@@ -175,10 +175,10 @@ These features will return non-blocking warnings if attempted.
 
 ## Resources
 
-- **Migration Guide**: [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)
-- **API Reference**: [API_REFERENCE.md](./API_REFERENCE.md)
-- **Examples**: [examples/](./examples/)
-- **OpenSpec Proposal**: [openspec/changes/migrate-languagemodelv3/proposal.md](./openspec/changes/migrate-languagemodelv3/proposal.md)
+- **Migration Guide**: [MIGRATION_GUIDE.md](../../../MIGRATION_GUIDE.md)
+- **API Reference**: [API_REFERENCE.md](../../../API_REFERENCE.md)
+- **Examples**: [examples/](../../../examples/)
+- **OpenSpec Proposal**: [proposal.md](./proposal.md)
 
 ---
 
@@ -201,6 +201,6 @@ pnpm add @jerome-benoit/sap-ai-provider@^4.0.0 ai
 
 ## Support
 
-**Issues?** Check the [Migration Guide](./MIGRATION_GUIDE.md) or open an issue on [GitHub](https://github.com/BITASIA/sap-ai-provider/issues).
+**Issues?** Check the [Migration Guide](../../../MIGRATION_GUIDE.md) or open an issue on [GitHub](https://github.com/BITASIA/sap-ai-provider/issues).
 
 **Upgrade now**: `npm install @jerome-benoit/sap-ai-provider@^4.0.0`
