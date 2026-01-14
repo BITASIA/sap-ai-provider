@@ -496,12 +496,11 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
                 const schemaRecord = jsonSchema as Record<string, unknown>;
                 delete schemaRecord.$schema;
                 parameters = buildSAPToolParameters(schemaRecord);
-              } catch {
+              } catch (error) {
                 warnings.push({
                   type: "unsupported",
                   feature: `tool schema conversion for ${tool.name}`,
-                  details:
-                    "Failed to convert tool Zod schema to JSON Schema. Falling back to empty object schema.",
+                  details: `Failed to convert tool Zod schema: ${error instanceof Error ? error.message : String(error)}. Falling back to empty object schema.`,
                 });
                 parameters = buildSAPToolParameters({});
               }
