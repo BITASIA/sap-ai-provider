@@ -126,8 +126,8 @@ for await (const chunk of stream) {
 
 For complete migration details, examples, and troubleshooting:
 
-- **[MIGRATION_GUIDE.md](../../MIGRATION_GUIDE.md#version-3x-to-4x-breaking-changes)** - Comprehensive migration guide
-- **[README.md](../../README.md#breaking-changes-in-400)** - Quick reference and examples
+- **[MIGRATION_GUIDE.md](https://github.com/jerome-benoit/sap-ai-provider/blob/v4.0.0/MIGRATION_GUIDE.md#version-3x-to-4x-breaking-changes)** - Comprehensive migration guide
+- **[README.md](https://github.com/jerome-benoit/sap-ai-provider/blob/v4.0.0/README.md#breaking-changes-in-400)** - Quick reference and examples
 
 ---
 
@@ -167,10 +167,10 @@ pnpm add @mymediset/sap-ai-provider@^4.0.0 ai
 
 ## 🔗 Links & Resources
 
-- **Documentation**: [README.md](../../README.md)
-- **Migration Guide**: [MIGRATION_GUIDE.md](../../MIGRATION_GUIDE.md)
-- **API Reference**: [API_REFERENCE.md](../../API_REFERENCE.md)
-- **Examples**: [examples/](../../examples/)
+- **Documentation**: [README.md](https://github.com/jerome-benoit/sap-ai-provider/blob/v4.0.0/README.md)
+- **Migration Guide**: [MIGRATION_GUIDE.md](https://github.com/jerome-benoit/sap-ai-provider/blob/v4.0.0/MIGRATION_GUIDE.md)
+- **API Reference**: [API_REFERENCE.md](https://github.com/jerome-benoit/sap-ai-provider/blob/v4.0.0/API_REFERENCE.md)
+- **Examples**: [examples/](https://github.com/jerome-benoit/sap-ai-provider/tree/v4.0.0/examples)
 - **Upstream PR**: [BITASIA/sap-ai-provider#28](https://github.com/BITASIA/sap-ai-provider/pull/28)
 
 ---
@@ -247,11 +247,11 @@ Attempting to use these features will result in non-blocking warnings but will n
 
 If you encounter any issues during migration:
 
-1. Check the [Migration Guide](../../MIGRATION_GUIDE.md) for common solutions
-2. Review the [examples/](../../examples/) directory for working code
+1. Check the [Migration Guide](https://github.com/jerome-benoit/sap-ai-provider/blob/v4.0.0/MIGRATION_GUIDE.md) for common solutions
+2. Review the [examples/](https://github.com/jerome-benoit/sap-ai-provider/tree/v4.0.0/examples) directory for working code
 3. Open an issue on [GitHub](https://github.com/BITASIA/sap-ai-provider/issues)
-4. Consult the [API Reference](../../API_REFERENCE.md) for detailed API documentation
+4. Consult the [API Reference](https://github.com/jerome-benoit/sap-ai-provider/blob/v4.0.0/API_REFERENCE.md) for detailed API documentation
 
 ---
 
-**Ready to upgrade?** Follow the [migration steps](#-migration-guide) above and refer to the comprehensive [MIGRATION_GUIDE.md](../../MIGRATION_GUIDE.md) for detailed instructions.
+**Ready to upgrade?** Follow the [migration steps](#-migration-guide) above and refer to the comprehensive [MIGRATION_GUIDE.md](https://github.com/jerome-benoit/sap-ai-provider/blob/v4.0.0/MIGRATION_GUIDE.md) for detailed instructions.
