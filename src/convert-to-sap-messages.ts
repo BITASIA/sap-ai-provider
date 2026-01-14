@@ -1,5 +1,5 @@
 import {
-  LanguageModelV2Prompt,
+  LanguageModelV3Prompt,
   UnsupportedFunctionalityError,
 } from "@ai-sdk/provider";
 import type {
@@ -28,7 +28,7 @@ interface UserContentItem {
 /**
  * Converts AI SDK prompt format to SAP AI SDK ChatMessage format.
  *
- * This function transforms the standardized LanguageModelV2Prompt format
+ * This function transforms the standardized LanguageModelV3Prompt format
  * used by the AI SDK into the ChatMessage format expected
  * by SAP AI SDK's OrchestrationClient.
  *
@@ -97,7 +97,7 @@ export interface ConvertToSAPMessagesOptions {
 }
 
 export function convertToSAPMessages(
-  prompt: LanguageModelV2Prompt,
+  prompt: LanguageModelV3Prompt,
   options: ConvertToSAPMessagesOptions = {},
 ): ChatMessage[] {
   const messages: ChatMessage[] = [];
@@ -283,12 +283,17 @@ export function convertToSAPMessages(
 
       case "tool": {
         for (const part of message.content) {
-          const toolMessage: ToolChatMessage = {
-            role: "tool",
-            tool_call_id: part.toolCallId,
-            content: JSON.stringify(part.output),
-          };
-          messages.push(toolMessage);
+          // V3 supports tool-result and tool-approval-response parts
+          // Only process tool-result parts (approval responses are internal)
+          if (part.type === "tool-result") {
+            const toolMessage: ToolChatMessage = {
+              role: "tool",
+              tool_call_id: part.toolCallId,
+              content: JSON.stringify(part.output),
+            };
+            messages.push(toolMessage);
+          }
+          // tool-approval-response parts are skipped (not supported in SAP format)
         }
         break;
       }

@@ -1,12 +1,14 @@
 import {
-  LanguageModelV2,
-  LanguageModelV2CallOptions,
-  LanguageModelV2CallWarning,
-  LanguageModelV2Content,
-  LanguageModelV2FinishReason,
-  LanguageModelV2FunctionTool,
-  LanguageModelV2StreamPart,
-  LanguageModelV2Usage,
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
+  LanguageModelV3Content,
+  LanguageModelV3FinishReason,
+  LanguageModelV3FunctionTool,
+  LanguageModelV3GenerateResult,
+  LanguageModelV3StreamPart,
+  LanguageModelV3StreamResult,
+  LanguageModelV3Usage,
+  SharedV3Warning,
 } from "@ai-sdk/provider";
 import type { JSONValue } from "@ai-sdk/provider";
 import {
@@ -48,7 +50,7 @@ function validateModelParameters(
     maxTokens?: number;
     n?: number;
   },
-  warnings: LanguageModelV2CallWarning[],
+  warnings: SharedV3Warning[],
 ): void {
   // Heuristic range checks (provider/model-specific constraints may differ).
   if (
@@ -107,7 +109,7 @@ function validateModelParameters(
  * Creates a summary of the AI SDK request body for error reporting.
  * @internal
  */
-function createAISDKRequestBodySummary(options: LanguageModelV2CallOptions): {
+function createAISDKRequestBodySummary(options: LanguageModelV3CallOptions): {
   promptMessages: number;
   hasImageParts: boolean;
   tools: number;
@@ -169,7 +171,7 @@ type SAPToolParameters = Record<string, unknown> & {
  *
  * @internal
  */
-interface FunctionToolWithParameters extends LanguageModelV2FunctionTool {
+interface FunctionToolWithParameters extends LanguageModelV3FunctionTool {
   parameters?: unknown;
 }
 
@@ -261,7 +263,7 @@ interface SAPAIConfig {
 /**
  * SAP AI Chat Language Model implementation.
  *
- * This class implements the AI SDK's `LanguageModelV2` interface,
+ * This class implements the AI SDK's `LanguageModelV3` interface,
  * providing a bridge between the AI SDK and SAP AI Core's Orchestration API
  * using the official SAP AI SDK (@sap-ai-sdk/orchestration).
  *
@@ -291,10 +293,10 @@ interface SAPAIConfig {
  * });
  * ```
  *
- * @implements {LanguageModelV2}
+ * @implements {LanguageModelV3}
  */
-export class SAPAIChatLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = "v2";
+export class SAPAIChatLanguageModel implements LanguageModelV3 {
+  readonly specificationVersion = "v3";
   readonly modelId: SAPAIModelId;
 
   private readonly config: SAPAIConfig;
@@ -381,15 +383,15 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * @returns Object containing orchestration config, messages, and warnings
    * @internal
    */
-  private buildOrchestrationConfig(options: LanguageModelV2CallOptions): {
+  private buildOrchestrationConfig(options: LanguageModelV3CallOptions): {
     orchestrationConfig: OrchestrationModuleConfig;
     messages: ChatMessage[];
-    warnings: LanguageModelV2CallWarning[];
+    warnings: SharedV3Warning[];
   } {
     const providerOptions =
       (options.providerOptions as { sap?: Partial<SAPAISettings> } | undefined)
         ?.sap ?? {};
-    const warnings: LanguageModelV2CallWarning[] = [];
+    const warnings: SharedV3Warning[] = [];
 
     const messages = convertToSAPMessages(options.prompt, {
       includeReasoning:
@@ -457,8 +459,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
                 parameters = buildSAPToolParameters(schemaRecord);
               } catch {
                 warnings.push({
-                  type: "unsupported-tool",
-                  tool,
+                  type: "unsupported",
+                  feature: `tool schema conversion for ${tool.name}`,
                   details:
                     "Failed to convert tool Zod schema to JSON Schema. Falling back to empty object schema.",
                 });
@@ -489,8 +491,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             };
           } else {
             warnings.push({
-              type: "unsupported-tool",
-              tool: tool,
+              type: "unsupported",
+              feature: `tool type for ${tool.name}`,
+              details: "Only 'function' tool type is supported.",
             });
             return null;
           }
@@ -582,8 +585,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
     // SAP AI SDK only supports toolChoice: 'auto'
     if (options.toolChoice && options.toolChoice.type !== "auto") {
       warnings.push({
-        type: "unsupported-setting",
-        setting: "toolChoice",
+        type: "unsupported",
+        feature: "toolChoice",
         details: `SAP AI SDK does not support toolChoice '${options.toolChoice.type}'. Using default 'auto' behavior.`,
       });
     }
@@ -664,7 +667,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
   /**
    * Generates a single completion (non-streaming).
    *
-   * This method implements the `LanguageModelV2.doGenerate` interface,
+   * This method implements the `LanguageModelV3.doGenerate` interface,
    * sending a request to SAP AI Core and returning the complete response.
    *
    * **Features:**
@@ -688,20 +691,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * console.log(result.usage);   // Token usage
    * ```
    */
-  async doGenerate(options: LanguageModelV2CallOptions): Promise<{
-    content: LanguageModelV2Content[];
-    finishReason: LanguageModelV2FinishReason;
-    usage: LanguageModelV2Usage;
-    providerMetadata?: Record<string, Record<string, JSONValue>>;
-    request: { body?: unknown };
-    response: {
-      timestamp: Date;
-      modelId: string;
-      headers?: Record<string, string>;
-      body?: unknown;
-    };
-    warnings: LanguageModelV2CallWarning[];
-  }> {
+  async doGenerate(
+    options: LanguageModelV3CallOptions,
+  ): Promise<LanguageModelV3GenerateResult> {
     try {
       const { orchestrationConfig, messages, warnings } =
         this.buildOrchestrationConfig(options);
@@ -792,7 +784,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
           )
         : undefined;
 
-      const content: LanguageModelV2Content[] = [];
+      const content: LanguageModelV3Content[] = [];
 
       const textContent = response.getContent();
       if (textContent) {
@@ -830,9 +822,17 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         content,
         finishReason,
         usage: {
-          inputTokens: tokenUsage.prompt_tokens,
-          outputTokens: tokenUsage.completion_tokens,
-          totalTokens: tokenUsage.total_tokens,
+          inputTokens: {
+            total: tokenUsage.prompt_tokens,
+            noCache: tokenUsage.prompt_tokens,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: {
+            total: tokenUsage.completion_tokens,
+            text: tokenUsage.completion_tokens,
+            reasoning: undefined,
+          },
         },
         providerMetadata: {
           "sap-ai": {
@@ -866,7 +866,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
   /**
    * Generates a streaming completion.
    *
-   * This method implements the `LanguageModelV2.doStream` interface,
+   * This method implements the `LanguageModelV3.doStream` interface,
    * sending a streaming request to SAP AI Core and returning a stream of response parts.
    *
    * **Stream Events:**
@@ -897,12 +897,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
    * }
    * ```
    */
-  async doStream(options: LanguageModelV2CallOptions): Promise<{
-    stream: ReadableStream<LanguageModelV2StreamPart>;
-    request?: { body?: unknown };
-    response?: { headers?: Record<string, string> };
-    warnings: LanguageModelV2CallWarning[];
-  }> {
+  async doStream(
+    options: LanguageModelV3CallOptions,
+  ): Promise<LanguageModelV3StreamResult> {
     try {
       const { orchestrationConfig, messages, warnings } =
         this.buildOrchestrationConfig(options);
@@ -945,11 +942,22 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
       // Track stream state in one place to keep updates consistent
       const streamState = {
-        finishReason: "unknown" as LanguageModelV2FinishReason,
+        finishReason: {
+          unified: "other" as const,
+          raw: undefined,
+        } as LanguageModelV3FinishReason,
         usage: {
-          inputTokens: undefined as number | undefined,
-          outputTokens: undefined as number | undefined,
-          totalTokens: undefined as number | undefined,
+          inputTokens: {
+            total: undefined as number | undefined,
+            noCache: undefined as number | undefined,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: {
+            total: undefined as number | undefined,
+            text: undefined as number | undefined,
+            reasoning: undefined,
+          },
         },
         isFirstChunk: true,
         activeText: false,
@@ -973,9 +981,9 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 
       // Warnings may be discovered while consuming the upstream stream
       // Expose them on the final result without mutating stream-start
-      const warningsOut: LanguageModelV2CallWarning[] = [...warningsSnapshot];
+      const warningsOut: SharedV3Warning[] = [...warningsSnapshot];
 
-      const transformedStream = new ReadableStream<LanguageModelV2StreamPart>({
+      const transformedStream = new ReadableStream<LanguageModelV3StreamPart>({
         async start(controller) {
           controller.enqueue({
             type: "stream-start",
@@ -996,14 +1004,17 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               const deltaToolCalls = chunk.getDeltaToolCalls();
               if (Array.isArray(deltaToolCalls) && deltaToolCalls.length > 0) {
                 // Once tool call deltas appear, stop emitting text deltas
-                streamState.finishReason = "tool-calls";
+                streamState.finishReason = {
+                  unified: "tool-calls",
+                  raw: undefined,
+                };
               }
 
               const deltaContent = chunk.getDeltaContent();
               if (
                 typeof deltaContent === "string" &&
                 deltaContent.length > 0 &&
-                streamState.finishReason !== "tool-calls"
+                streamState.finishReason.unified !== "tool-calls"
               ) {
                 if (!streamState.activeText) {
                   controller.enqueue({ type: "text-start", id: "0" });
@@ -1079,7 +1090,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
               if (chunkFinishReason) {
                 streamState.finishReason = mapFinishReason(chunkFinishReason);
 
-                if (streamState.finishReason === "tool-calls") {
+                if (streamState.finishReason.unified === "tool-calls") {
                   const toolCalls = Array.from(toolCallsInProgress.values());
                   for (const tc of toolCalls) {
                     if (tc.didEmitCall) {
@@ -1166,15 +1177,21 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
             if (finalFinishReason) {
               streamState.finishReason = mapFinishReason(finalFinishReason);
             } else if (didEmitAnyToolCalls) {
-              streamState.finishReason = "tool-calls";
+              streamState.finishReason = {
+                unified: "tool-calls",
+                raw: undefined,
+              };
             }
 
             // Get final token usage from the SDK aggregate
             const finalUsage = streamResponse.getTokenUsage();
             if (finalUsage) {
-              streamState.usage.inputTokens = finalUsage.prompt_tokens;
-              streamState.usage.outputTokens = finalUsage.completion_tokens;
-              streamState.usage.totalTokens = finalUsage.total_tokens;
+              streamState.usage.inputTokens.total = finalUsage.prompt_tokens;
+              streamState.usage.inputTokens.noCache = finalUsage.prompt_tokens;
+              streamState.usage.outputTokens.total =
+                finalUsage.completion_tokens;
+              streamState.usage.outputTokens.text =
+                finalUsage.completion_tokens;
             }
 
             controller.enqueue({
@@ -1211,7 +1228,6 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
         request: {
           body: requestBody as unknown,
         },
-        warnings: warningsOut,
       };
     } catch (error) {
       throw convertToAISDKError(error, {
@@ -1227,33 +1243,35 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
  * Maps SAP AI finish reason to Vercel AI SDK finish reason.
  *
  * @param reason - SAP AI finish reason string
- * @returns Mapped AI SDK finish reason
+ * @returns Mapped AI SDK V3 finish reason
  * @internal
  */
 function mapFinishReason(
   reason: string | undefined,
-): LanguageModelV2FinishReason {
-  if (!reason) return "unknown";
+): LanguageModelV3FinishReason {
+  const raw = reason;
+
+  if (!reason) return { unified: "other", raw };
 
   switch (reason.toLowerCase()) {
     case "stop":
     case "end_turn":
     case "stop_sequence":
     case "eos":
-      return "stop";
+      return { unified: "stop", raw };
     case "length":
     case "max_tokens":
     case "max_tokens_reached":
-      return "length";
+      return { unified: "length", raw };
     case "tool_calls":
     case "tool_call":
     case "function_call":
-      return "tool-calls";
+      return { unified: "tool-calls", raw };
     case "content_filter":
-      return "content-filter";
+      return { unified: "content-filter", raw };
     case "error":
-      return "error";
+      return { unified: "error", raw };
     default:
-      return "other";
+      return { unified: "other", raw };
   }
 }

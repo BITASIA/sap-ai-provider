@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { convertToSAPMessages } from "./convert-to-sap-messages";
-import type { LanguageModelV2Prompt } from "@ai-sdk/provider";
+import type { LanguageModelV3Prompt } from "@ai-sdk/provider";
 
-const createUserPrompt = (text: string): LanguageModelV2Prompt => [
+const createUserPrompt = (text: string): LanguageModelV3Prompt => [
   { role: "user", content: [{ type: "text", text }] },
 ];
 
-const createSystemPrompt = (content: string): LanguageModelV2Prompt => [
+const createSystemPrompt = (content: string): LanguageModelV3Prompt => [
   { role: "system", content },
 ];
 
@@ -36,7 +36,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should convert user message with image", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "user",
         content: [
@@ -66,7 +66,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should convert assistant message with text", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [{ type: "text", text: "Hello there!" }],
@@ -84,7 +84,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should drop assistant reasoning by default", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [
@@ -105,7 +105,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should include assistant reasoning when enabled", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [
@@ -126,7 +126,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should convert assistant message with tool calls", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [
@@ -160,7 +160,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should not double-encode tool-call input when already a JSON string", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [
@@ -194,7 +194,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should convert tool result message", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "tool",
         content: [
@@ -219,7 +219,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should convert full conversation", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       { role: "system", content: "You are helpful." },
       { role: "user", content: [{ type: "text", text: "Hi" }] },
       { role: "assistant", content: [{ type: "text", text: "Hello!" }] },
@@ -237,7 +237,7 @@ describe("convertToSAPMessages", () => {
 
   it("should convert user message with image URL (not base64)", () => {
     const imageUrl = new URL("https://example.com/image.jpg");
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "user",
         content: [
@@ -267,7 +267,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should convert multiple tool results into separate messages", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "tool",
         content: [
@@ -309,7 +309,7 @@ describe("convertToSAPMessages", () => {
   ])(
     "should throw error for unsupported file type: $description",
     ({ mediaType }) => {
-      const prompt: LanguageModelV2Prompt = [
+      const prompt: LanguageModelV3Prompt = [
         {
           role: "user",
           content: [
@@ -329,7 +329,7 @@ describe("convertToSAPMessages", () => {
   );
 
   it("should convert multiple tool calls in single assistant message", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [
@@ -377,7 +377,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle assistant message with both text and tool calls", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [
@@ -412,7 +412,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle user message with multiple text parts", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "user",
         content: [
@@ -435,7 +435,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle reasoning-only assistant message by dropping content", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [{ type: "reasoning", text: "Thinking about this..." }],
@@ -453,7 +453,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle empty reasoning text", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [
@@ -474,7 +474,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle empty user content array as array format", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "user",
         content: [],
@@ -492,7 +492,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle empty assistant content array", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [],
@@ -510,7 +510,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle empty tool content array", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "tool",
         content: [],
@@ -523,7 +523,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle system message with empty string", () => {
-    const prompt: LanguageModelV2Prompt = [{ role: "system", content: "" }];
+    const prompt: LanguageModelV3Prompt = [{ role: "system", content: "" }];
 
     const result = convertToSAPMessages(prompt);
 
@@ -535,7 +535,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle multiple images in user message", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "user",
         content: [
@@ -574,7 +574,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle reasoning with includeReasoning but empty text", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [
@@ -596,7 +596,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle tool-call with object input containing special characters", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "assistant",
         content: [
@@ -630,7 +630,7 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle tool result with complex nested output", () => {
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: "tool",
         content: [
@@ -680,7 +680,7 @@ describe("convertToSAPMessages", () => {
           },
         ],
       },
-    ] as LanguageModelV2Prompt;
+    ] as LanguageModelV3Prompt;
 
     expect(() => convertToSAPMessages(prompt)).toThrow(
       "Content type unknown_type",

@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { SAPAIChatLanguageModel } from "./sap-ai-chat-language-model";
 import type {
-  LanguageModelV2Prompt,
-  LanguageModelV2FunctionTool,
-  LanguageModelV2ProviderTool,
-  LanguageModelV2StreamPart,
+  LanguageModelV3Prompt,
+  LanguageModelV3FunctionTool,
+  LanguageModelV3ProviderTool,
+  LanguageModelV3StreamPart,
 } from "@ai-sdk/provider";
 
 // Mock the OrchestrationClient
@@ -234,14 +234,14 @@ describe("SAPAIChatLanguageModel", () => {
     );
   };
 
-  const createPrompt = (text: string): LanguageModelV2Prompt => [
+  const createPrompt = (text: string): LanguageModelV3Prompt => [
     { role: "user", content: [{ type: "text", text }] },
   ];
 
   const expectRequestBodyHasMessages = (result: {
-    request: { body?: unknown };
+    request?: { body?: unknown };
   }) => {
-    const body: unknown = result.request.body;
+    const body: unknown = result.request?.body;
     expect(body).toBeTruthy();
     expect(typeof body).toBe("object");
     expect(body).toHaveProperty("messages");
@@ -293,7 +293,7 @@ describe("SAPAIChatLanguageModel", () => {
   };
 
   const expectRequestBodyHasMessagesAndNoWarnings = (result: {
-    request: { body?: unknown };
+    request?: { body?: unknown };
     warnings: unknown[];
   }) => {
     expect(result.warnings).toHaveLength(0);
@@ -316,7 +316,7 @@ describe("SAPAIChatLanguageModel", () => {
   describe("model properties", () => {
     it("should have correct specification version", () => {
       const model = createModel();
-      expect(model.specificationVersion).toBe("v2");
+      expect(model.specificationVersion).toBe("v3");
     });
 
     it("should have correct model ID", () => {
@@ -406,19 +406,23 @@ describe("SAPAIChatLanguageModel", () => {
 
       expect(result.content).toHaveLength(1);
       expect(result.content[0]).toEqual({ type: "text", text: "Hello!" });
-      expect(result.finishReason).toBe("stop");
+      expect(result.finishReason).toEqual({ unified: "stop", raw: "stop" });
       expect(result.usage).toEqual({
-        inputTokens: 10,
-        outputTokens: 5,
-        totalTokens: 15,
+        inputTokens: {
+          total: 10,
+          noCache: 10,
+          cacheRead: undefined,
+          cacheWrite: undefined,
+        },
+        outputTokens: { total: 5, text: 5, reasoning: undefined },
       });
-      expect(result.response.headers).toBeDefined();
-      expect(result.response.headers).toMatchObject({
+      expect(result.response?.headers).toBeDefined();
+      expect(result.response?.headers).toMatchObject({
         "x-request-id": "test-request-id",
       });
       expect(result.providerMetadata?.["sap-ai"]).toMatchObject({
         finishReason: "stop",
-        finishReasonMapped: "stop",
+        finishReasonMapped: { unified: "stop", raw: "stop" },
         requestId: "test-request-id",
       });
     });
@@ -456,7 +460,7 @@ describe("SAPAIChatLanguageModel", () => {
       it("should sanitize requestBodyValues in errors", async () => {
         const model = createModel();
 
-        const prompt: LanguageModelV2Prompt = [
+        const prompt: LanguageModelV3Prompt = [
           {
             role: "user",
             content: [
@@ -495,7 +499,7 @@ describe("SAPAIChatLanguageModel", () => {
       const model = createModel();
       const prompt = createPrompt("What is 2+2?");
 
-      const tools: LanguageModelV2FunctionTool[] = [
+      const tools: LanguageModelV3FunctionTool[] = [
         {
           type: "function",
           name: "calculate",
@@ -626,11 +630,11 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({
         prompt,
-        tools: tools as unknown as LanguageModelV2ProviderTool[],
+        tools: tools as unknown as LanguageModelV3ProviderTool[],
       });
 
       expect(result.warnings).toHaveLength(1);
-      expect(result.warnings[0].type).toBe("unsupported-tool");
+      expect(result.warnings[0].type).toBe("unsupported");
     });
 
     it("should prefer call options.tools over settings.tools (and warn)", async () => {
@@ -653,7 +657,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       const prompt = createPrompt("Hello");
 
-      const tools: LanguageModelV2FunctionTool[] = [
+      const tools: LanguageModelV3FunctionTool[] = [
         {
           type: "function",
           name: "call_tool",
@@ -716,14 +720,14 @@ describe("SAPAIChatLanguageModel", () => {
         },
       };
 
-      const tools: LanguageModelV2FunctionTool[] = [
+      const tools: LanguageModelV3FunctionTool[] = [
         {
           type: "function",
           name: "badTool",
           description: "Tool with failing Zod schema conversion",
           inputSchema: {},
           parameters: zodLikeThatThrows,
-        } as unknown as LanguageModelV2FunctionTool,
+        } as unknown as LanguageModelV3FunctionTool,
       ];
 
       const result = await model.doGenerate({ prompt, tools });
@@ -770,7 +774,10 @@ describe("SAPAIChatLanguageModel", () => {
         toolName: "get_weather",
         input: '{"location":"Paris"}',
       });
-      expect(result.finishReason).toBe("tool-calls");
+      expect(result.finishReason).toEqual({
+        unified: "tool-calls",
+        raw: "tool_calls",
+      });
     });
 
     it.each([
@@ -849,7 +856,7 @@ describe("SAPAIChatLanguageModel", () => {
         const prompt = createPrompt("Test");
         const result = await model.doGenerate({ prompt });
 
-        expect(result.response.headers).toEqual(expected);
+        expect(result.response?.headers).toEqual(expected);
       },
     );
 
@@ -859,10 +866,10 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doGenerate({ prompt });
 
-      expect(result.response.body).toBeDefined();
-      expect(result.response.body).toHaveProperty("content");
-      expect(result.response.body).toHaveProperty("tokenUsage");
-      expect(result.response.body).toHaveProperty("finishReason");
+      expect(result.response?.body).toBeDefined();
+      expect(result.response?.body).toHaveProperty("content");
+      expect(result.response?.body).toHaveProperty("tokenUsage");
+      expect(result.response?.body).toHaveProperty("finishReason");
     });
   });
 
@@ -920,26 +927,18 @@ describe("SAPAIChatLanguageModel", () => {
 
       const result = await model.doStream({ prompt });
 
-      const parts: LanguageModelV2StreamPart[] = [];
-      for await (const part of result.stream) {
-        parts.push(part);
-      }
+      const parts = await readAllParts(result.stream);
 
-      const warnings = result.warnings;
-
+      // In V3, warnings are emitted in stream-start event, and the stream-start warnings
+      // should not be mutated during the stream. Our implementation correctly takes a snapshot
+      // of warnings at stream-start time.
       const streamStart = parts.find((part) => part.type === "stream-start");
       expect(streamStart?.warnings).toHaveLength(0);
-
-      // But the final warnings returned from doStream should include the flush-time warning.
-      // Important: consume the stream first; `result.warnings` is only populated
-      // after the stream has fully resolved.
-
-      expect(warnings.length).toBeGreaterThan(0);
     });
     async function readAllParts(
-      stream: ReadableStream<LanguageModelV2StreamPart>,
+      stream: ReadableStream<LanguageModelV3StreamPart>,
     ) {
-      const parts: LanguageModelV2StreamPart[] = [];
+      const parts: LanguageModelV3StreamPart[] = [];
       const reader = stream.getReader();
 
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -1046,10 +1045,12 @@ describe("SAPAIChatLanguageModel", () => {
       // Check finish part
       const finishPart = parts.find((p) => p.type === "finish");
       expect(finishPart).toBeDefined();
-      expect(finishPart).toMatchObject({
-        type: "finish",
-        finishReason: "stop",
-      });
+      if (finishPart && finishPart.type === "finish") {
+        expect(finishPart.finishReason).toEqual({
+          unified: "stop",
+          raw: "stop",
+        });
+      }
     });
 
     it("should flush tool calls immediately on tool-calls finishReason", async () => {
@@ -1108,7 +1109,10 @@ describe("SAPAIChatLanguageModel", () => {
 
       const finishPart = parts[finishIndex];
       if (finishPart.type === "finish") {
-        expect(finishPart.finishReason).toBe("tool-calls");
+        expect(finishPart.finishReason).toEqual({
+          unified: "tool-calls",
+          raw: "tool_calls",
+        });
       }
 
       // Ensure we stop emitting text deltas after tool-calls is detected.
@@ -1116,7 +1120,7 @@ describe("SAPAIChatLanguageModel", () => {
         .filter(
           (
             p,
-          ): p is Extract<LanguageModelV2StreamPart, { type: "text-delta" }> =>
+          ): p is Extract<LanguageModelV3StreamPart, { type: "text-delta" }> =>
             p.type === "text-delta",
         )
         .map((p) => p.delta);
@@ -1291,8 +1295,8 @@ describe("SAPAIChatLanguageModel", () => {
       },
       {
         input: undefined,
-        expected: "unknown",
-        description: "undefined as unknown",
+        expected: "other",
+        description: "undefined as other",
       },
     ])(
       "should handle stream with finish reason: $description",
@@ -1318,10 +1322,10 @@ describe("SAPAIChatLanguageModel", () => {
 
         const finishPart = parts.find((p) => p.type === "finish");
         expect(finishPart).toBeDefined();
-        expect(finishPart).toMatchObject({
-          type: "finish",
-          finishReason: expected,
-        });
+        if (finishPart && finishPart.type === "finish") {
+          expect(finishPart.finishReason.unified).toBe(expected);
+          expect(finishPart.finishReason.raw).toBe(input);
+        }
       },
     );
 
@@ -1437,7 +1441,7 @@ describe("SAPAIChatLanguageModel", () => {
 
         const result = await model.doStream({ prompt });
         const { stream } = result;
-        const parts: LanguageModelV2StreamPart[] = [];
+        const parts: LanguageModelV3StreamPart[] = [];
         const reader = stream.getReader();
 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -1456,28 +1460,27 @@ describe("SAPAIChatLanguageModel", () => {
           input: '{"x":1}',
         });
 
-        // Warning should be surfaced on the result (not retroactively in stream-start)
+        // In V3, warnings are emitted at stream-start time. Since the warning is generated
+        // during streaming (not before), it won't appear in stream-start.
         const streamStart = parts.find(
           (
             p,
           ): p is Extract<
-            LanguageModelV2StreamPart,
+            LanguageModelV3StreamPart,
             { type: "stream-start" }
           > => p.type === "stream-start",
         );
         expect(streamStart).toBeDefined();
         expect(streamStart?.warnings).toHaveLength(0);
 
-        // Consume the stream first: warnings are collected during streaming.
-        const warnings = result.warnings;
-
-        expect(warnings.length).toBeGreaterThan(0);
+        // V3 doesn't expose warnings on the result object - they only appear in stream-start.
+        // This test verifies that the warning doesn't crash the stream.
 
         expect(parts.some((p) => p.type === "error")).toBe(false);
         expect(parts.some((p) => p.type === "finish")).toBe(true);
 
         const finish = parts.find(
-          (p): p is Extract<LanguageModelV2StreamPart, { type: "finish" }> =>
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "finish" }> =>
             p.type === "finish",
         );
         expect(finish?.finishReason).toBeDefined();
@@ -1516,7 +1519,7 @@ describe("SAPAIChatLanguageModel", () => {
         const prompt = createPrompt("Hello");
 
         const { stream } = await model.doStream({ prompt });
-        const parts: LanguageModelV2StreamPart[] = [];
+        const parts: LanguageModelV3StreamPart[] = [];
         const reader = stream.getReader();
 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -1597,7 +1600,7 @@ describe("SAPAIChatLanguageModel", () => {
         const prompt = createPrompt("Hello");
 
         const { stream } = await model.doStream({ prompt });
-        const parts: LanguageModelV2StreamPart[] = [];
+        const parts: LanguageModelV3StreamPart[] = [];
         const reader = stream.getReader();
 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -1644,7 +1647,7 @@ describe("SAPAIChatLanguageModel", () => {
         const prompt = createPrompt("Test");
 
         const { stream } = await model.doStream({ prompt });
-        const parts: LanguageModelV2StreamPart[] = [];
+        const parts: LanguageModelV3StreamPart[] = [];
         const reader = stream.getReader();
 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -1665,10 +1668,10 @@ describe("SAPAIChatLanguageModel", () => {
 
         // Finish reason should be "stop" from server (we respect server's decision)
         const finish = parts.find(
-          (p): p is Extract<LanguageModelV2StreamPart, { type: "finish" }> =>
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "finish" }> =>
             p.type === "finish",
         );
-        expect(finish?.finishReason).toBe("stop");
+        expect(finish?.finishReason).toEqual({ unified: "stop", raw: "stop" });
       });
 
       it("should handle undefined finish reason from stream", async () => {
@@ -1695,7 +1698,7 @@ describe("SAPAIChatLanguageModel", () => {
         const prompt = createPrompt("Hello");
 
         const { stream } = await model.doStream({ prompt });
-        const parts: LanguageModelV2StreamPart[] = [];
+        const parts: LanguageModelV3StreamPart[] = [];
         const reader = stream.getReader();
 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -1706,11 +1709,14 @@ describe("SAPAIChatLanguageModel", () => {
         }
 
         const finish = parts.find(
-          (p): p is Extract<LanguageModelV2StreamPart, { type: "finish" }> =>
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "finish" }> =>
             p.type === "finish",
         );
-        // Should default to "unknown" when no finish reason is provided
-        expect(finish?.finishReason).toBe("unknown");
+        // In V3, undefined finish reason maps to "other"
+        expect(finish?.finishReason).toEqual({
+          unified: "other",
+          raw: undefined,
+        });
       });
 
       it("should flush tool calls that never received input-start", async () => {
@@ -1750,7 +1756,7 @@ describe("SAPAIChatLanguageModel", () => {
         const prompt = createPrompt("Test");
 
         const { stream } = await model.doStream({ prompt });
-        const parts: LanguageModelV2StreamPart[] = [];
+        const parts: LanguageModelV3StreamPart[] = [];
         const reader = stream.getReader();
 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -2081,7 +2087,7 @@ describe("SAPAIChatLanguageModel", () => {
         const model = createModel();
         const prompt = createPrompt("Hello");
 
-        const tools: LanguageModelV2FunctionTool[] = [
+        const tools: LanguageModelV3FunctionTool[] = [
           {
             type: "function",
             name: "test_tool",
@@ -2098,8 +2104,8 @@ describe("SAPAIChatLanguageModel", () => {
 
         expect(result.warnings).toContainEqual(
           expect.objectContaining({
-            type: "unsupported-setting",
-            setting: "toolChoice",
+            type: "unsupported",
+            feature: "toolChoice",
           }),
         );
       });
@@ -2108,7 +2114,7 @@ describe("SAPAIChatLanguageModel", () => {
         const model = createModel();
         const prompt = createPrompt("Hello");
 
-        const tools: LanguageModelV2FunctionTool[] = [
+        const tools: LanguageModelV3FunctionTool[] = [
           {
             type: "function",
             name: "test_tool",
@@ -2125,8 +2131,8 @@ describe("SAPAIChatLanguageModel", () => {
 
         const toolChoiceWarnings = result.warnings.filter(
           (w) =>
-            w.type === "unsupported-setting" &&
-            (w as unknown as { setting?: string }).setting === "toolChoice",
+            w.type === "unsupported" &&
+            (w as unknown as { feature?: string }).feature === "toolChoice",
         );
         expect(toolChoiceWarnings).toHaveLength(0);
       });
@@ -2232,7 +2238,7 @@ describe("SAPAIChatLanguageModel", () => {
         const model = createModel();
         const prompt = createPrompt("Use tool");
 
-        const tools: LanguageModelV2FunctionTool[] = [
+        const tools: LanguageModelV3FunctionTool[] = [
           {
             type: "function",
             name: toolName,
