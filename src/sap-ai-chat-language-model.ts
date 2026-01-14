@@ -32,6 +32,25 @@ import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
 import { convertToAISDKError } from "./sap-ai-error";
 
 /**
+ * Generates unique IDs for stream elements.
+ *
+ * Uses native `crypto.randomUUID()` to generate RFC 4122-compliant UUIDs,
+ * providing cryptographically strong random identifiers with guaranteed uniqueness.
+ *
+ * @internal
+ */
+class StreamIdGenerator {
+  /**
+   * Generates a unique ID for a text block.
+   *
+   * @returns RFC 4122-compliant UUID string
+   */
+  generateTextBlockId(): string {
+    return crypto.randomUUID();
+  }
+}
+
+/**
  * Validates model parameters against expected ranges and adds warnings to the array.
  *
  * Does not throw errors to allow API-side validation to be authoritative.
@@ -1000,6 +1019,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
         { promptTemplating: { include_usage: true } },
       );
 
+      // Generate unique ID for text blocks in this stream
+      const idGenerator = new StreamIdGenerator();
+      let textBlockId: string | null = null;
+
       // Track stream state in one place to keep updates consistent
       const streamState = {
         finishReason: {
@@ -1077,12 +1100,13 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
                 streamState.finishReason.unified !== "tool-calls"
               ) {
                 if (!streamState.activeText) {
-                  controller.enqueue({ type: "text-start", id: "0" });
+                  textBlockId = idGenerator.generateTextBlockId();
+                  controller.enqueue({ type: "text-start", id: textBlockId });
                   streamState.activeText = true;
                 }
                 controller.enqueue({
                   type: "text-delta",
-                  id: "0",
+                  id: textBlockId!,
                   delta: deltaContent,
                 });
               }
@@ -1184,7 +1208,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
                   }
 
                   if (streamState.activeText) {
-                    controller.enqueue({ type: "text-end", id: "0" });
+                    controller.enqueue({ type: "text-end", id: textBlockId! });
                     streamState.activeText = false;
                   }
                 }
@@ -1228,7 +1252,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
             }
 
             if (streamState.activeText) {
-              controller.enqueue({ type: "text-end", id: "0" });
+              controller.enqueue({ type: "text-end", id: textBlockId! });
             }
 
             // Determine final finish reason
