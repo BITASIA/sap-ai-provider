@@ -8,12 +8,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json", "html"],
       include: ["src/**/*.ts"],
-      exclude: [
-        "src/**/*.test.ts",
-        "src/types/**/*.ts",
-        "node_modules/**",
-        "dist/**",
-      ],
+      exclude: ["src/**/*.test.ts", "node_modules/**", "dist/**"],
       thresholds: {
         lines: 90,
         functions: 90,

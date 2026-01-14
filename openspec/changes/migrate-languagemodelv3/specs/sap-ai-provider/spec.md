@@ -21,20 +21,20 @@ The SAP AI Provider SHALL implement the LanguageModelV3 interface as defined by 
 
 #### Scenario: Specification Version Declaration
 
-**GIVEN** a SAPAIChatLanguageModel instance is created  
+**GIVEN** a SAPAILanguageModel instance is created  
 **WHEN** the specificationVersion property is accessed  
 **THEN** it SHALL return the string "v3"
 
 #### Scenario: doGenerate Method Signature
 
-**GIVEN** the SAPAIChatLanguageModel class  
+**GIVEN** the SAPAILanguageModel class  
 **WHEN** the doGenerate method is called  
 **THEN** it SHALL accept a single parameter of type LanguageModelV3CallOptions  
 **AND** it SHALL return a Promise that resolves to LanguageModelV3GenerateResult
 
 #### Scenario: doStream Method Signature
 
-**GIVEN** the SAPAIChatLanguageModel class  
+**GIVEN** the SAPAILanguageModel class  
 **WHEN** the doStream method is called  
 **THEN** it SHALL accept a single parameter of type LanguageModelV3CallOptions  
 **AND** it SHALL return a Promise that resolves to LanguageModelV3StreamResult

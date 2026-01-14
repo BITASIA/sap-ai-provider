@@ -412,6 +412,77 @@ const provider = createSAPAIProvider({
 });
 ```
 
+**Full documentation:** [API_REFERENCE.md - Content Filtering](./API_REFERENCE.md#buildazurecontentsafetyfiltertype-config)
+
+### Document Grounding (RAG)
+
+Ground LLM responses in your own documents using vector databases:
+
+```typescript
+import "dotenv/config"; // Load environment variables
+import {
+  createSAPAIProvider,
+  buildDocumentGroundingConfig,
+} from "@mymediset/sap-ai-provider";
+
+const provider = createSAPAIProvider({
+  defaultSettings: {
+    grounding: buildDocumentGroundingConfig({
+      filters: [
+        {
+          id: "vector-store-1", // Your vector database ID
+          data_repositories: ["*"], // Search all repositories
+        },
+      ],
+      placeholders: {
+        input: ["?question"],
+        output: "groundingOutput",
+      },
+    }),
+  },
+});
+
+// Queries are now grounded in your documents
+const model = provider("gpt-4o");
+```
+
+**Full example:** [examples/example-document-grounding.ts](./examples/example-document-grounding.ts)  
+**Full documentation:** [API_REFERENCE.md - Document Grounding](./API_REFERENCE.md#builddocumentgroundingconfigconfig)
+
+### Translation
+
+Automatically translate user queries and model responses:
+
+```typescript
+import "dotenv/config"; // Load environment variables
+import {
+  createSAPAIProvider,
+  buildTranslationConfig,
+} from "@mymediset/sap-ai-provider";
+
+const provider = createSAPAIProvider({
+  defaultSettings: {
+    translation: {
+      // Translate user input from German to English
+      input: buildTranslationConfig("input", {
+        sourceLanguage: "de",
+        targetLanguage: "en",
+      }),
+      // Translate model output from English to German
+      output: buildTranslationConfig("output", {
+        targetLanguage: "de",
+      }),
+    },
+  },
+});
+
+// Model handles German input/output automatically
+const model = provider("gpt-4o");
+```
+
+**Full example:** [examples/example-translation.ts](./examples/example-translation.ts)  
+**Full documentation:** [API_REFERENCE.md - Translation](./API_REFERENCE.md#buildtranslationconfigtype-config)
+
 ## Configuration Options
 
 The provider and models can be configured with various settings for authentication, model parameters, data masking, content filtering, and more.

@@ -1,6 +1,8 @@
 import type {
   MaskingModule,
   FilteringModule,
+  GroundingModule,
+  TranslationModule,
   ChatModel,
   ChatCompletionTool,
 } from "@sap-ai-sdk/orchestration";
@@ -200,6 +202,61 @@ export interface SAPAISettings {
   filtering?: FilteringModule;
 
   /**
+   * Grounding module configuration for document-based retrieval (RAG).
+   * Enables retrieval-augmented generation using SAP Document Grounding Service.
+   *
+   * Use `buildDocumentGroundingConfig()` to create the configuration.
+   *
+   * @example
+   * ```typescript
+   * import { buildDocumentGroundingConfig } from '@mymediset/sap-ai-provider';
+   *
+   * const model = provider('gpt-4o', {
+   *   grounding: buildDocumentGroundingConfig({
+   *     filters: [
+   *       {
+   *         id: 'my-vector-store',
+   *         data_repository_type: 'vector',
+   *         data_repositories: ['document-repo-1'],
+   *         chunk_overlap: 50
+   *       }
+   *     ],
+   *     placeholders: {
+   *       input: ['?question'],
+   *       output: 'groundingOutput'
+   *     }
+   *   })
+   * });
+   * ```
+   */
+  grounding?: GroundingModule;
+
+  /**
+   * Translation module configuration for input/output translation.
+   * Enables automatic translation using SAP Document Translation service.
+   *
+   * Use `buildTranslationConfig()` to create input/output configurations.
+   *
+   * @example
+   * ```typescript
+   * import { buildTranslationConfig } from '@mymediset/sap-ai-provider';
+   *
+   * const model = provider('gpt-4o', {
+   *   translation: {
+   *     input: buildTranslationConfig('input', {
+   *       sourceLanguage: 'de-DE',
+   *       targetLanguage: 'en-US'
+   *     }),
+   *     output: buildTranslationConfig('output', {
+   *       targetLanguage: 'de-DE'
+   *     })
+   *   }
+   * });
+   * ```
+   */
+  translation?: TranslationModule;
+
+  /**
    * Response format for templating prompt (OpenAI-compatible)
    * Allows specifying structured output formats
    *
@@ -293,14 +350,50 @@ export interface SAPAISettings {
  */
 export type SAPAIModelId = ChatModel;
 
-// Re-export useful types from SAP AI SDK for convenience
-export type { MaskingModule, FilteringModule } from "@sap-ai-sdk/orchestration";
+// Re-export useful types from SAP AI SDK
+export type {
+  MaskingModule,
+  FilteringModule,
+  GroundingModule,
+  TranslationModule,
+} from "@sap-ai-sdk/orchestration";
 
-// Re-export DPI masking helpers
+// Re-export helper functions from SAP AI SDK
 export {
   buildDpiMaskingProvider,
   buildAzureContentSafetyFilter,
   buildLlamaGuard38BFilter,
   buildDocumentGroundingConfig,
   buildTranslationConfig,
+  isConfigReference,
+} from "@sap-ai-sdk/orchestration";
+
+// Re-export advanced SAP AI SDK types for request/response handling
+export type {
+  OrchestrationModuleConfig,
+  OrchestrationConfigRef,
+  ChatCompletionRequest,
+  PromptTemplatingModule,
+  TranslationInputParameters,
+  TranslationOutputParameters,
+  TranslationApplyToCategory,
+  DocumentTranslationApplyToSelector,
+  TranslationTargetLanguage,
+  LlmModelParams,
+  LlmModelDetails,
+  ChatCompletionTool,
+  FunctionObject,
+  ChatMessage,
+  SystemChatMessage,
+  UserChatMessage,
+  AssistantChatMessage,
+  ToolChatMessage,
+  DeveloperChatMessage,
+} from "@sap-ai-sdk/orchestration";
+
+// Re-export response classes from SAP AI SDK
+export {
+  OrchestrationResponse,
+  OrchestrationStreamResponse,
+  OrchestrationStreamChunkResponse,
 } from "@sap-ai-sdk/orchestration";

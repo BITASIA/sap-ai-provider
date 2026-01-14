@@ -51,7 +51,7 @@ The SAP AI Provider implementation demonstrates **exceptional quality** and **st
 
 **Files Affected**:
 
-- `src/sap-ai-chat-language-model.ts` (lines 1080, 1085, 1187, 1231 before fix)
+- `src/sap-ai-language-model.ts` (lines 1080, 1085, 1187, 1231 before fix)
 
 **Root Cause**: Task marked complete without verifying actual UUID generation
 
@@ -101,7 +101,7 @@ controller.enqueue({ type: "text-start", id: textBlockId });
 export function createSAPAI(options: SAPAISettings = {}): SAPAIProvider {
   return {
     chat(modelId: string, settings?: SAPAIChatSettings) {
-      return new SAPAIChatLanguageModel(modelId, { ...options, ...settings });
+      return new SAPAILanguageModel(modelId, { ...options, ...settings });
     },
   };
 }
@@ -113,7 +113,7 @@ export function createSAPAI(options: SAPAISettings = {}): SAPAIProvider {
 
 ### 1.2 Language Model Interface ✅ EXCELLENT
 
-**File**: `src/sap-ai-chat-language-model.ts:261-393`
+**File**: `src/sap-ai-language-model.ts:261-393`
 
 **Findings**:
 
@@ -147,7 +147,7 @@ readonly specificationVersion = 'v3';
 
 ### 1.3 Stream Parts Specification ✅ EXCELLENT
 
-**File**: `src/sap-ai-chat-language-model.ts:912-1300`
+**File**: `src/sap-ai-language-model.ts:912-1300`
 
 **Findings**:
 
@@ -190,7 +190,7 @@ controller.enqueue({
 
 ### 2.1 Text Generation (doGenerate) ✅ EXCELLENT
 
-**File**: `src/sap-ai-chat-language-model.ts:690-911`
+**File**: `src/sap-ai-language-model.ts:690-911`
 
 **Findings**:
 
@@ -232,7 +232,7 @@ usage: {
 
 ### 2.2 Streaming (doStream) ✅ EXCELLENT
 
-**File**: `src/sap-ai-chat-language-model.ts:912-1300`
+**File**: `src/sap-ai-language-model.ts:912-1300`
 
 **Findings**:
 
@@ -260,7 +260,7 @@ const toolCallAccumulator = new Map<
 
 ### 2.3 Tool Calling ✅ EXCELLENT
 
-**File**: `src/sap-ai-chat-language-model.ts:394-689`
+**File**: `src/sap-ai-language-model.ts:394-689`
 
 **Findings**:
 
@@ -335,7 +335,7 @@ if (!supportedFormats.includes(part.mediaType.toLowerCase())) {
 
 ### 2.5 Response Formats ✅ EXCELLENT
 
-**File**: `src/sap-ai-chat-language-model.ts:642-658`
+**File**: `src/sap-ai-language-model.ts:642-658`
 
 **Findings**:
 
@@ -401,7 +401,7 @@ function isRetryable(statusCode: number): boolean {
 
 ### 3.2 Stream Error Events ✅ EXCELLENT
 
-**File**: `src/sap-ai-chat-language-model.ts:1265-1277`
+**File**: `src/sap-ai-language-model.ts:1265-1277`
 
 **Findings**:
 
@@ -433,7 +433,7 @@ catch (error) {
 
 ### 3.3 Abort Signal Handling ✅ SUPERIOR
 
-**File**: `src/sap-ai-chat-language-model.ts:779-811`
+**File**: `src/sap-ai-language-model.ts:779-811`
 
 **Findings**:
 
@@ -707,7 +707,7 @@ function validateModelParameters(params, warnings): void {
   - Authentication error detection
   - Network error handling
   - Header normalization (axios compatibility)
-- `sap-ai-chat-language-model.test.ts`: 72 tests
+- `sap-ai-language-model.test.ts`: 72 tests
   - Model properties verification
   - Request building logic
   - Tool configuration
@@ -764,7 +764,7 @@ Consider adding optional integration tests that run only when `AICORE_SERVICE_KE
 **Files**:
 
 - `src/convert-to-sap-messages.ts:235-240`
-- `src/sap-ai-chat-settings.ts:65-86`
+- `src/sap-ai-settings.ts:65-86`
 
 **Evidence**:
 
@@ -874,7 +874,7 @@ cacheWrite: undefined,
 
 #### 9.1 Response Headers Comment Clarity
 
-**File**: `src/sap-ai-chat-language-model.ts:812-832`
+**File**: `src/sap-ai-language-model.ts:812-832`
 
 **Current**: Complex header normalization logic
 **Observation**: More complex than Mistral's approach, but handles edge cases
@@ -886,7 +886,7 @@ cacheWrite: undefined,
 
 #### 9.2 Cache Control Implementation
 
-**File**: `src/sap-ai-chat-language-model.ts:875-878`
+**File**: `src/sap-ai-language-model.ts:875-878`
 
 **Current**: `cacheRead: undefined, cacheWrite: undefined`
 **Recommendation**: Research if SAP AI Core exposes cache statistics

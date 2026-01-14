@@ -110,7 +110,7 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
 ### 2.1 Type System Migration (Day 2 Morning) - 3 hours
 
 - [x] **Task 2.1.1**: Update imports in main model file
-  - **Files**: `src/sap-ai-chat-language-model.ts:1-32`
+  - **Files**: `src/sap-ai-language-model.ts:1-32`
   - **Effort**: 30 minutes
   - **Dependencies**: Phase 1 complete
   - **Changes**: Replace V2 imports with V3 imports
@@ -121,18 +121,18 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
   ```
 
 - [x] **Task 2.1.2**: Update class declaration
-  - **Files**: `src/sap-ai-chat-language-model.ts:296-297`
+  - **Files**: `src/sap-ai-language-model.ts:296-297`
   - **Effort**: 15 minutes
   - **Dependencies**: Task 2.1.1
   - **Changes**:
 
   ```typescript
-  export class SAPAIChatLanguageModel implements LanguageModelV3 {
+  export class SAPAILanguageModel implements LanguageModelV3 {
     readonly specificationVersion = "v3";
   ```
 
 - [x] **Task 2.1.3**: Update internal helper function signatures
-  - **Files**: `src/sap-ai-chat-language-model.ts:42-104`
+  - **Files**: `src/sap-ai-language-model.ts:42-104`
   - **Effort**: 45 minutes
   - **Dependencies**: Task 2.1.1
   - **Changes**: Update `validateModelParameters`, `createAISDKRequestBodySummary` to use V3 types
@@ -196,7 +196,7 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
 ### 2.3 Generate Method Migration (Day 3 Morning) - 4 hours
 
 - [x] **Task 2.3.1**: Update `doGenerate` method signature
-  - **Files**: `src/sap-ai-chat-language-model.ts:691-704`
+  - **Files**: `src/sap-ai-language-model.ts:691-704`
   - **Effort**: 15 minutes
   - **Dependencies**: Task 2.1.2
   - **Changes**:
@@ -208,31 +208,31 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
   ```
 
 - [x] **Task 2.3.2**: Update usage information mapping
-  - **Files**: `src/sap-ai-chat-language-model.ts:750-850` (approximate)
+  - **Files**: `src/sap-ai-language-model.ts:750-850` (approximate)
   - **Effort**: 45 minutes
   - **Dependencies**: Task 2.3.1
   - **Changes**: Map to V3 usage structure with optional details
 
 - [x] **Task 2.3.3**: Update finish reason mapping
-  - **Files**: `src/sap-ai-chat-language-model.ts`
+  - **Files**: `src/sap-ai-language-model.ts`
   - **Effort**: 30 minutes
   - **Dependencies**: Task 2.3.1
   - **Changes**: Ensure finish reasons map to V3 types
 
 - [x] **Task 2.3.4**: Update content array construction
-  - **Files**: `src/sap-ai-chat-language-model.ts`
+  - **Files**: `src/sap-ai-language-model.ts`
   - **Effort**: 45 minutes
   - **Dependencies**: Task 2.3.1
   - **Changes**: Build `LanguageModelV3Content[]` array
 
 - [x] **Task 2.3.5**: Restructure return object to V3 format
-  - **Files**: `src/sap-ai-chat-language-model.ts:850-900` (approximate)
+  - **Files**: `src/sap-ai-language-model.ts:850-900` (approximate)
   - **Effort**: 1 hour
   - **Dependencies**: Tasks 2.3.2-2.3.4
   - **Changes**: Return `LanguageModelV3GenerateResult` with correct structure
 
 - [x] **Task 2.3.6**: Update warning collection
-  - **Files**: `src/sap-ai-chat-language-model.ts`
+  - **Files**: `src/sap-ai-language-model.ts`
   - **Effort**: 30 minutes
   - **Dependencies**: Task 2.3.1
   - **Changes**: Collect V3 warnings, make optional in return
@@ -246,7 +246,7 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
 ### 2.4 Stream Method Migration (Day 3 Afternoon + Day 4 Morning) - 6 hours
 
 - [x] **Task 2.4.1**: Update `doStream` method signature
-  - **Files**: `src/sap-ai-chat-language-model.ts:900-905`
+  - **Files**: `src/sap-ai-language-model.ts:900-905`
   - **Effort**: 15 minutes
   - **Dependencies**: Task 2.1.2
   - **Changes**:
@@ -258,7 +258,7 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
   ```
 
 - [x] **Task 2.4.2**: Create StreamIdGenerator utility
-  - **Files**: `src/sap-ai-chat-language-model.ts` or new `src/stream-id-generator.ts`
+  - **Files**: `src/sap-ai-language-model.ts` or new `src/stream-id-generator.ts`
   - **Effort**: 15 minutes (simplified from 30 minutes)
   - **Dependencies**: Task 2.4.1
   - **Content**: Simple ID generation using native `crypto.randomUUID()` for RFC 4122-compliant UUIDs
@@ -273,13 +273,13 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
   - **Note**: Uses native `crypto.randomUUID()` which generates RFC 4122-compliant UUIDs, providing cryptographically strong random identifiers with guaranteed uniqueness (collision-free). This approach is simpler and more standards-compliant than timestamp+counter patterns
 
 - [x] **Task 2.4.3**: Update stream state structure
-  - **Files**: `src/sap-ai-chat-language-model.ts:946-956`
+  - **Files**: `src/sap-ai-language-model.ts:946-956`
   - **Effort**: 45 minutes
   - **Dependencies**: Task 2.4.1
   - **Changes**: Add text block tracking map, update types to V3
 
 - [x] **Task 2.4.4**: Update stream-start emission
-  - **Files**: `src/sap-ai-chat-language-model.ts:1071-1074`
+  - **Files**: `src/sap-ai-language-model.ts:1071-1074`
   - **Effort**: 15 minutes
   - **Dependencies**: Task 2.4.3
   - **Changes**: Include warnings in stream-start per V3 specification
@@ -293,7 +293,7 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
   ```
 
 - [x] **Task 2.4.5**: Implement text block lifecycle (start/delta/end)
-  - **Files**: `src/sap-ai-chat-language-model.ts:1002-1017`
+  - **Files**: `src/sap-ai-language-model.ts:1002-1017`
   - **Effort**: 2 hours
   - **Dependencies**: Tasks 2.4.2, 2.4.3
   - **Changes**:
@@ -303,25 +303,25 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
     - Generate unique IDs per block
 
 - [x] **Task 2.4.6**: Update tool call streaming
-  - **Files**: `src/sap-ai-chat-language-model.ts:1019-1100`
+  - **Files**: `src/sap-ai-language-model.ts:1019-1100`
   - **Effort**: 1 hour
   - **Dependencies**: Task 2.4.3
   - **Changes**: Update to V3 tool call stream parts
 
 - [x] **Task 2.4.7**: Update finish event emission
-  - **Files**: `src/sap-ai-chat-language-model.ts:1100-1150` (approximate)
+  - **Files**: `src/sap-ai-language-model.ts:1100-1150` (approximate)
   - **Effort**: 30 minutes
   - **Dependencies**: Tasks 2.4.5, 2.4.6
   - **Changes**: Ensure all text blocks closed, emit V3 finish
 
 - [x] **Task 2.4.8**: Update error handling in stream
-  - **Files**: `src/sap-ai-chat-language-model.ts`
+  - **Files**: `src/sap-ai-language-model.ts`
   - **Effort**: 30 minutes
   - **Dependencies**: Task 2.4.1
   - **Changes**: Emit V3 error stream parts
 
 - [x] **Task 2.4.9**: Update response metadata structure
-  - **Files**: `src/sap-ai-chat-language-model.ts:989-994`
+  - **Files**: `src/sap-ai-language-model.ts:989-994`
   - **Effort**: 15 minutes
   - **Dependencies**: Task 2.4.1
   - **Changes**: Ensure response-metadata matches V3 structure
@@ -335,7 +335,7 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
 ### 2.5 Warning System Update (Day 4 Afternoon) - 2 hours
 
 - [x] **Task 2.5.1**: Add file content warnings
-  - **Files**: `src/convert-to-sap-messages.ts`, `src/sap-ai-chat-language-model.ts`
+  - **Files**: `src/convert-to-sap-messages.ts`, `src/sap-ai-language-model.ts`
   - **Effort**: 30 minutes
   - **Dependencies**: Task 2.2.2
   - **Changes**: Emit warnings for unsupported file content
@@ -348,7 +348,7 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
   - **V3 Behavior**: Reasoning parts embedded in message content as `{ type: "reasoning", text: string }`
 
 - [x] **Task 2.5.3**: Update existing warning messages
-  - **Files**: `src/sap-ai-chat-language-model.ts`
+  - **Files**: `src/sap-ai-language-model.ts`
   - **Effort**: 30 minutes
   - **Dependencies**: Tasks 2.1.1, 2.5.1, 2.5.2
   - **Changes**: Review all warning messages for V3 accuracy
@@ -378,13 +378,13 @@ Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
   - **Changes**: Update all mocks to V3 structure
 
 - [x] **Task 3.1.3**: Update doGenerate test cases
-  - **Files**: `tests/sap-ai-chat-language-model.test.ts`
+  - **Files**: `tests/sap-ai-language-model.test.ts`
   - **Effort**: 1 hour
   - **Dependencies**: Tasks 3.1.1, 3.1.2
   - **Changes**: Update assertions for V3 result structure
 
 - [x] **Task 3.1.4**: Update doStream test cases
-  - **Files**: `tests/sap-ai-chat-language-model.test.ts`
+  - **Files**: `tests/sap-ai-language-model.test.ts`
   - **Effort**: 1.5 hours
   - **Dependencies**: Tasks 3.1.1, 3.1.2
   - **Changes**: Update stream assertions for V3 structure

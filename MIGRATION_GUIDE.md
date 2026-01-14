@@ -681,17 +681,17 @@ Improved streaming support with better error recovery and detailed error message
 
 ### Added APIs (v2.0+)
 
-| API                                     | Purpose                 | Example                                                                 |
-| --------------------------------------- | ----------------------- | ----------------------------------------------------------------------- |
-| `buildDpiMaskingProvider()`             | Data masking helper     | `buildDpiMaskingProvider({ method: "anonymization", entities: [...] })` |
-| `buildAzureContentSafetyFilter()`       | Azure content filtering | `buildAzureContentSafetyFilter("input", { hate: "ALLOW_SAFE" })`        |
-| `buildLlamaGuard38BFilter()`            | Llama Guard filtering   | `buildLlamaGuard38BFilter("input")`                                     |
-| `buildDocumentGroundingConfig()`        | Document grounding      | `buildDocumentGroundingConfig({ ... })`                                 |
-| `buildTranslationConfig()`              | Translation module      | `buildTranslationConfig({ ... })`                                       |
-| `SAPAISettings.responseFormat`          | Structured outputs      | `{ type: "json_schema", json_schema: {...} }`                           |
-| `SAPAISettings.masking`                 | Masking configuration   | `{ masking_providers: [...] }`                                          |
-| `SAPAISettings.filtering`               | Content filtering       | `{ input: { filters: [...] } }`                                         |
-| `SAPAIProviderSettings.defaultSettings` | Provider defaults       | `{ defaultSettings: { modelParams: {...} } }`                           |
+| API                                     | Purpose                 | Example                                                                           |
+| --------------------------------------- | ----------------------- | --------------------------------------------------------------------------------- |
+| `buildDpiMaskingProvider()`             | Data masking helper     | `buildDpiMaskingProvider({ method: "anonymization", entities: [...] })`           |
+| `buildAzureContentSafetyFilter()`       | Azure content filtering | `buildAzureContentSafetyFilter("input", { hate: "ALLOW_SAFE" })`                  |
+| `buildLlamaGuard38BFilter()`            | Llama Guard filtering   | `buildLlamaGuard38BFilter("input")`                                               |
+| `buildDocumentGroundingConfig()`        | Document grounding      | `buildDocumentGroundingConfig({ filters: [...], placeholders: {...} })`           |
+| `buildTranslationConfig()`              | Translation module      | `buildTranslationConfig("input", { sourceLanguage: "de", targetLanguage: "en" })` |
+| `SAPAISettings.responseFormat`          | Structured outputs      | `{ type: "json_schema", json_schema: {...} }`                                     |
+| `SAPAISettings.masking`                 | Masking configuration   | `{ masking_providers: [...] }`                                                    |
+| `SAPAISettings.filtering`               | Content filtering       | `{ input: { filters: [...] } }`                                                   |
+| `SAPAIProviderSettings.defaultSettings` | Provider defaults       | `{ defaultSettings: { modelParams: {...} } }`                                     |
 
 **See [API_REFERENCE.md](./API_REFERENCE.md) for complete documentation.**
 

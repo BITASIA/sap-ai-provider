@@ -4,8 +4,8 @@ import type {
   ResourceGroupConfig,
   DeploymentIdConfig,
 } from "@sap-ai-sdk/ai-api/internal.js";
-import { SAPAIChatLanguageModel } from "./sap-ai-chat-language-model";
-import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
+import { SAPAILanguageModel } from "./sap-ai-language-model";
+import { SAPAIModelId, SAPAISettings } from "./sap-ai-settings";
 
 /**
  * SAP AI Provider interface.
@@ -39,7 +39,7 @@ export interface SAPAIProvider extends ProviderV3 {
    * @param settings - Optional model configuration settings
    * @returns Configured SAP AI chat language model instance
    */
-  (modelId: SAPAIModelId, settings?: SAPAISettings): SAPAIChatLanguageModel;
+  (modelId: SAPAIModelId, settings?: SAPAISettings): SAPAILanguageModel;
 
   /**
    * Explicit method for creating chat models.
@@ -51,7 +51,7 @@ export interface SAPAIProvider extends ProviderV3 {
    * @param settings - Optional model configuration settings
    * @returns Configured SAP AI chat language model instance
    */
-  chat(modelId: SAPAIModelId, settings?: SAPAISettings): SAPAIChatLanguageModel;
+  chat(modelId: SAPAIModelId, settings?: SAPAISettings): SAPAILanguageModel;
 }
 
 /**
@@ -307,7 +307,7 @@ export function createSAPAIProvider(
       tools: settings.tools ?? options.defaultSettings?.tools,
     };
 
-    return new SAPAIChatLanguageModel(modelId, mergedSettings, {
+    return new SAPAILanguageModel(modelId, mergedSettings, {
       provider: "sap-ai",
       deploymentConfig,
       destination: options.destination,

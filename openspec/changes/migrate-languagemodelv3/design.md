@@ -22,7 +22,7 @@ interface specification.
 **Current (V2)**:
 
 ```typescript
-export class SAPAIChatLanguageModel implements LanguageModelV2 {
+export class SAPAILanguageModel implements LanguageModelV2 {
   readonly specificationVersion = "v2";
 
   async doGenerate(options: LanguageModelV2CallOptions): Promise<{
@@ -40,7 +40,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 **Target (V3)**:
 
 ```typescript
-export class SAPAIChatLanguageModel implements LanguageModelV3 {
+export class SAPAILanguageModel implements LanguageModelV3 {
   readonly specificationVersion = "v3";
 
   async doGenerate(
@@ -55,7 +55,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
 
 #### 1.2 Import Changes
 
-**File**: `src/sap-ai-chat-language-model.ts`
+**File**: `src/sap-ai-language-model.ts`
 
 ```typescript
 // REMOVE V2 imports
@@ -646,7 +646,7 @@ Error types remain:
 
 #### 8.1 Settings Types
 
-**File**: `src/sap-ai-chat-settings.ts`
+**File**: `src/sap-ai-settings.ts`
 
 No changes needed - settings are provider-specific and don't depend on V2/V3:
 
@@ -690,7 +690,7 @@ export interface SAPAIProvider {
 
 **Files to Update**:
 
-- `tests/sap-ai-chat-language-model.test.ts`
+- `tests/sap-ai-language-model.test.ts`
 - `tests/convert-to-sap-messages.test.ts`
 - `tests/integration/*.test.ts`
 

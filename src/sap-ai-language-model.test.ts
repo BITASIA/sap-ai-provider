@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { SAPAIChatLanguageModel } from "./sap-ai-chat-language-model";
+import { SAPAILanguageModel } from "./sap-ai-language-model";
 import type {
   LanguageModelV3Prompt,
   LanguageModelV3FunctionTool,
@@ -222,11 +222,11 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
   };
 });
 
-describe("SAPAIChatLanguageModel", () => {
+describe("SAPAILanguageModel", () => {
   const createModel = (modelId = "gpt-4o", settings: unknown = {}) => {
-    return new SAPAIChatLanguageModel(
+    return new SAPAILanguageModel(
       modelId,
-      settings as ConstructorParameters<typeof SAPAIChatLanguageModel>[1],
+      settings as ConstructorParameters<typeof SAPAILanguageModel>[1],
       {
         provider: "sap-ai",
         deploymentConfig: { resourceGroup: "default" },
@@ -2014,6 +2014,162 @@ describe("SAPAIChatLanguageModel", () => {
         expectRequestBodyHasMessages(result);
 
         const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("masking");
+        expect(request.masking).toEqual(masking);
+        expect(request).toHaveProperty("filtering");
+        expect(request.filtering).toEqual(filtering);
+      });
+
+      it("should include grounding module in orchestration config", async () => {
+        const grounding = {
+          type: "document_grounding_service",
+          config: {
+            filters: [
+              {
+                id: "vector-store-1",
+                data_repositories: ["*"],
+                document_names: ["product-docs"],
+                chunk_ids: [],
+              },
+            ],
+            placeholders: {
+              input: ["?question"],
+              output: "groundingOutput",
+            },
+            metadata_params: ["file_name"],
+          },
+        };
+
+        const model = createModel("gpt-4o", {
+          grounding,
+        });
+
+        const prompt = createPrompt("What is SAP AI Core?");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("grounding");
+        expect(request.grounding).toEqual(grounding);
+      });
+
+      it("should include translation module in orchestration config", async () => {
+        const translation = {
+          input: {
+            source_language: "de",
+            target_language: "en",
+          },
+          output: {
+            target_language: "de",
+          },
+        };
+
+        const model = createModel("gpt-4o", {
+          translation,
+        });
+
+        const prompt = createPrompt("Was ist SAP AI Core?");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("translation");
+        expect(request.translation).toEqual(translation);
+      });
+
+      it.each([
+        { property: "grounding", settings: { grounding: {} } },
+        { property: "translation", settings: { translation: {} } },
+      ])(
+        "should omit $property when empty object",
+        async ({ property, settings }) => {
+          const model = createModel("gpt-4o", settings);
+
+          const prompt = createPrompt("Hello");
+
+          const result = await model.doGenerate({ prompt });
+
+          expectRequestBodyHasMessages(result);
+
+          const request = await getLastChatCompletionRequest();
+          expect(request).not.toHaveProperty(property);
+        },
+      );
+
+      it("should include grounding, translation, masking and filtering together", async () => {
+        const grounding = {
+          type: "document_grounding_service",
+          config: {
+            filters: [
+              {
+                id: "vector-store-1",
+                data_repositories: ["*"],
+                document_names: [],
+                chunk_ids: [],
+              },
+            ],
+            placeholders: {
+              input: ["?question"],
+              output: "groundingOutput",
+            },
+          },
+        };
+
+        const translation = {
+          input: {
+            source_language: "fr",
+            target_language: "en",
+          },
+        };
+
+        const masking = {
+          masking_providers: [
+            {
+              type: "sap_data_privacy_integration",
+              method: "anonymization",
+              entities: [{ type: "profile-email" }],
+            },
+          ],
+        };
+
+        const filtering = {
+          input: {
+            filters: [
+              {
+                type: "azure_content_safety",
+                config: {
+                  Hate: 0,
+                  Violence: 0,
+                  SelfHarm: 0,
+                  Sexual: 0,
+                },
+              },
+            ],
+          },
+        };
+
+        const model = createModel("gpt-4o", {
+          grounding,
+          translation,
+          masking,
+          filtering,
+        });
+
+        const prompt = createPrompt("Quelle est SAP AI Core?");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("grounding");
+        expect(request.grounding).toEqual(grounding);
+        expect(request).toHaveProperty("translation");
+        expect(request.translation).toEqual(translation);
         expect(request).toHaveProperty("masking");
         expect(request.masking).toEqual(masking);
         expect(request).toHaveProperty("filtering");

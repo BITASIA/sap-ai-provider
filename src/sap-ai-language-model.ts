@@ -28,7 +28,7 @@ import type { Template } from "@sap-ai-sdk/orchestration/dist/client/api/schema/
 type SAPResponseFormat = Template["response_format"];
 
 import { convertToSAPMessages } from "./convert-to-sap-messages";
-import { SAPAIModelId, SAPAISettings } from "./sap-ai-chat-settings";
+import { SAPAIModelId, SAPAISettings } from "./sap-ai-settings";
 import { convertToAISDKError } from "./sap-ai-error";
 
 /**
@@ -312,7 +312,7 @@ interface SAPAIConfig {
  *
  * @implements {LanguageModelV3}
  */
-export class SAPAIChatLanguageModel implements LanguageModelV3 {
+export class SAPAILanguageModel implements LanguageModelV3 {
   readonly specificationVersion = "v3";
   readonly modelId: SAPAIModelId;
 
@@ -701,6 +701,19 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
           ? { filtering }
           : {};
       })(),
+      ...(() => {
+        const grounding = providerOptions.grounding ?? this.settings.grounding;
+        return grounding && Object.keys(grounding).length > 0
+          ? { grounding }
+          : {};
+      })(),
+      ...(() => {
+        const translation =
+          providerOptions.translation ?? this.settings.translation;
+        return translation && Object.keys(translation).length > 0
+          ? { translation }
+          : {};
+      })(),
     };
 
     return { orchestrationConfig, messages, warnings };
@@ -788,6 +801,18 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
           const filtering = orchestrationConfig.filtering;
           return filtering && Object.keys(filtering).length > 0
             ? { filtering }
+            : {};
+        })(),
+        ...(() => {
+          const grounding = orchestrationConfig.grounding;
+          return grounding && Object.keys(grounding).length > 0
+            ? { grounding }
+            : {};
+        })(),
+        ...(() => {
+          const translation = orchestrationConfig.translation;
+          return translation && Object.keys(translation).length > 0
+            ? { translation }
             : {};
         })(),
       };

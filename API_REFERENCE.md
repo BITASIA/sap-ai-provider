@@ -48,7 +48,7 @@ To avoid confusion, this documentation uses the following terminology consistent
   - [`SAPAIModelId`](#sapaimodelid)
   - [`DpiEntities`](#dpientities)
 - [Classes](#classes)
-  - [`SAPAIChatLanguageModel`](#sapaichatlanguagemodel)
+  - [`SAPAILanguageModel`](#sapaichatlanguagemodel)
     - [`doGenerate(options)`](#dogenerateoptions)
     - [`doStream(options)`](#dostreamoptions)
   - [Error Handling & Reference](#error-handling-reference)
@@ -585,7 +585,7 @@ Create a language model instance.
 **Signature:**
 
 ```typescript
-(modelId: SAPAIModelId, settings?: SAPAISettings): SAPAIChatLanguageModel
+(modelId: SAPAIModelId, settings?: SAPAISettings): SAPAILanguageModel
 ```
 
 **Parameters:**
@@ -611,7 +611,7 @@ Explicit method for creating chat models (equivalent to calling provider functio
 **Signature:**
 
 ```typescript
-chat(modelId: SAPAIModelId, settings?: SAPAISettings): SAPAIChatLanguageModel
+chat(modelId: SAPAIModelId, settings?: SAPAISettings): SAPAILanguageModel
 ```
 
 ---
@@ -843,7 +843,7 @@ Standard entity types recognized by SAP DPI.
 
 ## Classes
 
-### `SAPAIChatLanguageModel`
+### `SAPAILanguageModel`
 
 Implementation of Vercel AI SDK's `LanguageModelV2` interface.
 
@@ -1248,8 +1248,17 @@ import "dotenv/config"; // Load environment variables
 import { buildDocumentGroundingConfig } from "@mymediset/sap-ai-provider";
 
 const groundingConfig = buildDocumentGroundingConfig({
-  // Document grounding configuration
-  // See SAP AI SDK documentation for details
+  filters: [
+    {
+      id: "vector-store-1", // Your vector database ID
+      data_repositories: ["*"], // Search all repositories
+    },
+  ],
+  placeholders: {
+    input: ["?question"], // Placeholder for user question
+    output: "groundingOutput", // Placeholder for grounding output
+  },
+  metadata_params: ["file_name", "document_id"], // Optional metadata
 });
 
 const provider = createSAPAIProvider({
@@ -1257,7 +1266,12 @@ const provider = createSAPAIProvider({
     grounding: groundingConfig,
   },
 });
+
+// Now queries will be grounded in your documents
+const model = provider("gpt-4o");
 ```
+
+**See also:** [`examples/example-document-grounding.ts`](./examples/example-document-grounding.ts)
 
 ---
 
@@ -1288,17 +1302,20 @@ function buildTranslationConfig(
 
 ```typescript
 import "dotenv/config"; // Load environment variables
-import { buildTranslationConfig } from "@mymediset/sap-ai-provider";
+import {
+  createSAPAIProvider,
+  buildTranslationConfig,
+} from "@mymediset/sap-ai-provider";
 
 // Translate user input from German to English
 const inputTranslation = buildTranslationConfig("input", {
-  sourceLanguage: "de-DE",
-  targetLanguage: "en-US",
+  sourceLanguage: "de",
+  targetLanguage: "en",
 });
 
 // Translate model output from English to German
 const outputTranslation = buildTranslationConfig("output", {
-  targetLanguage: "de-DE",
+  targetLanguage: "de",
 });
 
 const provider = createSAPAIProvider({
@@ -1309,7 +1326,12 @@ const provider = createSAPAIProvider({
     },
   },
 });
+
+// Now the model handles German input/output automatically
+const model = provider("gpt-4o");
 ```
+
+**See also:** [`examples/example-translation.ts`](./examples/example-translation.ts)
 
 ---
 

@@ -135,7 +135,7 @@ if (chunk.type === "text-delta") {
 
 **Core** (3 files):
 
-- `sap-ai-chat-language-model.ts` - V3 implementation
+- `sap-ai-language-model.ts` - V3 implementation
 - `convert-to-sap-messages.ts` - V3 message conversion
 - `sap-ai-provider.ts` - V3 interface
 

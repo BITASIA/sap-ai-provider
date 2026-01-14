@@ -95,7 +95,7 @@ The alternative—staying on V2—creates technical debt that will become more e
   - **Upstream**: `BITASIA/sap-ai-provider` (original repository)
   - **Published Package**: `@jerome-benoit/sap-ai-provider` (npm, via GitHub Actions)
 - **Affected Files** (All updated):
-  - `src/sap-ai-chat-language-model.ts` - Main implementation (V3 complete)
+  - `src/sap-ai-language-model.ts` - Main implementation (V3 complete)
   - `src/sap-ai-provider.ts` - Provider factory (V3 complete)
   - `src/convert-to-sap-messages.ts` - Message conversion (V3 complete)
   - Tests, documentation, and package metadata updated
@@ -219,7 +219,7 @@ The **Language Model Specification V3** (introduced in `@ai-sdk/provider` 3.0.0,
 **Before (V2)**:
 
 ```typescript
-export class SAPAIChatLanguageModel implements LanguageModelV2 {
+export class SAPAILanguageModel implements LanguageModelV2 {
   readonly specificationVersion = "v2";
   readonly provider: string;
   readonly modelId: string;
@@ -243,7 +243,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV2 {
 **After (V3)**:
 
 ```typescript
-export class SAPAIChatLanguageModel implements LanguageModelV3 {
+export class SAPAILanguageModel implements LanguageModelV3 {
   readonly specificationVersion = "v3";
   readonly provider: string;
   readonly modelId: string;
@@ -617,7 +617,7 @@ Before release, documentation should undergo manual review:
 
 3. **API_REFERENCE.md - Harmonize V3 Types**:
    File: `/API_REFERENCE.md` (EXISTS - 45KB, last updated Jan 13)
-   - Update main interface documentation (SAPAIChatLanguageModel)
+   - Update main interface documentation (SAPAILanguageModel)
    - Change all LanguageModelV2 references → LanguageModelV3
    - Update `doGenerate` and `doStream` method signatures
    - Update parameter types documentation
@@ -1182,7 +1182,7 @@ Add 20% buffer for unexpected issues:
 - [LanguageModelV3 Specification](https://github.com/vercel/ai/tree/main/packages/provider/src/language-model/v3)
 - [Writing a Custom Provider (V3)](https://ai-sdk.dev/providers/community-providers/custom-providers)
 - [Mistral Provider (Reference Implementation)](https://github.com/vercel/ai/tree/main/packages/mistral)
-- Current Implementation: `src/sap-ai-chat-language-model.ts`
+- Current Implementation: `src/sap-ai-language-model.ts`
 
 ## Next Steps
 

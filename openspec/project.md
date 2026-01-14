@@ -46,7 +46,7 @@ This project provides a community-developed provider for SAP AI Core that integr
 **Naming Conventions:**
 
 - **Files**: kebab-case (e.g., `sap-ai-provider.ts`, `convert-to-sap-messages.ts`)
-- **Classes**: PascalCase (e.g., `SAPAIProvider`, `SAPAIChatLanguageModel`)
+- **Classes**: PascalCase (e.g., `SAPAIProvider`, `SAPAILanguageModel`)
 - **Functions**: camelCase (e.g., `createSAPAIProvider`, `convertToSAPMessages`)
 - **Constants**: UPPER_SNAKE_CASE for true constants, camelCase for config objects
 - **Types/Interfaces**: PascalCase with descriptive names (e.g., `SAPAIProviderSettings`, `SAPAIModelId`)
@@ -54,7 +54,7 @@ This project provides a community-developed provider for SAP AI Core that integr
 **File Organization:**
 
 - Co-locate test files: `*.test.ts` alongside implementation files
-- Group related types in `src/types/` directory
+- All types defined in implementation files or `sap-ai-settings.ts`
 - Examples in `examples/` directory with descriptive names
 
 **Formatting:**

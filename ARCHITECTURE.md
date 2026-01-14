@@ -28,7 +28,7 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
   - [Detailed Component Flow](#detailed-component-flow)
   - [Component Responsibilities](#component-responsibilities)
     - [`SAPAIProvider`](#sapaiprovider)
-    - [`SAPAIChatLanguageModel`](#sapaichatlanguagemodel)
+    - [`SAPAILanguageModel`](#sapaichatlanguagemodel)
     - [`Authentication System`](#authentication-system)
     - [`Message Conversion`](#message-conversion)
 - [Request/Response Flow](#requestresponse-flow)
@@ -168,14 +168,14 @@ sequenceDiagram
 
 ### Component Interaction Map
 
-This diagram details the responsibilities of each major component in the provider architecture, including the SAPAIProvider (OAuth2 management, configuration), SAPAIChatLanguageModel (request/response handling, tool calls), Authentication System (token management), Message Transformer (format conversion), API Client (HTTP communication), and Error Handling system.
+This diagram details the responsibilities of each major component in the provider architecture, including the SAPAIProvider (OAuth2 management, configuration), SAPAILanguageModel (request/response handling, tool calls), Authentication System (token management), Message Transformer (format conversion), API Client (HTTP communication), and Error Handling system.
 
 ```mermaid
 graph TB
     subgraph "Component Responsibilities"
         Provider[SAPAIProvider<br/>━━━━━━━━━━━━━<br/>• OAuth2 Management<br/>• Provider Factory<br/>• Configuration<br/>• Deployment Setup]
 
-        Model[SAPAIChatLanguageModel<br/>━━━━━━━━━━━━━━━━━<br/>• doGenerate/doStream<br/>• Request Building<br/>• Response Parsing<br/>• Tool Call Handling<br/>• Multi-modal Support]
+        Model[SAPAILanguageModel<br/>━━━━━━━━━━━━━━━━━<br/>• doGenerate/doStream<br/>• Request Building<br/>• Response Parsing<br/>• Tool Call Handling<br/>• Multi-modal Support]
 
         Auth[Authentication System<br/>━━━━━━━━━━━━━━<br/>• Token Acquisition<br/>• Service Key Parsing<br/>• Credential Validation<br/>• Token Caching]
 
@@ -207,13 +207,10 @@ graph TB
 src/
 ├── index.ts                           # Public API exports
 ├── sap-ai-provider.ts                 # Main provider factory
-├── sap-ai-chat-language-model.ts      # Language model implementation
-├── sap-ai-chat-settings.ts            # Model configuration types
+├── sap-ai-language-model.ts           # Language model implementation
+├── sap-ai-settings.ts                 # Settings and type definitions
 ├── sap-ai-error.ts                    # Error handling system
-├── convert-to-sap-messages.ts         # Message format conversion
-└── types/
-    ├── completion-request.ts          # Request format schemas
-    └── completion-response.ts         # Response format schemas
+└── convert-to-sap-messages.ts         # Message format conversion
 ```
 
 ### Component Responsibilities
@@ -227,7 +224,7 @@ src/
   - Model instance creation
   - Base URL and deployment management
 
-#### `SAPAIChatLanguageModel`
+#### `SAPAILanguageModel`
 
 - **Purpose**: Implementation of Vercel AI SDK's `LanguageModelV2`
 - **Responsibilities**:
@@ -857,18 +854,18 @@ Key types for model configuration:
 - **`SAPAIModelId`**: String union of supported models (e.g., "gpt-4o", "claude-3.5-sonnet", "gemini-1.5-pro") with flexibility for custom models
 - **`SAPAISettings`**: Interface with `modelVersion`, `modelParams` (maxTokens, temperature, topP, etc.), `safePrompt`, and `structuredOutputs` options
 
-See `src/sap-ai-chat-settings.ts` for complete type definitions.
+See `src/sap-ai-settings.ts` for complete type definitions.
 
 ### Request/Response Schemas
 
-All API interactions are validated using Zod schemas for type safety and runtime validation. Key schemas include:
+All API interactions use types from `@sap-ai-sdk/orchestration` and are validated for type safety. Key types include:
 
-- `sapAIRequestSchema`: Validates orchestration config and input parameters
-- `sapAIResponseSchema`: Validates API responses with module results
-- `sapAIMessageSchema`: Validates message format (role, content, tool calls)
-- `sapAIToolSchema`: Validates function definitions and parameters
+- `ChatCompletionRequest`: Orchestration config and input parameters
+- `OrchestrationResponse`: API responses with module results
+- `ChatMessage`: Message format (role, content, tool calls)
+- `ChatCompletionTool`: Function definitions and parameters
 
-See `src/types/` for complete schema definitions.
+See `src/sap-ai-settings.ts` for the main settings interface and re-exported SAP AI SDK types.
 
 ## Integration Patterns
 
@@ -879,10 +876,10 @@ The provider implements the factory pattern for model creation:
 ```typescript
 interface SAPAIProvider extends ProviderV2 {
   // Function call syntax
-  (modelId: SAPAIModelId, settings?: SAPAISettings): SAPAIChatLanguageModel;
+  (modelId: SAPAIModelId, settings?: SAPAISettings): SAPAILanguageModel;
 
   // Method call syntax
-  chat(modelId: SAPAIModelId, settings?: SAPAISettings): SAPAIChatLanguageModel;
+  chat(modelId: SAPAIModelId, settings?: SAPAISettings): SAPAILanguageModel;
 }
 ```
 

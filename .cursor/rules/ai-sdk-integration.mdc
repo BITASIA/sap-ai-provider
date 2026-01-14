@@ -8,7 +8,7 @@ The provider implements the `LanguageModelV3` contract and is designed to work w
 ## Key Points
 
 - Create models via the provider function: `const model = provider("gpt-4o")`.
-- Supported operations include `doGenerate` and `doStream` (see [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)).
+- Supported operations include `doGenerate` and `doStream` (see [src/sap-ai-language-model.ts](mdc:src/sap-ai-language-model.ts)).
 - Tool calling is supported by passing `tools` in call options.
 - Structured outputs (JSON schema response_format) are enabled for most models except Anthropic and Amazon families.
 - `n` (multi-choice) is disabled for Amazon models.

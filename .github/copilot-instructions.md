@@ -117,15 +117,14 @@ This should complete in under 15 seconds total and all commands should pass.
 ```
 .
 ├── .github/               # GitHub Actions workflows and configs
-├── examples/              # Example usage files (6 examples)
+├── examples/              # Example usage files (8 examples)
 ├── src/                   # TypeScript source code
-│   ├── types/            # Type definitions
-│   ├── index.ts          # Main exports
-│   ├── sap-ai-provider.ts         # Main provider implementation
-│   ├── sap-ai-chat-language-model.ts # Language model implementation
-│   ├── sap-ai-chat-settings.ts   # Settings and model types
-│   ├── sap-ai-error.ts           # Error handling
-│   └── convert-to-sap-messages.ts # Message conversion utilities
+│   ├── index.ts                    # Main exports
+│   ├── sap-ai-provider.ts          # Main provider implementation
+│   ├── sap-ai-language-model.ts    # Language model implementation
+│   ├── sap-ai-settings.ts          # Settings and model types
+│   ├── sap-ai-error.ts             # Error handling
+│   └── convert-to-sap-messages.ts  # Message conversion utilities
 ├── dist/                  # Build outputs (gitignored)
 ├── package.json          # Dependencies and scripts
 ├── tsconfig.json         # TypeScript configuration
@@ -149,7 +148,7 @@ This should complete in under 15 seconds total and all commands should pass.
 
 - **`src/index.ts`**: Main export file - start here to understand the public API
 - **`src/sap-ai-provider.ts`**: Core provider implementation
-- **`src/sap-ai-chat-language-model.ts`**: Main language model logic
+- **`src/sap-ai-language-model.ts`**: Main language model logic
 - **`package.json`**: All available npm scripts and dependencies
 - **`examples/`**: Working examples of how to use the library
 
@@ -242,7 +241,7 @@ When acting as a PR reviewer, you must first thoroughly analyze and understand t
    - `CONTRIBUTING.md` - Development workflow and coding standards
    - `API_REFERENCE.md` - Complete API documentation
 2. **Understand the API surface**: Start with `src/index.ts` to see public exports
-3. **Study key components**: Review `src/sap-ai-provider.ts` and `src/sap-ai-chat-language-model.ts`
+3. **Study key components**: Review `src/sap-ai-provider.ts` and `src/sap-ai-language-model.ts`
 4. **Check existing patterns**: Look at test files (`*.test.ts`) to understand testing patterns
 5. **Review examples**: Check `/examples` directory for usage patterns
 6. **Understand build/test setup**: Check `package.json`, `tsconfig.json`, and config files
