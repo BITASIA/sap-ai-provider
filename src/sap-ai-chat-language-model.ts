@@ -344,9 +344,45 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
   }
 
   /**
-   * Gets the provider identifier.
+   * Generates text completion using SAP AI Core's Orchestration API.
    *
-   * @returns The provider name ('sap-ai')
+   * This method implements the `LanguageModelV3.doGenerate` interface,
+   * providing synchronous (non-streaming) text generation with support for:
+   * - Multi-turn conversations with system/user/assistant messages
+   * - Tool calling (function calling) with structured outputs
+   * - Multi-modal inputs (text + images)
+   * - Data masking via SAP DPI
+   * - Content filtering via Azure Content Safety or Llama Guard
+   *
+   * **V3 Enhancements:**
+   * - Finish reason returned as object: `{ unified: string, raw?: string }`
+   * - Usage structure nested with token breakdown: `{ inputTokens: { total, ... }, outputTokens: { total, ... } }`
+   * - Warning system updated with `feature` field for unsupported capabilities
+   *
+   * @param options - Generation options including prompt, tools, temperature, etc.
+   * @returns Promise resolving to generation result with content, usage, and metadata
+   *
+   * @throws {InvalidPromptError} If prompt format is invalid
+   * @throws {InvalidArgumentError} If arguments are malformed
+   * @throws {APICallError} If the SAP AI Core API call fails
+   *
+   * @example
+   * ```typescript
+   * const result = await model.doGenerate({
+   *   prompt: [
+   *     { role: 'user', content: [{ type: 'text', text: 'Hello!' }] }
+   *   ],
+   *   temperature: 0.7,
+   *   maxTokens: 100
+   * });
+   *
+   * console.log(result.content); // Array of V3 content parts
+   * console.log(result.finishReason.unified); // "stop", "length", "tool-calls", etc.
+   * console.log(result.usage.inputTokens.total); // Total input tokens
+   * ```
+   *
+   * @since 1.0.0
+   * @since 4.0.0 Updated to LanguageModelV3 interface
    */
   get provider(): string {
     return this.config.provider;
@@ -869,15 +905,24 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
    * This method implements the `LanguageModelV3.doStream` interface,
    * sending a streaming request to SAP AI Core and returning a stream of response parts.
    *
-   * **Stream Events:**
+   * **V3 Stream Structure:**
    * - `stream-start` - Stream initialization
    * - `response-metadata` - Response metadata (model, timestamp)
-   * - `text-start` - Text generation starts
-   * - `text-delta` - Incremental text chunks
-   * - `text-end` - Text generation completes
-   * - `tool-call` - Tool call detected
-   * - `finish` - Stream completes with usage and finish reason
+   * - `text-start` - Text block begins (with unique ID)
+   * - `text-delta` - Incremental text chunks (with block ID)
+   * - `text-end` - Text block completes (with accumulated text)
+   * - `tool-input-start` - Tool input begins
+   * - `tool-input-delta` - Tool input chunk
+   * - `tool-input-end` - Tool input completes
+   * - `tool-call` - Complete tool call
+   * - `finish` - Stream completes with V3 usage and finish reason
    * - `error` - Error occurred
+   *
+   * **V3 Enhancements:**
+   * - Text blocks have explicit lifecycle with unique IDs
+   * - Finish reason is object: `{ unified: string, raw?: string }`
+   * - Usage structure nested: `{ inputTokens: { total, ... }, outputTokens: { total, ... } }`
+   * - Warnings not included in stream result (only in finish event if applicable)
    *
    * @param options - Streaming options including prompt, tools, and settings
    * @returns Promise resolving to stream and request metadata
@@ -892,10 +937,16 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
    *
    * for await (const part of stream) {
    *   if (part.type === 'text-delta') {
-   *     process.stdout.write(part.delta);
+   *     process.stdout.write(part.delta); // V3: property is 'delta', not 'textDelta'
+   *   }
+   *   if (part.type === 'text-end') {
+   *     console.log('Block complete:', part.id, part.text);
    *   }
    * }
    * ```
+   *
+   * @since 1.0.0
+   * @since 4.0.0 Updated to LanguageModelV3 interface with structured text blocks
    */
   async doStream(
     options: LanguageModelV3CallOptions,

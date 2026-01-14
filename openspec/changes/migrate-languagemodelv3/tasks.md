@@ -1,0 +1,715 @@
+# Implementation Tasks: LanguageModelV3 Migration
+
+## Document Information
+
+- **Change ID**: migrate-languagemodelv3
+- **Version**: 1.0.0
+- **Status**: Ready for Implementation
+- **Estimated Duration**: 5-7 days
+
+## Task Overview
+
+Total Tasks: 47  
+Estimated Total Effort: 35-42 hours
+
+---
+
+## Phase 1: Preparation (Day 1) - 4 hours
+
+### 1.1 Repository Setup
+
+- [ ] **Task 1.1.1**: Create feature branch
+  - **Command**: `git checkout -b feature/languagemodelv3`
+  - **Files**: N/A
+  - **Effort**: 5 minutes
+  - **Dependencies**: None
+
+- [ ] **Task 1.1.2**: Verify current AI SDK versions
+  - **Command**: `npm list @ai-sdk/provider ai`
+  - **Files**: `package.json`
+  - **Effort**: 10 minutes
+  - **Dependencies**: Task 1.1.1
+  - **Verification**: Confirm ai@6.0.33, @ai-sdk/provider@3.0.2
+
+- [ ] **Task 1.1.3**: Update dependencies if needed
+  - **Command**: `npm update ai @ai-sdk/provider`
+  - **Files**: `package.json`, `package-lock.json`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 1.1.2
+  - **Note**: Only if versions need updating
+
+### 1.2 Test Infrastructure Setup
+
+- [ ] **Task 1.2.1**: Create V3 test fixtures directory
+  - **Command**: `mkdir -p tests/fixtures/v3`
+  - **Files**: New directory
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 1.1.1
+
+- [ ] **Task 1.2.2**: Create V3 mock response fixtures
+  - **Files**: `tests/fixtures/v3/generate-response.json`, `tests/fixtures/v3/stream-chunks.json`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 1.2.1
+  - **Content**: Example V3 responses and stream chunks
+
+- [ ] **Task 1.2.3**: Create V3 test helper utilities
+  - **Files**: `tests/helpers/v3-test-utils.ts`
+  - **Effort**: 45 minutes
+  - **Dependencies**: Task 1.2.1
+  - **Content**: Helper functions for V3 testing (stream collectors, validators)
+
+### 1.3 Documentation Preparation
+
+- [ ] **Task 1.3.1**: Review existing MIGRATION_GUIDE.md structure
+  - **Files**: `MIGRATION_GUIDE.md`
+  - **Effort**: 30 minutes
+  - **Dependencies**: None
+  - **Action**: Review current migration guide structure and plan where to add v3.x→4.x section
+
+- [ ] **Task 1.3.2**: Backup current README.md
+  - **Command**: `cp README.md README.md.v3-backup`
+  - **Files**: `README.md.v3-backup`
+  - **Effort**: 5 minutes
+  - **Dependencies**: None
+
+### 1.4 Reference Code Review
+
+- [ ] **Task 1.4.1**: Review Mistral V3 implementation
+  - **Files**: `/tmp/ai-sdk-repo/packages/mistral/src/mistral-chat-language-model.ts`
+  - **Effort**: 45 minutes
+  - **Dependencies**: None
+  - **Action**: Take notes on V3 patterns
+
+- [ ] **Task 1.4.2**: Review V3 type definitions
+  - **Files**: `/tmp/ai-sdk-repo/packages/provider/src/language-model/v3/*.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: None
+  - **Action**: Document all V3 types and their structures
+
+---
+
+## Phase 2: Core Migration (Days 2-4) - 18 hours
+
+### 2.1 Type System Migration (Day 2 Morning) - 3 hours
+
+- [ ] **Task 2.1.1**: Update imports in main model file
+  - **Files**: `src/sap-ai-chat-language-model.ts:1-32`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Phase 1 complete
+  - **Changes**: Replace V2 imports with V3 imports
+
+  ```typescript
+  // Remove LanguageModelV2* imports
+  // Add LanguageModelV3* imports
+  ```
+
+- [ ] **Task 2.1.2**: Update class declaration
+  - **Files**: `src/sap-ai-chat-language-model.ts:296-297`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 2.1.1
+  - **Changes**:
+
+  ```typescript
+  export class SAPAIChatLanguageModel implements LanguageModelV3 {
+    readonly specificationVersion = "v3";
+  ```
+
+- [ ] **Task 2.1.3**: Update internal helper function signatures
+  - **Files**: `src/sap-ai-chat-language-model.ts:42-104`
+  - **Effort**: 45 minutes
+  - **Dependencies**: Task 2.1.1
+  - **Changes**: Update `validateModelParameters`, `createAISDKRequestBodySummary` to use V3 types
+
+- [ ] **Task 2.1.4**: Update provider interface types
+  - **Files**: `src/sap-ai-provider.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 2.1.1
+  - **Changes**: Update return types to `LanguageModelV3`
+
+- [ ] **Task 2.1.5**: Update type exports
+  - **Files**: `src/index.ts`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 2.1.4
+  - **Changes**: Export V3 types if needed
+
+- [ ] **Task 2.1.6**: Run TypeScript compiler check
+  - **Command**: `npm run typecheck`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Tasks 2.1.1-2.1.5
+  - **Action**: Fix any immediate compilation errors
+
+### 2.2 Content Conversion Migration (Day 2 Afternoon) - 3 hours
+
+- [ ] **Task 2.2.1**: Update `convertToSAPMessages` function signature
+  - **Files**: `src/convert-to-sap-messages.ts:10-15` (approximate)
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 2.1.1
+  - **Changes**: Accept `LanguageModelV3Message[]`
+
+- [ ] **Task 2.2.2**: Add file content type validation
+  - **Files**: `src/convert-to-sap-messages.ts`
+  - **Effort**: 45 minutes
+  - **Dependencies**: Task 2.2.1
+  - **Changes**: Add validation for `type === 'file'`, emit warning
+
+- [ ] **Task 2.2.3**: Update text content mapping
+  - **Files**: `src/convert-to-sap-messages.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 2.2.1
+  - **Changes**: Ensure V3 text content maps correctly
+
+- [ ] **Task 2.2.4**: Update image content mapping
+  - **Files**: `src/convert-to-sap-messages.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 2.2.1
+  - **Changes**: Ensure V3 image content maps correctly
+
+- [ ] **Task 2.2.5**: Update tool call/result content mapping
+  - **Files**: `src/convert-to-sap-messages.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 2.2.1
+  - **Changes**: Ensure V3 tool content maps correctly
+
+- [ ] **Task 2.2.6**: Add unit tests for content conversion
+  - **Files**: `tests/convert-to-sap-messages.test.ts`
+  - **Effort**: 1 hour
+  - **Dependencies**: Tasks 2.2.1-2.2.5
+  - **Changes**: Update existing tests, add V3-specific tests
+
+### 2.3 Generate Method Migration (Day 3 Morning) - 4 hours
+
+- [ ] **Task 2.3.1**: Update `doGenerate` method signature
+  - **Files**: `src/sap-ai-chat-language-model.ts:691-704`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 2.1.2
+  - **Changes**:
+
+  ```typescript
+  async doGenerate(
+    options: LanguageModelV3CallOptions
+  ): Promise<LanguageModelV3GenerateResult>
+  ```
+
+- [ ] **Task 2.3.2**: Update usage information mapping
+  - **Files**: `src/sap-ai-chat-language-model.ts:750-850` (approximate)
+  - **Effort**: 45 minutes
+  - **Dependencies**: Task 2.3.1
+  - **Changes**: Map to V3 usage structure with optional details
+
+- [ ] **Task 2.3.3**: Update finish reason mapping
+  - **Files**: `src/sap-ai-chat-language-model.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 2.3.1
+  - **Changes**: Ensure finish reasons map to V3 types
+
+- [ ] **Task 2.3.4**: Update content array construction
+  - **Files**: `src/sap-ai-chat-language-model.ts`
+  - **Effort**: 45 minutes
+  - **Dependencies**: Task 2.3.1
+  - **Changes**: Build `LanguageModelV3Content[]` array
+
+- [ ] **Task 2.3.5**: Restructure return object to V3 format
+  - **Files**: `src/sap-ai-chat-language-model.ts:850-900` (approximate)
+  - **Effort**: 1 hour
+  - **Dependencies**: Tasks 2.3.2-2.3.4
+  - **Changes**: Return `LanguageModelV3GenerateResult` with correct structure
+
+- [ ] **Task 2.3.6**: Update warning collection
+  - **Files**: `src/sap-ai-chat-language-model.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 2.3.1
+  - **Changes**: Collect V3 warnings, make optional in return
+
+- [ ] **Task 2.3.7**: Run unit tests for doGenerate
+  - **Command**: `npm test -- --testNamePattern="doGenerate"`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Tasks 2.3.1-2.3.6
+  - **Action**: Fix any failing tests
+
+### 2.4 Stream Method Migration (Day 3 Afternoon + Day 4 Morning) - 6 hours
+
+- [ ] **Task 2.4.1**: Update `doStream` method signature
+  - **Files**: `src/sap-ai-chat-language-model.ts:900-905`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 2.1.2
+  - **Changes**:
+
+  ```typescript
+  async doStream(
+    options: LanguageModelV3CallOptions
+  ): Promise<LanguageModelV3StreamResult>
+  ```
+
+- [ ] **Task 2.4.2**: Create StreamIdGenerator utility
+  - **Files**: `src/sap-ai-chat-language-model.ts` or new `src/stream-id-generator.ts`
+  - **Effort**: 15 minutes (simplified from 30 minutes)
+  - **Dependencies**: Task 2.4.1
+  - **Content**: Simple ID generation using native `crypto.randomUUID()` for RFC 4122-compliant UUIDs
+  - **Implementation**:
+    ```typescript
+    class StreamIdGenerator {
+      generateTextBlockId(): string {
+        return crypto.randomUUID();
+      }
+    }
+    ```
+  - **Note**: Uses native `crypto.randomUUID()` which generates RFC 4122-compliant UUIDs, providing cryptographically strong random identifiers with guaranteed uniqueness (collision-free). This approach is simpler and more standards-compliant than timestamp+counter patterns
+
+- [ ] **Task 2.4.3**: Update stream state structure
+  - **Files**: `src/sap-ai-chat-language-model.ts:946-956`
+  - **Effort**: 45 minutes
+  - **Dependencies**: Task 2.4.1
+  - **Changes**: Add text block tracking map, update types to V3
+
+- [ ] **Task 2.4.4**: Update stream-start emission
+  - **Files**: `src/sap-ai-chat-language-model.ts:979-983`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 2.4.3
+  - **Changes**: Remove warnings from stream-start
+
+  ```typescript
+  controller.enqueue({ type: "stream-start" });
+  ```
+
+- [ ] **Task 2.4.5**: Implement text block lifecycle (start/delta/end)
+  - **Files**: `src/sap-ai-chat-language-model.ts:1002-1017`
+  - **Effort**: 2 hours
+  - **Dependencies**: Tasks 2.4.2, 2.4.3
+  - **Changes**:
+    - Emit `text-start` when first delta arrives
+    - Track accumulated text per block
+    - Emit `text-end` with accumulated content
+    - Generate unique IDs per block
+
+- [ ] **Task 2.4.6**: Update tool call streaming
+  - **Files**: `src/sap-ai-chat-language-model.ts:1019-1100`
+  - **Effort**: 1 hour
+  - **Dependencies**: Task 2.4.3
+  - **Changes**: Update to V3 tool call stream parts
+
+- [ ] **Task 2.4.7**: Update finish event emission
+  - **Files**: `src/sap-ai-chat-language-model.ts:1100-1150` (approximate)
+  - **Effort**: 30 minutes
+  - **Dependencies**: Tasks 2.4.5, 2.4.6
+  - **Changes**: Ensure all text blocks closed, emit V3 finish
+
+- [ ] **Task 2.4.8**: Update error handling in stream
+  - **Files**: `src/sap-ai-chat-language-model.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 2.4.1
+  - **Changes**: Emit V3 error stream parts
+
+- [ ] **Task 2.4.9**: Update response metadata structure
+  - **Files**: `src/sap-ai-chat-language-model.ts:989-994`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 2.4.1
+  - **Changes**: Ensure response-metadata matches V3 structure
+
+- [ ] **Task 2.4.10**: Run streaming unit tests
+  - **Command**: `npm test -- --testNamePattern="doStream"`
+  - **Effort**: 45 minutes
+  - **Dependencies**: Tasks 2.4.1-2.4.9
+  - **Action**: Fix any failing tests
+
+### 2.5 Warning System Update (Day 4 Afternoon) - 2 hours
+
+- [ ] **Task 2.5.1**: Add file content warnings
+  - **Files**: `src/convert-to-sap-messages.ts`, `src/sap-ai-chat-language-model.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 2.2.2
+  - **Changes**: Emit warnings for unsupported file content
+
+- [ ] **Task 2.5.2**: Add reasoning mode warnings
+  - **Files**: `src/sap-ai-chat-language-model.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 2.3.1
+  - **Changes**: Check for reasoning option, emit warning if present
+
+- [ ] **Task 2.5.3**: Update existing warning messages
+  - **Files**: `src/sap-ai-chat-language-model.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Tasks 2.1.1, 2.5.1, 2.5.2
+  - **Changes**: Review all warning messages for V3 accuracy
+
+- [ ] **Task 2.5.4**: Test warning scenarios
+  - **Files**: `tests/warnings.test.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Tasks 2.5.1-2.5.3
+  - **Changes**: Add tests for new V3 warning scenarios
+
+---
+
+## Phase 3: Testing (Day 5) - 6 hours
+
+### 3.1 Unit Test Updates
+
+- [ ] **Task 3.1.1**: Update test imports
+  - **Files**: `tests/**/*.test.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Phase 2 complete
+  - **Changes**: Replace V2 imports with V3
+
+- [ ] **Task 3.1.2**: Update mock response structures
+  - **Files**: `tests/mocks/*.ts`, `tests/fixtures/**/*.json`
+  - **Effort**: 1 hour
+  - **Dependencies**: Task 3.1.1
+  - **Changes**: Update all mocks to V3 structure
+
+- [ ] **Task 3.1.3**: Update doGenerate test cases
+  - **Files**: `tests/sap-ai-chat-language-model.test.ts`
+  - **Effort**: 1 hour
+  - **Dependencies**: Tasks 3.1.1, 3.1.2
+  - **Changes**: Update assertions for V3 result structure
+
+- [ ] **Task 3.1.4**: Update doStream test cases
+  - **Files**: `tests/sap-ai-chat-language-model.test.ts`
+  - **Effort**: 1.5 hours
+  - **Dependencies**: Tasks 3.1.1, 3.1.2
+  - **Changes**: Update stream assertions for V3 structure
+
+- [ ] **Task 3.1.5**: Update content conversion tests
+  - **Files**: `tests/convert-to-sap-messages.test.ts`
+  - **Effort**: 45 minutes
+  - **Dependencies**: Task 3.1.1
+  - **Changes**: Test V3 content types
+
+- [ ] **Task 3.1.6**: Run full test suite
+  - **Command**: `npm test`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Tasks 3.1.1-3.1.5
+  - **Action**: Ensure all tests pass, fix failures
+
+### 3.2 Integration Testing
+
+- [ ] **Task 3.2.1**: Test with real SAP AI Core (OpenAI models)
+  - **Files**: `tests/integration/openai-models.test.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 3.1.6
+  - **Action**: Manual or automated integration test
+
+- [ ] **Task 3.2.2**: Test with real SAP AI Core (Anthropic models)
+  - **Files**: `tests/integration/anthropic-models.test.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 3.1.6
+  - **Action**: Manual or automated integration test
+
+- [ ] **Task 3.2.3**: Validate example projects
+  - **Files**: `examples/**/*.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 3.1.6
+  - **Action**: Compile examples with `tsc --noEmit`, test-run 2-3 examples
+  - **Note**: No code changes expected (examples use high-level APIs)
+
+### 3.3 Coverage and Quality
+
+- [ ] **Task 3.3.1**: Check test coverage
+  - **Command**: `npm run test:coverage`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 3.1.6
+  - **Action**: Ensure >90% coverage maintained
+
+- [ ] **Task 3.3.2**: Run linter
+  - **Command**: `npm run lint`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Phase 2 complete
+  - **Action**: Fix any linting errors
+
+- [ ] **Task 3.3.3**: Run type checker
+  - **Command**: `npm run typecheck`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Phase 2 complete
+  - **Action**: Ensure no type errors
+
+---
+
+## Phase 4: Documentation (Day 6) - ~3.5 hours
+
+### 4.1 API Documentation
+
+- [ ] **Task 4.1.1**: Update README.md overview
+  - **Files**: `README.md`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Phase 3 complete
+  - **Changes**: Update feature list, compatibility notes
+
+- [ ] **Task 4.1.2**: Update README.md installation section
+  - **Files**: `README.md`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 4.1.1
+  - **Changes**: Update version requirements
+
+- [ ] **Task 4.1.3**: Update README.md usage examples
+  - **Files**: `README.md`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 4.1.1
+  - **Changes**: Verify examples still accurate (no V3-specific changes needed)
+
+- [ ] **Task 4.1.4**: Add breaking changes section
+  - **Files**: `README.md`
+  - **Effort**: 45 minutes
+  - **Dependencies**: Task 4.1.1
+  - **Changes**: Document all breaking changes clearly
+
+- [ ] **Task 4.1.5**: Update API reference
+  - **Files**: `README.md` or `API.md`
+  - **Effort**: 45 minutes
+  - **Dependencies**: Task 4.1.3
+  - **Changes**: Document V3 types and interfaces
+
+### 4.2 Migration Guide
+
+- [ ] **Task 4.2.1**: Add v3.x→4.x section to MIGRATION_GUIDE.md
+  - **Files**: `MIGRATION_GUIDE.md`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 1.3.1
+  - **Changes**: Add new section for migrating from v3.x to v4.x with overview
+
+- [ ] **Task 4.2.2**: Add version compatibility matrix to v3.x→4.x section
+  - **Files**: `MIGRATION_GUIDE.md`
+  - **Effort**: 20 minutes
+  - **Dependencies**: Task 4.2.1
+  - **Changes**: Table showing compatibility between package versions and AI SDK versions
+
+- [ ] **Task 4.2.3**: Add code migration examples to v3.x→4.x section
+  - **Files**: `MIGRATION_GUIDE.md`
+  - **Effort**: 1 hour
+  - **Dependencies**: Task 4.2.1
+  - **Changes**: Before/after code examples for V2→V3 streaming changes
+
+- [ ] **Task 4.2.4**: Add troubleshooting section to v3.x→4.x migration
+  - **Files**: `MIGRATION_GUIDE.md`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 4.2.3
+  - **Changes**: Common issues like stream parsing, ID handling, type changes
+
+- [ ] **Task 4.2.5**: Add FAQ section to v3.x→4.x migration
+  - **Files**: `MIGRATION_GUIDE.md`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 4.2.1
+  - **Changes**: FAQ about V3 features, backward compatibility, timing
+
+### 4.3 Test Script and Examples
+
+- [ ] **Task 4.3.1**: Update test-quick.ts version references
+  - **Files**: `test-quick.ts`
+  - **Effort**: 5 minutes
+  - **Dependencies**: None
+  - **Changes**: Line 3 and 15: "v2" → "v4"
+
+- [ ] **Task 4.3.2**: Validate examples
+  - **Files**: `examples/*.ts`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Phase 3 complete
+  - **Action**: Already done in Task 3.2.3, final verification
+
+### 4.4 Release Notes
+
+- [ ] **Task 4.4.1**: Create GitHub release notes draft
+  - **Files**: `RELEASE_NOTES.md` or GitHub UI
+  - **Effort**: 45 minutes
+  - **Dependencies**: Phase 3 complete
+  - **Changes**: User-friendly release announcement
+
+---
+
+## Phase 5: Release (Day 7) - 2 hours
+
+**CRITICAL**: This project uses **automated GitHub Actions workflow** for npm publishing. The release process is:
+
+1. Create a GitHub release on the **origin repository** (`jerome-benoit/sap-ai-provider`)
+2. The workflow `.github/workflows/npm-publish-npm-packages.yml` automatically:
+   - Builds the package
+   - Runs tests
+   - Publishes to npm with the appropriate tag (latest, next, beta, etc.)
+   - Publishes under `@jerome-benoit` scope (configured in workflow)
+
+**IMPORTANT**:
+
+- ❌ **DO NOT** run `npm publish` manually
+- ❌ **DO NOT** create releases on the upstream repository (`BITASIA/sap-ai-provider`)
+- ✅ **ONLY** create releases on the origin repository (`jerome-benoit/sap-ai-provider`)
+
+---
+
+### 5.1 Pre-Release Checks
+
+- [ ] **Task 5.1.1**: Final code review
+  - **Action**: Self-review all changes
+  - **Effort**: 1 hour
+  - **Dependencies**: Phase 4 complete
+  - **Checklist**: Code quality, completeness, consistency
+
+- [ ] **Task 5.1.2**: Version bump
+  - **Files**: `package.json`
+  - **Command**: `npm version 4.0.0`
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.1.1
+
+- [ ] **Task 5.1.3**: Update package-lock.json
+  - **Command**: `npm install`
+  - **Files**: `package-lock.json`
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.1.2
+
+- [ ] **Task 5.1.4**: Build package
+  - **Command**: `npm run build`
+  - **Effort**: 10 minutes
+  - **Dependencies**: Task 5.1.3
+  - **Action**: Verify build succeeds
+
+- [ ] **Task 5.1.5**: Test built package
+  - **Command**: `npm pack && cd /tmp && npm install <path-to-tgz>`
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 5.1.4
+  - **Action**: Test installation in clean environment
+
+### 5.2 Release Execution
+
+- [ ] **Task 5.2.1**: Create release commit
+  - **Command**: `git add -A && git commit -m "chore: release v4.0.0"`
+  - **Effort**: 5 minutes
+  - **Dependencies**: Tasks 5.1.2-5.1.5
+
+- [ ] **Task 5.2.2**: Create git tag
+  - **Command**: `git tag -a v4.0.0 -m "Release v4.0.0 - LanguageModelV3 Migration"`
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.2.1
+
+- [ ] **Task 5.2.3**: Push to origin repository
+  - **Command**: `git push origin feature/languagemodelv3 && git push origin v4.0.0`
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.2.2
+  - **CRITICAL**: Push to **origin** (`jerome-benoit/sap-ai-provider`), NOT upstream
+
+- [ ] **Task 5.2.4**: Create pull request to main
+  - **Action**: GitHub UI or `gh pr create`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 5.2.3
+  - **Content**: Link to proposal, design, migration guide
+
+- [ ] **Task 5.2.5**: Get PR approval
+  - **Action**: Wait for team review
+  - **Effort**: Variable (external dependency)
+  - **Dependencies**: Task 5.2.4
+
+- [ ] **Task 5.2.6**: Merge to main
+  - **Action**: Merge PR (on **origin** repository)
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.2.5
+
+### 5.3 GitHub Release Creation
+
+**CRITICAL**: Creating the GitHub release automatically triggers the npm publish workflow.
+
+- [ ] **Task 5.3.1**: Create GitHub release on origin
+  - **Action**: GitHub UI on `jerome-benoit/sap-ai-provider` repository
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 5.2.6
+  - **Steps**:
+    1. Go to `https://github.com/jerome-benoit/sap-ai-provider/releases/new`
+    2. Select tag: `v4.0.0`
+    3. Set release title: `v4.0.0 - LanguageModelV3 Migration`
+    4. Add release notes (see template below)
+    5. Click "Publish release"
+  - **Result**: This automatically triggers `.github/workflows/npm-publish-npm-packages.yml`
+  - **Content**: Release notes, migration guide link
+
+- [ ] **Task 5.3.2**: Monitor automated workflow
+  - **Action**: Watch GitHub Actions workflow execution
+  - **URL**: `https://github.com/jerome-benoit/sap-ai-provider/actions`
+  - **Effort**: 10 minutes
+  - **Dependencies**: Task 5.3.1
+  - **Verify**:
+    - ✅ Build job completes successfully
+    - ✅ Tests pass
+    - ✅ npm publish succeeds
+    - ✅ Package appears on npm registry as `@jerome-benoit/sap-ai-provider@4.0.0`
+
+### 5.4 Post-Release Verification
+
+- [ ] **Task 5.4.1**: Update documentation site (if exists)
+  - **Files**: Documentation website
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 5.3.2
+  - **Action**: Update docs to v4.0.0
+
+- [ ] **Task 5.4.2**: Announce release
+  - **Channels**: Discord, Twitter, SAP Community
+  - **Effort**: 30 minutes
+  - **Dependencies**: Task 5.3.2
+  - **Content**: Announcement with highlights and migration guide
+
+- [ ] **Task 5.4.3**: Monitor for issues
+  - **Action**: Watch GitHub issues, npm stats
+  - **Effort**: Ongoing
+  - **Dependencies**: Task 5.4.2
+  - **Action**: Respond to user reports
+
+---
+
+## Rollback Plan
+
+**IMPORTANT**: Since npm publish is automated via GitHub Actions, rollback must consider the automated workflow.
+
+If critical issues are discovered after release:
+
+- [ ] **Rollback Task 1**: Unpublish v4.0.0 from npm (if within 24 hours)
+  - **Command**: `npm unpublish @jerome-benoit/sap-ai-provider@4.0.0`
+  - **Note**: Only possible within 24 hours of automated publish
+  - **Access**: Requires npm access to `@jerome-benoit` scope
+
+- [ ] **Rollback Task 2**: Delete or mark GitHub release as pre-release
+  - **Action**: Edit release on `jerome-benoit/sap-ai-provider` to mark as "pre-release"
+  - **Purpose**: Prevent users from downloading the problematic version
+
+- [ ] **Rollback Task 3**: Publish hotfix v4.0.1
+  - **Action**: Fix critical issues, create new release v4.0.1 (triggers workflow automatically)
+
+- [ ] **Rollback Task 4**: Update release notes with warnings
+  - **Action**: Add warning to v4.0.0 release notes about known issues
+
+- [ ] **Rollback Task 5**: Announce hotfix
+  - **Channels**: All release announcement channels
+
+---
+
+## Progress Tracking
+
+Use the following commands to track progress:
+
+```bash
+# Count completed tasks
+grep -c "^- \[x\]" tasks.md
+
+# Count total tasks
+grep -c "^- \[" tasks.md
+
+# Calculate completion percentage
+echo "scale=2; $(grep -c "^- \[x\]" tasks.md) / $(grep -c "^- \[" tasks.md) * 100" | bc
+
+# Show uncompleted tasks
+grep "^- \[ \]" tasks.md
+```
+
+---
+
+## Success Criteria
+
+All tasks must be completed before marking the migration as complete:
+
+- ✅ All unit tests pass
+- ✅ Integration tests pass
+- ✅ Test coverage ≥90%
+- ✅ No TypeScript errors
+- ✅ No linting errors
+- ✅ Documentation complete and accurate
+- ✅ Migration guide tested
+- ✅ Examples work with v4.0.0
+- ✅ GitHub release created on **origin** repository (`jerome-benoit/sap-ai-provider`)
+- ✅ npm package automatically published via GitHub Actions (as `@jerome-benoit/sap-ai-provider`)
+- ✅ Post-release announcements sent
+
+---
+
+**Document Status**: Ready for Implementation  
+**Next Step**: Create specs/sap-ai-provider/spec.md with requirements deltas
