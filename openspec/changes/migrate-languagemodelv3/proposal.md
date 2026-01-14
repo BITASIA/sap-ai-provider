@@ -52,7 +52,13 @@ The alternative—staying on V2—creates technical debt that will become more e
   - `src/sap-ai-chat-language-model.ts` - Main implementation
   - `src/sap-ai-provider.ts` - Provider factory
 
-**IMPORTANT - Release Process**: This project uses a **fork-based development model**. All releases are created on the **origin repository** (`jerome-benoit/sap-ai-provider`), NOT on the upstream repository. The [GitHub Actions workflow](.github/workflows/npm-publish-npm-packages.yml) automatically publishes to npm under the `@jerome-benoit` scope when a release is created on origin.
+**IMPORTANT - Development & Release Workflow**: This project uses a **fork-based development model** with a specific workflow:
+
+1. **Pull Requests**: PRs are opened on **upstream** (`BITASIA/sap-ai-provider`) for review and integration into the main codebase
+2. **Release Management**: All releases are created on **origin** (`jerome-benoit/sap-ai-provider`) where the [GitHub Actions workflow](.github/workflows/npm-publish-npm-packages.yml) automatically publishes to npm under the `@jerome-benoit` scope
+3. **Interim Availability**: While awaiting merge and release on upstream, updated versions are immediately available via origin at `@jerome-benoit/sap-ai-provider`
+
+This dual-repository approach ensures both community contribution (via upstream) and immediate availability (via origin).
 
 ### Problem Statement
 
@@ -607,14 +613,41 @@ Before release, documentation must pass:
 
 #### Phase 5: Release (0.5 day)
 
-**IMPORTANT**: Release process is **automated via GitHub Actions**. The release will be published **ONLY on the origin repository** (`jerome-benoit/sap-ai-provider`), **NOT on the upstream repository** (`BITASIA/sap-ai-provider`).
+**IMPORTANT**: This project uses a dual-repository workflow:
+
+- **Pull Request**: Opened on **upstream** (`BITASIA/sap-ai-provider`) for code review and integration
+- **Release & Publishing**: Performed on **origin** (`jerome-benoit/sap-ai-provider`) via automated GitHub Actions workflow
 
 **Tasks**:
 
-1. Bump version → 4.0.0 (breaking change)
-2. Final build and tests
-3. Push changes and tag to **origin** repository
-4. Create GitHub release on **origin** repository (this triggers the automated npm publish workflow)
+1. **Open PR on Upstream** (if not already done):
+
+   ```bash
+   gh pr create --repo BITASIA/sap-ai-provider \
+     --base main \
+     --head jerome-benoit:feature/languagemodelv3 \
+     --title "feat: migrate to LanguageModelV3 (v4.0.0)" \
+     --body "Brief PR description explaining the migration"
+   ```
+
+   **PR Description Should Include**:
+   - Concise summary of LanguageModelV3 migration
+   - Breaking changes and major version bump (3.x → 4.0.0)
+   - Link to detailed migration guide in repository
+   - Note that an updated version is already available at `@jerome-benoit/sap-ai-provider@4.0.0` for immediate use while awaiting merge
+
+2. **Create Release on Origin** (triggers automated npm publish):
+   - Bump version → 4.0.0 in package.json (breaking change)
+   - Final build and tests on origin branch
+   - Push changes and tag to **origin** repository
+   - Create GitHub release on **origin** repository
+   - GitHub Actions workflow automatically publishes to npm as `@jerome-benoit/sap-ai-provider`
+
+**Workflow Summary**:
+
+- **Upstream PR**: Code review, discussion, eventual merge to main
+- **Origin Release**: Immediate availability via npm while PR is being reviewed
+- This allows users to use the updated version immediately without waiting for upstream merge
 
 ## Impact Analysis
 
@@ -695,6 +728,7 @@ Before release, documentation must pass:
 2. **Option 2: Migrate to 4.0** (recommended long-term)
    - Install `@jerome-benoit/sap-ai-provider@^4.0.0` (published from origin repository)
    - **Note**: Package is published as `@jerome-benoit` scope, not `@mymediset`
+   - **Availability**: Version 4.0.0 is available immediately from origin while upstream PR is under review
    - Verify code compiles (types)
    - Test application
    - If manual stream parsing: adapt code
@@ -727,11 +761,12 @@ To ensure successful adoption of v4.0.0, we need a comprehensive communication s
 #### Release Day Communication
 
 1. **Release Announcement** (multiple channels):
-   - GitHub Release with detailed notes (on **origin** repository)
-   - npm package automatically published via GitHub Actions workflow
-   - Discord/Slack announcement
+   - GitHub Release with detailed notes (on **origin** repository: `jerome-benoit/sap-ai-provider`)
+   - Pull Request opened on **upstream** repository (`BITASIA/sap-ai-provider`) for code review
+   - npm package automatically published via GitHub Actions workflow from origin
+   - Discord/Slack announcement mentioning both upstream PR and origin release
    - Twitter/social media post
-   - Blog post with highlights and migration guide
+   - Blog post with highlights and migration guide noting interim availability via origin
 
 2. **Documentation Publication**:
    - Updated docs site (if applicable)
@@ -907,17 +942,19 @@ To ensure successful adoption of v4.0.0, we need a comprehensive communication s
 
 5. **M4: Owner Approval for Merge & Release** (Day 8)
    - **CRITICAL**: Owner must explicitly approve before:
-     - Merging PR to main branch
-     - Creating GitHub release
-     - Triggering automated npm publish
+     - Merging PR to upstream main branch (eventual integration)
+     - Creating GitHub release on origin (immediate availability)
+     - Triggering automated npm publish from origin
    - No merge or release may proceed without explicit owner approval
    - Approval confirms: code quality, documentation completeness, timing
+   - **Note**: Origin release can proceed independently of upstream merge timeline
 
 6. **M5: Version 4.0.0 Published** (Day 8.5)
    - **ONLY AFTER OWNER APPROVAL**
+   - Pull Request opened on **upstream** repository (`BITASIA/sap-ai-provider`)
    - GitHub release created on **origin** repository (`jerome-benoit/sap-ai-provider`)
-   - npm package automatically published via GitHub Actions workflow
-   - Community announcements sent
+   - npm package automatically published via GitHub Actions workflow from origin
+   - Community announcements sent (noting both upstream PR and origin availability)
    - Documentation live
 
 7. **M6: Stable Adoption** (Day 8.5 + 4 weeks)

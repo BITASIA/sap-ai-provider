@@ -514,10 +514,16 @@ Estimated Total Effort: 35-42 hours
 
 ## Phase 5: Release (Day 7) - 2 hours
 
-**CRITICAL**: This project uses **automated GitHub Actions workflow** for npm publishing. The release process is:
+**CRITICAL**: This project uses a **dual-repository workflow**:
 
-1. Create a GitHub release on the **origin repository** (`jerome-benoit/sap-ai-provider`)
-2. The workflow `.github/workflows/npm-publish-npm-packages.yml` automatically:
+1. **Pull Request**: Opened on **upstream repository** (`BITASIA/sap-ai-provider`) for code review and integration
+2. **Release & Publishing**: Performed on **origin repository** (`jerome-benoit/sap-ai-provider`) via automated GitHub Actions
+
+**Release Process**:
+
+1. Create a pull request on **upstream** (`BITASIA/sap-ai-provider`) with concise description
+2. Simultaneously, create a GitHub release on **origin** (`jerome-benoit/sap-ai-provider`)
+3. The workflow `.github/workflows/npm-publish-npm-packages.yml` automatically:
    - Builds the package
    - Runs tests
    - Publishes to npm with the appropriate tag (latest, next, beta, etc.)
@@ -526,8 +532,9 @@ Estimated Total Effort: 35-42 hours
 **IMPORTANT**:
 
 - ❌ **DO NOT** run `npm publish` manually
-- ❌ **DO NOT** create releases on the upstream repository (`BITASIA/sap-ai-provider`)
-- ✅ **ONLY** create releases on the origin repository (`jerome-benoit/sap-ai-provider`)
+- ✅ **DO** open PR on upstream for code review (`BITASIA/sap-ai-provider`)
+- ✅ **DO** create releases on origin for npm publishing (`jerome-benoit/sap-ai-provider`)
+- 📦 Users can install from origin (`@jerome-benoit/sap-ai-provider@4.0.0`) immediately while awaiting upstream merge
 
 ---
 
@@ -581,19 +588,28 @@ Estimated Total Effort: 35-42 hours
   - **Dependencies**: Task 5.2.2
   - **CRITICAL**: Push to **origin** (`jerome-benoit/sap-ai-provider`), NOT upstream
 
-- [ ] **Task 5.2.4**: Create pull request to main
-  - **Action**: GitHub UI or `gh pr create`
-  - **Effort**: 15 minutes
+- [ ] **Task 5.2.4**: Create pull request on upstream
+  - **Action**: GitHub UI or `gh pr create --repo BITASIA/sap-ai-provider`
+  - **Effort**: 20 minutes
   - **Dependencies**: Task 5.2.3
-  - **Content**: Link to proposal, design, migration guide
+  - **PR Content**:
+    - Concise title: "feat: migrate to LanguageModelV3 (v4.0.0)"
+    - Summary of migration and breaking changes
+    - Link to detailed migration guide in repository
+    - **Important note**: "While this PR is under review, an updated version is available at `@jerome-benoit/sap-ai-provider@4.0.0` for immediate use"
+  - **Repository**: `BITASIA/sap-ai-provider` (upstream)
+  - **Head**: `jerome-benoit:feature/languagemodelv3`
+  - **Base**: `main`
 
-- [ ] **Task 5.2.5**: Get technical review
-  - **Action**: Wait for technical team review
+- [ ] **Task 5.2.5**: Get technical review on upstream PR
+  - **Action**: Wait for technical team review on upstream PR
   - **Effort**: Variable (1-2 days)
   - **Dependencies**: Task 5.2.4
   - **Reviewers**: Technical Lead, other team members
+  - **Repository**: Review happens on upstream (`BITASIA/sap-ai-provider`)
+  - **Note**: Upstream review and origin release can proceed independently
 
-- [ ] **Task 5.2.6**: **APPROVAL GATE 1: Repository Owner Pre-Merge Approval**
+- [ ] **Task 5.2.6**: **APPROVAL GATE 1: Repository Owner Pre-Release Approval**
   - **Action**: **CRITICAL - Obtain explicit approval from repository owner**
   - **Effort**: Variable (depends on owner availability)
   - **Dependencies**: Task 5.2.5
@@ -603,32 +619,39 @@ Estimated Total Effort: 35-42 hours
     - ✅ All tests passing
     - ✅ Migration approach approved
     - ✅ Timing is appropriate for release
-  - **BLOCKER**: No merge may proceed without this approval
+  - **BLOCKER**: No release may proceed without this approval
   - **Approver**: Repository Owner (jerome-benoit)
+  - **Note**: This approval is for origin release; upstream merge can happen independently later
 
-- [ ] **Task 5.2.7**: Merge to main
-  - **Action**: Merge PR (on **origin** repository) - **ONLY AFTER OWNER APPROVAL**
-  - **Effort**: 5 minutes
+- [ ] **Task 5.2.7**: Prepare for origin release
+  - **Action**: Verify feature branch is ready on origin for release tagging
+  - **Effort**: 10 minutes
   - **Dependencies**: Task 5.2.6 (APPROVAL GATE 1)
-  - **IMPORTANT**: This task can only be executed after explicit owner approval in Task 5.2.6
+  - **Verification**:
+    - ✅ All commits pushed to origin
+    - ✅ Build passes on origin branch
+    - ✅ Tests pass on origin branch
+  - **Repository**: `jerome-benoit/sap-ai-provider` (origin)
+  - **Note**: This is independent of upstream PR status
 
 ### 5.3 GitHub Release Creation
 
-**CRITICAL**: Creating the GitHub release automatically triggers the npm publish workflow.
+**CRITICAL**: Creating the GitHub release automatically triggers the npm publish workflow on origin.
 
 - [ ] **Task 5.3.1**: **APPROVAL GATE 2: Repository Owner Pre-Release Approval**
-  - **Action**: **CRITICAL - Obtain explicit approval from repository owner for release**
+  - **Action**: **CRITICAL - Obtain explicit approval from repository owner for origin release**
   - **Effort**: Variable (depends on owner availability)
-  - **Dependencies**: Task 5.2.7 (PR merged)
+  - **Dependencies**: Task 5.2.7
   - **Approval Criteria**:
-    - ✅ PR successfully merged to main
-    - ✅ Post-merge verification complete
+    - ✅ Origin branch ready for release
+    - ✅ Post-push verification complete
     - ✅ Release timing approved
     - ✅ Release notes reviewed and approved
     - ✅ Ready for npm publish
   - **BLOCKER**: No release may be created without this approval
   - **Approver**: Repository Owner (jerome-benoit)
   - **Decision Point**: Owner decides when to trigger automated npm publish
+  - **Note**: This is independent of upstream PR merge status
 
 - [ ] **Task 5.3.2**: Create GitHub release on origin
   - **Action**: **ONLY AFTER OWNER APPROVAL** - GitHub UI on `jerome-benoit/sap-ai-provider` repository
@@ -664,10 +687,14 @@ Estimated Total Effort: 35-42 hours
   - **Action**: Update docs to v4.0.0
 
 - [ ] **Task 5.4.2**: Announce release
-  - **Channels**: Discord, Twitter, SAP Community
+  - **Channels**: Discord, Twitter, SAP Community, GitHub Discussions
   - **Effort**: 30 minutes
   - **Dependencies**: Task 5.3.3
-  - **Content**: Announcement with highlights and migration guide
+  - **Content**:
+    - Announcement with highlights and migration guide
+    - Link to upstream PR (`BITASIA/sap-ai-provider`) for community discussion
+    - Note that package is available immediately at `@jerome-benoit/sap-ai-provider@4.0.0`
+    - Explain dual-repository model (upstream PR for review, origin for release)
 
 - [ ] **Task 5.4.3**: Monitor for issues
   - **Action**: Watch GitHub issues, npm stats
