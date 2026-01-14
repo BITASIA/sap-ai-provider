@@ -506,7 +506,7 @@ function validateModelIdFormats(): void {
         for (const match of matches) {
           const incorrect = match[1];
           results.errors.push(
-            `${file}:${i + 1} - Model ID format error (${rule.vendor}): "${incorrect}" should be "${correctFormat}"`,
+            `${file}:${String(i + 1)} - Model ID format error (${rule.vendor}): "${incorrect}" should be "${correctFormat}"`,
           );
           results.passed = false;
           issuesFound++;
@@ -516,7 +516,7 @@ function validateModelIdFormats(): void {
   }
 
   if (issuesFound > 0) {
-    console.log(`  ❌ ${issuesFound} model ID format issues found`);
+    console.log(`  ❌ ${String(issuesFound)} model ID format issues found`);
   } else {
     console.log("  ✅ All model IDs use correct format with vendor prefixes");
   }
