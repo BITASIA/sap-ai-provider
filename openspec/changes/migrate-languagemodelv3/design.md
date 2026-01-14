@@ -4,7 +4,7 @@
 
 - **Change ID**: migrate-languagemodelv3
 - **Version**: 1.0.0
-- **Status**: Draft
+- **Status**: Implemented
 - **Last Updated**: 2026-01-14
 
 ## Overview
