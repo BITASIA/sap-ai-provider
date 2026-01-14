@@ -12,21 +12,22 @@
 
 - ✅ **Phases 1-4**: Complete (Preparation, Core Migration, Tests, Documentation) - 68/68 tasks
 - ✅ **Phase 5.1**: Pre-Release Preparation Complete - 6/6 tasks (includes comprehensive audit)
-- ✅ **Phase 5.2 (partial)**: PR created, technical review received - 3/7 tasks
-- ⏳ **Phase 5.2 (remaining)**: Awaiting release commit + git tag creation
-- ⏳ **Phase 5.3**: Awaiting owner approval gates (5.2.6, 5.3.1) for GitHub release
+- ✅ **Phase 5.1a**: Pre-Release (RC) Complete - 6/7 tasks (v4.0.0-rc.1 published, awaiting feedback)
+- ⏳ **Phase 5.1a.7**: RC feedback period (3-7 days)
+- ⏳ **Phase 5.2**: Final v4.0.0 release - Awaiting RC feedback completion
+- ⏳ **Phase 5.3**: Final release publication - Pending Phase 5.2
 - ⏳ **Phase 5.4**: Post-release tasks pending release publication
-- 📦 **Package**: v4.0.0 not yet published (current npm: 3.0.0)
+- 📦 **Package**: v4.0.0-rc.1 published on npm (under `next` tag)
 - 🔗 **PR #28**: Open on upstream (BITASIA/sap-ai-provider), reviewed by Copilot + Cursor
-- 🏷️ **Git Tag**: v4.0.0 not yet created
+- 🏷️ **Git Tag**: v4.0.0-rc.1 created and pushed
 - 🎯 **Implementation Quality**: 9.5/10 audit score - APPROVED for production release
-- 🎯 **Next Steps**: Complete tasks 5.2.1, 5.2.2, then obtain approval gates
+- 🎯 **Next Steps**: Gather RC feedback (Task 5.1a.7), then proceed to final v4.0.0 release
 
 ## Task Overview
 
-Total Tasks: 92  
-Completed Tasks: 77/92 (83.7%)  
-Remaining Tasks: 15 (Phase 5 - Release tasks only)
+Total Tasks: 99 (added Phase 5.1a with 7 RC tasks)
+Completed Tasks: 84/99 (84.8%)  
+Remaining Tasks: 15 (Phase 5.1a.7 in progress, Phase 5.2-5.4 pending)
 
 ---
 
@@ -609,105 +610,151 @@ Remaining Tasks: 15 (Phase 5 - Release tasks only)
     - ✅ Exceeds Mistral and OpenAI provider quality
     - ✅ Production-ready
 
-### 5.2 Release Execution
+### 5.1a Pre-Release (Release Candidate) - Optional but Recommended
 
-- [ ] **Task 5.2.1**: Create release commit
-  - **Command**: `git add -A && git commit -m "chore: release v4.0.0"`
+**Purpose**: Publish a Release Candidate (RC) for early adopter testing before final release.
+
+**Note**: This phase aligns with the Beta/RC strategy mentioned in `proposal.md`. It allows gathering real-world feedback before committing to the final v4.0.0 release.
+
+- [x] **Task 5.1a.1**: Update version to RC
+  - **Command**: `npm version 4.0.0-rc.1 --no-git-tag-version`
+  - **Files**: `package.json`
   - **Effort**: 5 minutes
-  - **Dependencies**: Tasks 5.1.2-5.1.5
+  - **Dependencies**: Task 5.1.6
+  - **Completed**: Version set to 4.0.0-rc.1
 
-- [ ] **Task 5.2.2**: Create git tag
-  - **Command**: `git tag -a v4.0.0 -m "Release v4.0.0 - LanguageModelV3 Migration"`
+- [x] **Task 5.1a.2**: Create RC release commit
+  - **Command**: `git add -A && git commit -m "chore: prepare v4.0.0-rc.1 pre-release"`
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.1a.1
+  - **Completed**: Commit 56b57c7 created
+
+- [x] **Task 5.1a.3**: Create RC git tag
+  - **Command**: `git tag -a v4.0.0-rc.1 -m "Release Candidate 1 - LanguageModelV3 Migration"`
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.1a.2
+  - **Completed**: Tag v4.0.0-rc.1 created
+
+- [x] **Task 5.1a.4**: Push RC to origin
+  - **Command**: `git push origin v4.0.0-rc.1`
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.1a.3
+  - **Completed**: Tag pushed to origin
+
+- [x] **Task 5.1a.5**: Create GitHub pre-release
+  - **Action**: `gh release create v4.0.0-rc.1 --prerelease`
+  - **Effort**: 15 minutes
+  - **Dependencies**: Task 5.1a.4
+  - **Completed**: Pre-release created at https://github.com/jerome-benoit/sap-ai-provider/releases/tag/v4.0.0-rc.1
+  - **Result**: Automatically triggers npm publish with `next` tag
+
+- [x] **Task 5.1a.6**: Verify RC package published
+  - **Action**: Check npm registry for `@jerome-benoit/sap-ai-provider@4.0.0-rc.1`
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.1a.5
+  - **Completed**: Package published under `next` tag
+
+- [ ] **Task 5.1a.7**: Gather feedback from RC
+  - **Action**: Monitor GitHub issues, npm downloads, user reports
+  - **Effort**: 3-7 days
+  - **Dependencies**: Task 5.1a.6
+  - **Decision Point**:
+    - If critical issues found → v4.0.0-rc.2
+    - If no issues → Proceed to Phase 5.2 (final release)
+
+### 5.2 Release Execution (Final v4.0.0)
+
+**Note**: This phase publishes the stable v4.0.0 release after RC feedback period.
+
+- [ ] **Task 5.2.1**: Update version to final
+  - **Command**: `npm version 4.0.0 --no-git-tag-version`
+  - **Files**: `package.json`
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.1a.7 (RC feedback completed) OR Task 5.1.6 (if skipping RC)
+
+- [ ] **Task 5.2.2**: Create release commit
+  - **Command**: `git add -A && git commit -m "chore: release v4.0.0"`
   - **Effort**: 5 minutes
   - **Dependencies**: Task 5.2.1
 
-- [x] **Task 5.2.3**: Push to origin repository
-  - **Command**: `git push origin feature/languagemodelv3 && git push origin v4.0.0`
+- [ ] **Task 5.2.3**: Create git tag
+  - **Command**: `git tag -a v4.0.0 -m "Release v4.0.0 - LanguageModelV3 Migration"`
   - **Effort**: 5 minutes
   - **Dependencies**: Task 5.2.2
-  - **CRITICAL**: Push to **origin** (`jerome-benoit/sap-ai-provider`), NOT upstream
-  - **Completed**: Branch pushed to origin (note: tag v4.0.0 not yet created per Task 5.2.2)
 
-- [x] **Task 5.2.4**: Create pull request on upstream
+- [ ] **Task 5.2.4**: Push to origin repository
+  - **Command**: `git push origin main && git push origin v4.0.0`
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.2.3
+  - **CRITICAL**: Push to **origin** (`jerome-benoit/sap-ai-provider`), NOT upstream
+
+- [ ] **Task 5.2.5**: Create pull request on upstream (if not already done)
   - **Action**: GitHub UI or `gh pr create --repo BITASIA/sap-ai-provider`
   - **Effort**: 20 minutes
-  - **Dependencies**: Task 5.2.3
+  - **Dependencies**: Task 5.2.4
+  - **Note**: If PR already created during RC phase, update it with final version
   - **PR Content**:
     - Concise title: "feat: migrate to LanguageModelV3 (v4.0.0)"
     - Summary of migration and breaking changes
     - Link to detailed migration guide in repository
-    - **Important note**: "While this PR is under review, an updated version is available at `@jerome-benoit/sap-ai-provider@4.0.0` for immediate use"
+    - **Important note**: "This version is available at `@jerome-benoit/sap-ai-provider@4.0.0`"
   - **Repository**: `BITASIA/sap-ai-provider` (upstream)
-  - **Head**: `jerome-benoit:feature/languagemodelv3`
+  - **Head**: `jerome-benoit:main`
   - **Base**: `main`
-  - **Completed**: PR #28 created on 2026-01-14 13:04:55Z
 
-- [x] **Task 5.2.5**: Get technical review on upstream PR
+- [ ] **Task 5.2.6**: Get technical review on upstream PR
   - **Action**: Wait for technical team review on upstream PR
   - **Effort**: Variable (1-2 days)
-  - **Dependencies**: Task 5.2.4
+  - **Dependencies**: Task 5.2.5
   - **Reviewers**: Technical Lead, other team members
   - **Repository**: Review happens on upstream (`BITASIA/sap-ai-provider`)
   - **Note**: Upstream review and origin release can proceed independently
-  - **Completed**: Copilot review (6 comments) and Cursor review completed
 
-- [ ] **Task 5.2.6**: **APPROVAL GATE 1: Repository Owner Pre-Release Approval**
-  - **Action**: **CRITICAL - Obtain explicit approval from repository owner**
+- [ ] **Task 5.2.7**: **APPROVAL GATE 1: Repository Owner Final Release Approval**
+  - **Action**: **CRITICAL - Obtain explicit approval from repository owner for final v4.0.0 release**
   - **Effort**: Variable (depends on owner availability)
-  - **Dependencies**: Task 5.2.5
+  - **Dependencies**: Task 5.2.6
   - **Approval Criteria**:
     - ✅ Code quality meets standards
     - ✅ Documentation is complete and accurate
     - ✅ All tests passing
     - ✅ Migration approach approved
-    - ✅ Timing is appropriate for release
-  - **BLOCKER**: No release may proceed without this approval
+    - ✅ RC feedback incorporated (if RC phase was used)
+    - ✅ Timing is appropriate for stable release
+  - **BLOCKER**: No final release may proceed without this approval
   - **Approver**: Repository Owner (jerome-benoit)
-  - **Note**: This approval is for origin release; upstream merge can happen independently later
+  - **Note**: This approval is for origin final release; upstream merge can happen independently later
 
-- [ ] **Task 5.2.7**: Prepare for origin release
-  - **Action**: Verify feature branch is ready on origin for release tagging
-  - **Effort**: 10 minutes
-  - **Dependencies**: Task 5.2.6 (APPROVAL GATE 1)
-  - **Verification**:
-    - ✅ All commits pushed to origin
-    - ✅ Build passes on origin branch
-    - ✅ Tests pass on origin branch
-  - **Repository**: `jerome-benoit/sap-ai-provider` (origin)
-  - **Note**: This is independent of upstream PR status
-
-### 5.3 GitHub Release Creation
+### 5.3 GitHub Release Creation (Final v4.0.0)
 
 **CRITICAL**: Creating the GitHub release automatically triggers the npm publish workflow on origin.
 
-- [ ] **Task 5.3.1**: **APPROVAL GATE 2: Repository Owner Pre-Release Approval**
-  - **Action**: **CRITICAL - Obtain explicit approval from repository owner for origin release**
+- [ ] **Task 5.3.1**: **APPROVAL GATE 2: Repository Owner Final Release Publication Approval**
+  - **Action**: **CRITICAL - Obtain explicit approval from repository owner to publish v4.0.0 as stable**
   - **Effort**: Variable (depends on owner availability)
-  - **Dependencies**: Task 5.2.7
+  - **Dependencies**: Task 5.2.7 (APPROVAL GATE 1)
   - **Approval Criteria**:
-    - ✅ Origin branch ready for release
-    - ✅ Post-push verification complete
+    - ✅ Origin main branch ready for release
+    - ✅ Version bumped to 4.0.0
     - ✅ Release timing approved
-    - ✅ Release notes reviewed and approved
-    - ✅ Ready for npm publish
-  - **BLOCKER**: No release may be created without this approval
+    - ✅ Release notes reviewed and approved (RELEASE_NOTES.md)
+    - ✅ Ready for npm publish as `latest` tag
+  - **BLOCKER**: No stable release may be created without this approval
   - **Approver**: Repository Owner (jerome-benoit)
-  - **Decision Point**: Owner decides when to trigger automated npm publish
+  - **Decision Point**: Owner decides when to trigger automated npm publish with `latest` tag
   - **Note**: This is independent of upstream PR merge status
 
-- [ ] **Task 5.3.2**: Create GitHub release on origin
-  - **Action**: **ONLY AFTER OWNER APPROVAL** - GitHub UI on `jerome-benoit/sap-ai-provider` repository
+- [ ] **Task 5.3.2**: Create GitHub stable release on origin
+  - **Action**: **ONLY AFTER OWNER APPROVAL** - Use `gh` CLI or GitHub UI on `jerome-benoit/sap-ai-provider`
+  - **Command**: `gh release create v4.0.0 --repo jerome-benoit/sap-ai-provider --title "v4.0.0 - LanguageModelV3 Migration" --notes-file openspec/changes/migrate-languagemodelv3/RELEASE_NOTES.md`
   - **Effort**: 15 minutes
   - **Dependencies**: Task 5.3.1 (APPROVAL GATE 2)
   - **Steps**:
-    1. Go to `https://github.com/jerome-benoit/sap-ai-provider/releases/new`
-    2. Select tag: `v4.0.0`
-    3. Set release title: `v4.0.0 - LanguageModelV3 Migration`
-    4. Add release notes (see template below)
-    5. Click "Publish release"
+    1. Use release notes from `openspec/changes/migrate-languagemodelv3/RELEASE_NOTES.md`
+    2. **DO NOT** check "Set as a pre-release" (this is stable)
+    3. Publish as stable release
   - **Result**: This automatically triggers `.github/workflows/npm-publish-npm-packages.yml`
-  - **Content**: Release notes, migration guide link
-  - **IMPORTANT**: This triggers automated npm publish - cannot be undone easily
+  - **IMPORTANT**: This triggers automated npm publish with `latest` tag - cannot be undone easily
 
 - [ ] **Task 5.3.3**: Monitor automated workflow
   - **Action**: Watch GitHub Actions workflow execution
