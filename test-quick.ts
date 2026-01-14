@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * Quick test script for SAP AI Provider v2
+ * Quick test script for SAP AI Provider
  *
  * Usage: npx tsx test-quick.ts
  *
@@ -12,7 +12,7 @@ import { createSAPAIProvider } from "./src/index";
 import { generateText } from "ai";
 
 async function quickTest() {
-  console.log("🧪 Quick Test: SAP AI Provider v2\n");
+  console.log("🧪 Quick Test: SAP AI Provider\n");
 
   // Check for credentials
   if (!process.env.AICORE_SERVICE_KEY) {
