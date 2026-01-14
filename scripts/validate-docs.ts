@@ -9,10 +9,11 @@
  * 1. Code-documentation consistency (exports, types)
  * 2. Broken internal markdown links
  * 3. Hardcoded model lists (should use dynamic types)
- * 4. Dotenv imports in code examples
- * 5. Link format consistency (./path vs path)
- * 6. Required documentation files existence
- * 7. Version consistency across docs
+ * 4. Model ID format consistency (vendor prefixes)
+ * 5. Dotenv imports in code examples
+ * 6. Link format consistency (./path vs path)
+ * 7. Required documentation files existence
+ * 8. Version consistency across docs
  *
  * Usage:
  *   npm run validate-docs
@@ -89,14 +90,70 @@ const VERSION_CHECK_FILES = ["README.md", "MIGRATION_GUIDE.md"] as const;
 /** Directories to exclude from markdown file search */
 const EXCLUDED_DIRS = ["node_modules", ".git"] as const;
 
-/** Regex patterns for detecting model IDs */
-const MODEL_ID_PATTERNS = [
-  /"gpt-4[o\d.-]*"/gi,
-  /"gemini-[\d.]+-\w+"/gi,
-  /"anthropic--claude-[\d.-]+\w*"/gi,
-  /"amazon--\w+"/gi,
-  /"meta--llama\d+/gi,
-  /"mistralai--\w+"/gi,
+/**
+ * Model ID validation rules
+ *
+ * Each rule defines patterns for:
+ * - Counting model IDs in code (between quotes only, to avoid false positives)
+ * - Validating format in markdown lists (vendor prefixes required)
+ */
+const MODEL_VALIDATION_RULES = [
+  {
+    vendor: "OpenAI",
+    // Match any GPT model (gpt-3, gpt-4, gpt-5, etc.) and o-series (o1, o3, etc.)
+    countPatterns: [
+      /"gpt-[\d.]+[a-z0-9-]*"/gi, // gpt-3.5-turbo, gpt-4o, gpt-5-ultra, etc.
+      /"o[\d]+-?[a-z]*"/gi, // o1, o3, o3-mini, etc.
+    ],
+    // No format validation (no vendor prefix required)
+    incorrectPattern: null,
+  },
+  {
+    vendor: "Google",
+    // Match any Gemini model (current and future versions)
+    countPatterns: [/"gemini-[\d.]+-[a-z]+"/gi], // gemini-1.5-pro, gemini-2.0-flash, etc.
+    incorrectPattern: null,
+  },
+  {
+    vendor: "Anthropic",
+    // Match any Claude model with anthropic-- prefix
+    countPatterns: [/"anthropic--claude-[^"]+"/gi], // anthropic--claude-3.5-sonnet, etc.
+    // Detect Claude without anthropic-- prefix in markdown lists
+    incorrectPattern: {
+      pattern: /(?<!anthropic--)(\bclaude-[\d.]+-(sonnet|opus|haiku)\b)/g,
+      correctFormat: "anthropic--claude-*",
+    },
+  },
+  {
+    vendor: "Amazon",
+    // Match any Amazon model with amazon-- prefix
+    countPatterns: [/"amazon--[a-z0-9-]+"/gi], // amazon--nova-pro, amazon--titan-*, etc.
+    // Detect Nova without amazon-- prefix in markdown lists
+    incorrectPattern: {
+      pattern: /(?<!amazon--)(\bnova-(pro|lite|micro|premier)\b)/g,
+      correctFormat: "amazon--nova-*",
+    },
+  },
+  {
+    vendor: "Meta",
+    // Match any Llama model with meta-- prefix
+    countPatterns: [/"meta--llama[^"]+"/gi], // meta--llama3.1-70b-instruct, etc.
+    // Detect Llama without meta-- prefix or -instruct suffix
+    incorrectPattern: {
+      pattern: /(?<!meta--)(\bllama[\d.]+(?!-instruct\b)[a-z\d.]*)\b/g,
+      correctFormat: "meta--llama*-instruct",
+    },
+  },
+  {
+    vendor: "Mistral",
+    // Match any Mistral model with mistralai-- prefix
+    countPatterns: [/"mistralai--[a-z0-9-]+"/gi], // mistralai--mistral-large-instruct, etc.
+    // Detect Mistral without mistralai-- prefix or -instruct suffix
+    incorrectPattern: {
+      pattern: /(?<!mistralai--)(\bmistralai-mistral-\w+)(?!-instruct\b)/g,
+      correctFormat: "mistralai--mistral-*-instruct",
+    },
+  },
 ] as const;
 
 // ============================================================================
@@ -377,12 +434,14 @@ function validateModelLists(): void {
 
     const content = readFileSync(file, "utf-8");
 
-    // Count model ID mentions
+    // Count model ID mentions using patterns from rules
     let modelMentions = 0;
-    for (const pattern of MODEL_ID_PATTERNS) {
-      const matches = content.match(pattern);
-      if (matches) {
-        modelMentions += matches.length;
+    for (const rule of MODEL_VALIDATION_RULES) {
+      for (const pattern of rule.countPatterns) {
+        const matches = content.match(pattern);
+        if (matches) {
+          modelMentions += matches.length;
+        }
       }
     }
 
@@ -403,7 +462,68 @@ function validateModelLists(): void {
 }
 
 /**
- * Check 4: Validates dotenv imports in code examples
+ * Check 4: Validates model ID format consistency
+ *
+ * Detects model IDs without required vendor prefixes in markdown lists.
+ * Uses MODEL_VALIDATION_RULES to check for incorrect formats.
+ */
+function validateModelIdFormats(): void {
+  console.log("\n4️⃣  Checking model ID format consistency...");
+
+  const filesToCheck = ["README.md", "API_REFERENCE.md"];
+  let issuesFound = 0;
+
+  for (const file of filesToCheck) {
+    if (!existsSync(file)) {
+      continue;
+    }
+
+    const content = readFileSync(file, "utf-8");
+    const lines = content.split("\n");
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Skip code blocks, model usage in code, and markdown tables
+      if (
+        line.trim().startsWith("```") ||
+        line.includes('model: provider("') ||
+        line.includes("model: sapai(") ||
+        line.trim().startsWith("|") // Skip markdown table rows
+      ) {
+        continue;
+      }
+
+      // Check each rule's incorrect pattern
+      for (const rule of MODEL_VALIDATION_RULES) {
+        if (!rule.incorrectPattern) continue;
+
+        const { pattern, correctFormat } = rule.incorrectPattern;
+        const matches = line.matchAll(
+          new RegExp(pattern.source, pattern.flags),
+        );
+
+        for (const match of matches) {
+          const incorrect = match[1];
+          results.errors.push(
+            `${file}:${i + 1} - Model ID format error (${rule.vendor}): "${incorrect}" should be "${correctFormat}"`,
+          );
+          results.passed = false;
+          issuesFound++;
+        }
+      }
+    }
+  }
+
+  if (issuesFound > 0) {
+    console.log(`  ❌ ${issuesFound} model ID format issues found`);
+  } else {
+    console.log("  ✅ All model IDs use correct format with vendor prefixes");
+  }
+}
+
+/**
+ * Check 5: Validates dotenv imports in code examples
  */
 function validateDotenvImports(): void {
   console.log("\n4️⃣  Checking dotenv imports in documentation...");
@@ -456,10 +576,10 @@ function validateDotenvImports(): void {
 }
 
 /**
- * Check 5: Validates link format consistency (./file.md vs file.md)
+ * Check 6: Validates link format consistency (./file.md vs file.md)
  */
 function validateLinkFormat(): void {
-  console.log("\n5️⃣  Checking link format consistency...");
+  console.log("\n6️⃣  Checking link format consistency...");
 
   const mdFiles = findMarkdownFiles(".", ["node_modules", ".git"]);
   let badLinksCount = 0;
@@ -500,10 +620,10 @@ function validateLinkFormat(): void {
 }
 
 /**
- * Check 6: Verifies required documentation files exist
+ * Check 7: Verifies required documentation files exist
  */
 function validateRequiredFiles(): void {
-  console.log("\n6️⃣  Checking required documentation files...");
+  console.log("\n7️⃣  Checking required documentation files...");
 
   let missingCount = 0;
 
@@ -525,10 +645,10 @@ function validateRequiredFiles(): void {
 }
 
 /**
- * Check 7: Validates version consistency across documentation
+ * Check 8: Validates version consistency across documentation
  */
 function validateVersionConsistency(): void {
-  console.log("\n7️⃣  Checking version consistency...");
+  console.log("\n8️⃣  Checking version consistency...");
 
   if (!existsSync("package.json")) {
     results.warnings.push("package.json not found");
@@ -592,6 +712,7 @@ function main(): void {
     validatePublicExportsDocumented();
     validateInternalLinks();
     validateModelLists();
+    validateModelIdFormats();
     validateDotenvImports();
     validateLinkFormat();
     validateRequiredFiles();
