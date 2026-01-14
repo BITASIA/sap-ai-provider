@@ -159,7 +159,7 @@ npm run prepublishOnly  # Runs before npm publish
 
 1. Update version in `package.json`
 2. Run `npm run prepublishOnly` to validate
-3. Create git tag: `v4.0.0` (or appropriate version)
+3. Create git tag: `v4.0.0` with appropriate version
 4. Push to GitHub with tags
 5. Publish to npm: `npm publish`
 
