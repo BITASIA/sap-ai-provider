@@ -354,10 +354,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
    * - Data masking via SAP DPI
    * - Content filtering via Azure Content Safety or Llama Guard
    *
-   * **V3 Enhancements:**
-   * - Finish reason returned as object: `{ unified: string, raw?: string }`
-   * - Usage structure nested with token breakdown: `{ inputTokens: { total, ... }, outputTokens: { total, ... } }`
-   * - Warning system updated with `feature` field for unsupported capabilities
+   * **Return Structure:**
+   * - Finish reason: `{ unified: string, raw?: string }`
+   * - Usage: Nested structure with token breakdown `{ inputTokens: { total, ... }, outputTokens: { total, ... } }`
+   * - Warnings: Array of warnings with `type` and optional `feature` field
    *
    * @param options - Generation options including prompt, tools, temperature, etc.
    * @returns Promise resolving to generation result with content, usage, and metadata
@@ -905,8 +905,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
    * This method implements the `LanguageModelV3.doStream` interface,
    * sending a streaming request to SAP AI Core and returning a stream of response parts.
    *
-   * **V3 Stream Structure:**
-   * - `stream-start` - Stream initialization
+   * **Stream Events:**
+   * - `stream-start` - Stream initialization with warnings
    * - `response-metadata` - Response metadata (model, timestamp)
    * - `text-start` - Text block begins (with unique ID)
    * - `text-delta` - Incremental text chunks (with block ID)
@@ -915,14 +915,14 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
    * - `tool-input-delta` - Tool input chunk
    * - `tool-input-end` - Tool input completes
    * - `tool-call` - Complete tool call
-   * - `finish` - Stream completes with V3 usage and finish reason
+   * - `finish` - Stream completes with usage and finish reason
    * - `error` - Error occurred
    *
-   * **V3 Enhancements:**
+   * **Stream Structure:**
    * - Text blocks have explicit lifecycle with unique IDs
-   * - Finish reason is object: `{ unified: string, raw?: string }`
-   * - Usage structure nested: `{ inputTokens: { total, ... }, outputTokens: { total, ... } }`
-   * - Warnings not included in stream result (only in finish event if applicable)
+   * - Finish reason format: `{ unified: string, raw?: string }`
+   * - Usage format: `{ inputTokens: { total, ... }, outputTokens: { total, ... } }`
+   * - Warnings only in `stream-start` event
    *
    * @param options - Streaming options including prompt, tools, and settings
    * @returns Promise resolving to stream and request metadata
@@ -937,7 +937,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
    *
    * for await (const part of stream) {
    *   if (part.type === 'text-delta') {
-   *     process.stdout.write(part.delta); // V3: property is 'delta', not 'textDelta'
+   *     process.stdout.write(part.delta);
    *   }
    *   if (part.type === 'text-end') {
    *     console.log('Block complete:', part.id, part.text);
@@ -945,8 +945,7 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
    * }
    * ```
    *
-   * @since 1.0.0
-   * @since 4.0.0 Updated to LanguageModelV3 interface with structured text blocks
+   * @since 4.0.0
    */
   async doStream(
     options: LanguageModelV3CallOptions,
@@ -1291,10 +1290,10 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
 }
 
 /**
- * Maps SAP AI finish reason to Vercel AI SDK finish reason.
+ * Maps SAP AI finish reason to Vercel AI SDK finish reason format.
  *
  * @param reason - SAP AI finish reason string
- * @returns Mapped AI SDK V3 finish reason
+ * @returns Finish reason object with unified and raw values
  * @internal
  */
 function mapFinishReason(

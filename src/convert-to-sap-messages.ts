@@ -28,9 +28,8 @@ interface UserContentItem {
 /**
  * Converts AI SDK prompt format to SAP AI SDK ChatMessage format.
  *
- * This function transforms the standardized LanguageModelV3Prompt format
- * used by the AI SDK into the ChatMessage format expected
- * by SAP AI SDK's OrchestrationClient.
+ * Transforms the AI SDK prompt format into the ChatMessage format
+ * expected by SAP AI SDK's OrchestrationClient.
  *
  * **Supported Features:**
  * - Text messages (system, user, assistant)
@@ -283,8 +282,7 @@ export function convertToSAPMessages(
 
       case "tool": {
         for (const part of message.content) {
-          // V3 supports tool-result and tool-approval-response parts
-          // Only process tool-result parts (approval responses are internal)
+          // Only process tool-result parts (approval responses are not supported)
           if (part.type === "tool-result") {
             const toolMessage: ToolChatMessage = {
               role: "tool",
@@ -293,7 +291,6 @@ export function convertToSAPMessages(
             };
             messages.push(toolMessage);
           }
-          // tool-approval-response parts are skipped (not supported in SAP format)
         }
         break;
       }

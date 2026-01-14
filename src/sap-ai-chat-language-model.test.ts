@@ -929,7 +929,7 @@ describe("SAPAIChatLanguageModel", () => {
 
       const parts = await readAllParts(result.stream);
 
-      // In V3, warnings are emitted in stream-start event, and the stream-start warnings
+      // Warnings are emitted in stream-start event
       // should not be mutated during the stream. Our implementation correctly takes a snapshot
       // of warnings at stream-start time.
       const streamStart = parts.find((part) => part.type === "stream-start");
@@ -1460,7 +1460,7 @@ describe("SAPAIChatLanguageModel", () => {
           input: '{"x":1}',
         });
 
-        // In V3, warnings are emitted at stream-start time. Since the warning is generated
+        // Warnings are emitted at stream-start time
         // during streaming (not before), it won't appear in stream-start.
         const streamStart = parts.find(
           (
@@ -1473,7 +1473,7 @@ describe("SAPAIChatLanguageModel", () => {
         expect(streamStart).toBeDefined();
         expect(streamStart?.warnings).toHaveLength(0);
 
-        // V3 doesn't expose warnings on the result object - they only appear in stream-start.
+        // Warnings only appear in stream-start event
         // This test verifies that the warning doesn't crash the stream.
 
         expect(parts.some((p) => p.type === "error")).toBe(false);
@@ -1712,7 +1712,7 @@ describe("SAPAIChatLanguageModel", () => {
           (p): p is Extract<LanguageModelV3StreamPart, { type: "finish" }> =>
             p.type === "finish",
         );
-        // In V3, undefined finish reason maps to "other"
+        // Undefined finish reason maps to "other"
         expect(finish?.finishReason).toEqual({
           unified: "other",
           raw: undefined,
