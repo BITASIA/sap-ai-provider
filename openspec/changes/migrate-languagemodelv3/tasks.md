@@ -587,24 +587,53 @@ Estimated Total Effort: 35-42 hours
   - **Dependencies**: Task 5.2.3
   - **Content**: Link to proposal, design, migration guide
 
-- [ ] **Task 5.2.5**: Get PR approval
-  - **Action**: Wait for team review
-  - **Effort**: Variable (external dependency)
+- [ ] **Task 5.2.5**: Get technical review
+  - **Action**: Wait for technical team review
+  - **Effort**: Variable (1-2 days)
   - **Dependencies**: Task 5.2.4
+  - **Reviewers**: Technical Lead, other team members
 
-- [ ] **Task 5.2.6**: Merge to main
-  - **Action**: Merge PR (on **origin** repository)
-  - **Effort**: 5 minutes
+- [ ] **Task 5.2.6**: **APPROVAL GATE 1: Repository Owner Pre-Merge Approval**
+  - **Action**: **CRITICAL - Obtain explicit approval from repository owner**
+  - **Effort**: Variable (depends on owner availability)
   - **Dependencies**: Task 5.2.5
+  - **Approval Criteria**:
+    - ✅ Code quality meets standards
+    - ✅ Documentation is complete and accurate
+    - ✅ All tests passing
+    - ✅ Migration approach approved
+    - ✅ Timing is appropriate for release
+  - **BLOCKER**: No merge may proceed without this approval
+  - **Approver**: Repository Owner (jerome-benoit)
+
+- [ ] **Task 5.2.7**: Merge to main
+  - **Action**: Merge PR (on **origin** repository) - **ONLY AFTER OWNER APPROVAL**
+  - **Effort**: 5 minutes
+  - **Dependencies**: Task 5.2.6 (APPROVAL GATE 1)
+  - **IMPORTANT**: This task can only be executed after explicit owner approval in Task 5.2.6
 
 ### 5.3 GitHub Release Creation
 
 **CRITICAL**: Creating the GitHub release automatically triggers the npm publish workflow.
 
-- [ ] **Task 5.3.1**: Create GitHub release on origin
-  - **Action**: GitHub UI on `jerome-benoit/sap-ai-provider` repository
+- [ ] **Task 5.3.1**: **APPROVAL GATE 2: Repository Owner Pre-Release Approval**
+  - **Action**: **CRITICAL - Obtain explicit approval from repository owner for release**
+  - **Effort**: Variable (depends on owner availability)
+  - **Dependencies**: Task 5.2.7 (PR merged)
+  - **Approval Criteria**:
+    - ✅ PR successfully merged to main
+    - ✅ Post-merge verification complete
+    - ✅ Release timing approved
+    - ✅ Release notes reviewed and approved
+    - ✅ Ready for npm publish
+  - **BLOCKER**: No release may be created without this approval
+  - **Approver**: Repository Owner (jerome-benoit)
+  - **Decision Point**: Owner decides when to trigger automated npm publish
+
+- [ ] **Task 5.3.2**: Create GitHub release on origin
+  - **Action**: **ONLY AFTER OWNER APPROVAL** - GitHub UI on `jerome-benoit/sap-ai-provider` repository
   - **Effort**: 15 minutes
-  - **Dependencies**: Task 5.2.6
+  - **Dependencies**: Task 5.3.1 (APPROVAL GATE 2)
   - **Steps**:
     1. Go to `https://github.com/jerome-benoit/sap-ai-provider/releases/new`
     2. Select tag: `v4.0.0`
@@ -613,12 +642,13 @@ Estimated Total Effort: 35-42 hours
     5. Click "Publish release"
   - **Result**: This automatically triggers `.github/workflows/npm-publish-npm-packages.yml`
   - **Content**: Release notes, migration guide link
+  - **IMPORTANT**: This triggers automated npm publish - cannot be undone easily
 
-- [ ] **Task 5.3.2**: Monitor automated workflow
+- [ ] **Task 5.3.3**: Monitor automated workflow
   - **Action**: Watch GitHub Actions workflow execution
   - **URL**: `https://github.com/jerome-benoit/sap-ai-provider/actions`
   - **Effort**: 10 minutes
-  - **Dependencies**: Task 5.3.1
+  - **Dependencies**: Task 5.3.2
   - **Verify**:
     - ✅ Build job completes successfully
     - ✅ Tests pass
@@ -630,13 +660,13 @@ Estimated Total Effort: 35-42 hours
 - [ ] **Task 5.4.1**: Update documentation site (if exists)
   - **Files**: Documentation website
   - **Effort**: 30 minutes
-  - **Dependencies**: Task 5.3.2
+  - **Dependencies**: Task 5.3.3
   - **Action**: Update docs to v4.0.0
 
 - [ ] **Task 5.4.2**: Announce release
   - **Channels**: Discord, Twitter, SAP Community
   - **Effort**: 30 minutes
-  - **Dependencies**: Task 5.3.2
+  - **Dependencies**: Task 5.3.3
   - **Content**: Announcement with highlights and migration guide
 
 - [ ] **Task 5.4.3**: Monitor for issues
