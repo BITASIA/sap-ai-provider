@@ -340,7 +340,13 @@ function validateInternalLinks(): void {
           continue;
         }
 
-        if (!existsSync(targetFile)) {
+        // Resolve target path relative to the source file's directory
+        const sourceDir = file.includes("/")
+          ? file.substring(0, file.lastIndexOf("/"))
+          : ".";
+        const resolvedPath = join(sourceDir, fullPath);
+
+        if (!existsSync(resolvedPath)) {
           results.errors.push(
             `${file}:${String(i + 1)} - Broken link to ${targetFile}`,
           );
