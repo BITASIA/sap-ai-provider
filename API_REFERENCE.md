@@ -48,7 +48,7 @@ To avoid confusion, this documentation uses the following terminology consistent
   - [`SAPAIModelId`](#sapaimodelid)
   - [`DpiEntities`](#dpientities)
 - [Classes](#classes)
-  - [`SAPAILanguageModel`](#sapaichatlanguagemodel)
+  - [`SAPAILanguageModel`](#sapailanguagemodel)
     - [`doGenerate(options)`](#dogenerateoptions)
     - [`doStream(options)`](#dostreamoptions)
   - [Error Handling & Reference](#error-handling-reference)

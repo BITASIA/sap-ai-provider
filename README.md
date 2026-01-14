@@ -28,6 +28,8 @@ A community provider for SAP AI Core that integrates seamlessly with the Vercel 
   - [Multi-modal Input (Images)](#multi-modal-input-images)
   - [Data Masking (SAP DPI)](#data-masking-sap-dpi)
   - [Content Filtering](#content-filtering)
+  - [Document Grounding (RAG)](#document-grounding-rag)
+  - [Translation](#translation)
 - [Configuration Options](#configuration-options)
 - [Error Handling](#error-handling)
 - [Troubleshooting](#troubleshooting)

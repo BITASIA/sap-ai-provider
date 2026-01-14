@@ -28,7 +28,7 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
   - [Detailed Component Flow](#detailed-component-flow)
   - [Component Responsibilities](#component-responsibilities)
     - [`SAPAIProvider`](#sapaiprovider)
-    - [`SAPAILanguageModel`](#sapaichatlanguagemodel)
+    - [`SAPAILanguageModel`](#sapailanguagemodel)
     - [`Authentication System`](#authentication-system)
     - [`Message Conversion`](#message-conversion)
 - [Request/Response Flow](#requestresponse-flow)
