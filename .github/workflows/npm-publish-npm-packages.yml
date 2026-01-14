@@ -41,8 +41,7 @@ jobs:
           if [[ "$REPO_OWNER" == "jerome-benoit" ]]; then
             echo "📦 Publishing under @jerome-benoit scope"
             jq '(.name, .repository.url, .bugs.url, .homepage) |= 
-                gsub("BITASIA"; "jerome-benoit") | 
-                gsub("@mymediset"; "@jerome-benoit")' \
+                (gsub("BITASIA"; "jerome-benoit") | gsub("@mymediset"; "@jerome-benoit"))' \
               package.json > package.json.tmp && mv package.json.tmp package.json
           elif [[ "$REPO_OWNER" == "BITASIA" ]]; then
             echo "📦 Publishing under @mymediset scope"
