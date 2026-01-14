@@ -13,7 +13,8 @@
  * 5. Dotenv imports in code examples
  * 6. Link format consistency (./path vs path)
  * 7. Required documentation files existence
- * 8. Version consistency across docs
+ * 8. Table of Contents consistency (automatic detection and validation)
+ * 9. Version consistency across docs
  *
  * Usage:
  *   npm run validate-docs
@@ -41,6 +42,30 @@ interface FileThreshold {
 interface PackageJson {
   version: string;
   [key: string]: unknown;
+}
+
+interface TocEntry {
+  text: string;
+  anchor: string;
+  level: number;
+  lineNumber: number;
+}
+
+interface HeaderEntry {
+  text: string;
+  anchor: string;
+  level: number;
+  lineNumber: number;
+}
+
+interface TocValidationResult {
+  hasToc: boolean;
+  tocDepth: number;
+  expectedEntries: HeaderEntry[];
+  actualEntries: TocEntry[];
+  missing: HeaderEntry[];
+  extra: TocEntry[];
+  mismatched: { expected: HeaderEntry; actual: TocEntry }[];
 }
 
 // ============================================================================
@@ -264,6 +289,306 @@ function isLineInCodeBlock(lines: string[], lineIndex: number): boolean {
  */
 function hasInlineCodeExample(line: string): boolean {
   return line.includes("`[") && line.includes("](");
+}
+
+/**
+ * Converts header text to a GitHub-compatible anchor.
+ *
+ * GitHub's anchor generation rules (verified):
+ * 1. Convert to lowercase
+ * 2. Remove backticks
+ * 3. Keep: Unicode letters (\p{L}), Unicode numbers (\p{N}), spaces, hyphens, underscores
+ * 4. Remove: emoji, punctuation, special symbols
+ * 5. Replace spaces with hyphens
+ * 6. Collapse multiple hyphens to single
+ * 7. Remove leading/trailing hyphens
+ *
+ * Examples:
+ * - "🚀 Getting Started" → "getting-started" (emoji removed)
+ * - "日本語セクション" → "日本語セクション" (Unicode kept)
+ * - "Über uns" → "über-uns" (ü kept)
+ * - "Q&A / FAQ" → "qa-faq" (punctuation removed)
+ * - "API: `createProvider()`" → "api-createprovider" (backticks/parens removed)
+ *
+ * @param text - Header text
+ * @returns Anchor string
+ */
+function textToAnchor(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .trim()
+      // Remove backticks (common in code references)
+      .replace(/`/g, "")
+      // Keep ONLY: Unicode letters, Unicode numbers, spaces, hyphens, underscores
+      // \p{L} = any Unicode letter, \p{N} = any Unicode number
+      .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+      // Replace multiple spaces with single space
+      .replace(/\s+/g, " ")
+      // Replace spaces with hyphens
+      .replace(/\s/g, "-")
+      // Replace multiple hyphens/underscores with single hyphen
+      .replace(/[-_]+/g, "-")
+      // Remove leading/trailing hyphens
+      .replace(/^-+|-+$/g, "")
+  );
+}
+
+/**
+ * Detects if a file contains a Table of Contents section.
+ *
+ * @param content - File content
+ * @returns Object with ToC detection info
+ */
+function detectToc(content: string): {
+  hasToc: boolean;
+  startLine: number;
+  endLine: number;
+} {
+  const lines = content.split("\n");
+
+  // Look for common ToC patterns
+  const tocPatterns = [
+    /^##\s+Table of Contents$/i,
+    /^##\s+Contents$/i,
+    /^##\s+ToC$/i,
+  ];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    for (const pattern of tocPatterns) {
+      if (pattern.test(line)) {
+        // Find the end of ToC (next ## header or empty section)
+        let endLine = i + 1;
+        let emptyLines = 0;
+
+        for (let j = i + 1; j < lines.length; j++) {
+          const nextLine = lines[j].trim();
+
+          // End at next ## header
+          if (/^##\s+/.test(nextLine)) {
+            endLine = j;
+            break;
+          }
+
+          // Track empty lines
+          if (nextLine === "") {
+            emptyLines++;
+            if (emptyLines >= 2) {
+              // Two consecutive empty lines mark end
+              endLine = j;
+              break;
+            }
+          } else {
+            emptyLines = 0;
+          }
+        }
+
+        return { hasToc: true, startLine: i, endLine };
+      }
+    }
+  }
+
+  return { hasToc: false, startLine: -1, endLine: -1 };
+}
+
+/**
+ * Extracts ToC entries from the ToC section.
+ *
+ * @param lines - File lines
+ * @param startLine - ToC start line
+ * @param endLine - ToC end line
+ * @returns Array of ToC entries
+ */
+function extractTocEntries(
+  lines: string[],
+  startLine: number,
+  endLine: number,
+): TocEntry[] {
+  const entries: TocEntry[] = [];
+
+  // Pattern: - [Text](#anchor) or * [Text](#anchor)
+  const tocPattern = /^(\s*)[-*]\s+\[([^\]]+)\]\(#([^)]+)\)/;
+
+  for (let i = startLine + 1; i < endLine; i++) {
+    const line = lines[i];
+    const match = tocPattern.exec(line);
+
+    if (match) {
+      const indent = match[1].length;
+      const text = match[2];
+      const anchor = match[3];
+
+      // Calculate level based on indentation (2 spaces = 1 level)
+      const level = Math.floor(indent / 2) + 2; // Start at level 2 (##)
+
+      entries.push({
+        text,
+        anchor,
+        level,
+        lineNumber: i + 1,
+      });
+    }
+  }
+
+  return entries;
+}
+
+/**
+ * Extracts actual headers from the document (excluding ToC header itself).
+ *
+ * @param lines - File lines
+ * @param tocStartLine - ToC start line to exclude
+ * @returns Array of header entries
+ */
+function extractHeaders(lines: string[], tocStartLine: number): HeaderEntry[] {
+  const headers: HeaderEntry[] = [];
+  let inCodeBlock = false;
+
+  // Track anchor duplicates (GitHub adds -1, -2, etc. for duplicates)
+  const anchorCounts = new Map<string, number>();
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Track code blocks
+    if (line.trim().startsWith("```")) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+
+    // Skip code blocks and ToC header
+    if (inCodeBlock || i === tocStartLine) {
+      continue;
+    }
+
+    // Match headers (## Header, ### Header, etc.)
+    const headerMatch = /^(#{2,6})\s+(.+)$/.exec(line);
+    if (headerMatch) {
+      const level = headerMatch[1].length;
+      const text = headerMatch[2].trim();
+      let anchor = textToAnchor(text);
+
+      // Handle duplicate anchors (GitHub appends -1, -2, etc.)
+      const baseAnchor = anchor;
+      const count = anchorCounts.get(baseAnchor) ?? 0;
+
+      if (count > 0) {
+        anchor = `${baseAnchor}-${String(count)}`;
+      }
+
+      anchorCounts.set(baseAnchor, count + 1);
+
+      headers.push({
+        text,
+        anchor,
+        level,
+        lineNumber: i + 1,
+      });
+    }
+  }
+
+  return headers;
+}
+
+/**
+ * Infers the maximum depth level that should be included in ToC.
+ *
+ * Uses statistical analysis: if >80% of ToC entries are at certain levels,
+ * those levels define the ToC depth.
+ *
+ * @param tocEntries - ToC entries
+ * @returns Maximum level depth (e.g., 2 means only ##, 3 means ## and ###)
+ */
+function inferTocDepth(tocEntries: TocEntry[]): number {
+  if (tocEntries.length === 0) return 2;
+
+  // Count entries at each level
+  const levelCounts = new Map<number, number>();
+  for (const entry of tocEntries) {
+    levelCounts.set(entry.level, (levelCounts.get(entry.level) ?? 0) + 1);
+  }
+
+  // Find the maximum level that has significant representation
+  const levels = Array.from(levelCounts.keys()).sort((a, b) => a - b);
+  const totalEntries = tocEntries.length;
+
+  let maxDepth = 2;
+  for (const level of levels) {
+    const count = levelCounts.get(level) ?? 0;
+    const percentage = count / totalEntries;
+
+    // If this level has >10% of entries, include it in depth
+    if (percentage > 0.1) {
+      maxDepth = Math.max(maxDepth, level);
+    }
+  }
+
+  return maxDepth;
+}
+
+/**
+ * Validates ToC against actual document headers using diff algorithm.
+ *
+ * @param tocEntries - Entries in ToC
+ * @param headers - Actual headers in document
+ * @param tocDepth - Maximum depth to validate
+ * @returns Validation result with missing/extra/mismatched entries
+ */
+function validateTocEntries(
+  tocEntries: TocEntry[],
+  headers: HeaderEntry[],
+  tocDepth: number,
+): TocValidationResult {
+  // Filter headers to only those that should be in ToC (by depth)
+  const expectedHeaders = headers.filter((h) => h.level <= tocDepth);
+
+  const missing: HeaderEntry[] = [];
+  const extra: TocEntry[] = [];
+  const mismatched: { expected: HeaderEntry; actual: TocEntry }[] = [];
+
+  // Create maps for efficient lookup
+  const tocMap = new Map<string, TocEntry>();
+  for (const entry of tocEntries) {
+    tocMap.set(entry.anchor, entry);
+  }
+
+  const headerMap = new Map<string, HeaderEntry>();
+  for (const header of expectedHeaders) {
+    headerMap.set(header.anchor, header);
+  }
+
+  // Find missing entries (in headers but not in ToC)
+  for (const header of expectedHeaders) {
+    const tocEntry = tocMap.get(header.anchor);
+
+    if (!tocEntry) {
+      missing.push(header);
+    } else {
+      // Check for mismatches (wrong text or level)
+      if (tocEntry.text !== header.text || tocEntry.level !== header.level) {
+        mismatched.push({ expected: header, actual: tocEntry });
+      }
+    }
+  }
+
+  // Find extra entries (in ToC but not in headers)
+  for (const tocEntry of tocEntries) {
+    if (!headerMap.has(tocEntry.anchor)) {
+      extra.push(tocEntry);
+    }
+  }
+
+  return {
+    hasToc: true,
+    tocDepth,
+    expectedEntries: expectedHeaders,
+    actualEntries: tocEntries,
+    missing,
+    extra,
+    mismatched,
+  };
 }
 
 // ============================================================================
@@ -526,7 +851,7 @@ function validateModelIdFormats(): void {
  * Check 5: Validates dotenv imports in code examples
  */
 function validateDotenvImports(): void {
-  console.log("\n4️⃣  Checking dotenv imports in documentation...");
+  console.log("\n5️⃣  Checking dotenv imports in documentation...");
 
   let issuesFound = 0;
 
@@ -645,10 +970,107 @@ function validateRequiredFiles(): void {
 }
 
 /**
- * Check 8: Validates version consistency across documentation
+ * Check 8: Validates Table of Contents in all markdown files
+ */
+function validateTableOfContents(): void {
+  console.log("\n8️⃣  Checking Table of Contents consistency...");
+
+  const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
+  let filesWithToc = 0;
+  let issuesFound = 0;
+
+  for (const file of mdFiles) {
+    const content = readFileSync(file, "utf-8");
+    const lines = content.split("\n");
+
+    // Detect if file has ToC
+    const { hasToc, startLine, endLine } = detectToc(content);
+
+    if (!hasToc) {
+      continue;
+    }
+
+    filesWithToc++;
+
+    // Extract ToC entries
+    const tocEntries = extractTocEntries(lines, startLine, endLine);
+
+    if (tocEntries.length === 0) {
+      results.warnings.push(
+        `${file}: ToC section found but no entries detected`,
+      );
+      issuesFound++;
+      continue;
+    }
+
+    // Infer ToC depth
+    const tocDepth = inferTocDepth(tocEntries);
+
+    // Extract actual headers
+    const headers = extractHeaders(lines, startLine);
+
+    // Validate ToC against headers
+    const validation = validateTocEntries(tocEntries, headers, tocDepth);
+
+    // Report missing entries
+    if (validation.missing.length > 0) {
+      for (const header of validation.missing) {
+        results.errors.push(
+          `${file}:${String(header.lineNumber)} - Missing in ToC: "${"#".repeat(header.level)} ${header.text}" (anchor: #${header.anchor})`,
+        );
+        results.passed = false;
+        issuesFound++;
+      }
+    }
+
+    // Report extra entries
+    if (validation.extra.length > 0) {
+      for (const entry of validation.extra) {
+        results.warnings.push(
+          `${file}:${String(entry.lineNumber)} - Extra in ToC (no matching header): "${entry.text}" -> #${entry.anchor}`,
+        );
+        issuesFound++;
+      }
+    }
+
+    // Report mismatched entries
+    if (validation.mismatched.length > 0) {
+      for (const { expected, actual } of validation.mismatched) {
+        if (actual.text !== expected.text) {
+          results.errors.push(
+            `${file}:${String(actual.lineNumber)} - ToC text mismatch: "${actual.text}" should be "${expected.text}"`,
+          );
+          results.passed = false;
+          issuesFound++;
+        }
+        if (actual.level !== expected.level) {
+          results.warnings.push(
+            `${file}:${String(actual.lineNumber)} - ToC level mismatch: "${actual.text}" is level ${String(actual.level)} but should be ${String(expected.level)}`,
+          );
+          issuesFound++;
+        }
+      }
+    }
+  }
+
+  if (filesWithToc === 0) {
+    console.log("  ℹ️  No files with Table of Contents found");
+  } else if (issuesFound === 0) {
+    console.log(
+      `  ✅ All ${String(filesWithToc)} Table of Contents are consistent`,
+    );
+  } else {
+    console.log(
+      `  ❌ ${String(issuesFound)} ToC issues found in ${String(filesWithToc)} files`,
+    );
+  }
+}
+
+/**
+ * Check 9: Validates version consistency across documentation
  */
 function validateVersionConsistency(): void {
-  console.log("\n8️⃣  Checking version consistency...");
+  console.log("\n9️⃣  Checking version consistency...");
 
   if (!existsSync("package.json")) {
     results.warnings.push("package.json not found");
@@ -716,6 +1138,7 @@ function main(): void {
     validateDotenvImports();
     validateLinkFormat();
     validateRequiredFiles();
+    validateTableOfContents();
     validateVersionConsistency();
   } catch (error) {
     results.errors.push(
