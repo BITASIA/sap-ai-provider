@@ -7,12 +7,9 @@
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. Built on top of the official **@sap-ai-sdk/orchestration** package, this provider enables you to use SAP's enterprise-grade AI models through the familiar Vercel AI SDK interface.
 
-> **Version 4.0.0** implements the **LanguageModelV3** specification from Vercel AI SDK 6. See [Migration Guide](#migration-from-3x-to-4x) for upgrading from 3.x.
-
 ## Table of Contents
 
 - [Features](#features)
-- [Breaking Changes in 4.0.0](#breaking-changes-in-400)
 - [Quick Start](#quick-start)
 - [Quick Reference](#quick-reference)
 - [Installation](#installation)
@@ -39,56 +36,6 @@ A community provider for SAP AI Core that integrates seamlessly with the Vercel 
 - 🔧 **TypeScript Support** - Full type safety and IntelliSense
 - 🎨 **Multiple Models** - Support for GPT-4, Claude, Gemini, Nova, and more
 - ⚡ **Language Model V3** - Latest Vercel AI SDK specification with enhanced streaming
-
-## Breaking Changes in 4.0.0
-
-Version 4.0.0 migrates from **LanguageModelV2** to **LanguageModelV3** specification. This is a **major version** with breaking changes.
-
-### What Changed
-
-1. **Streaming Structure**: Text streaming now uses structured blocks with explicit lifecycle events (`text-start`, `text-delta`, `text-end`)
-2. **Usage Information**: New nested structure with detailed token breakdown:
-   - `inputTokens: { total, noCache, cacheRead, cacheWrite }`
-   - `outputTokens: { total, text, reasoning }`
-3. **Finish Reason**: Changed from string to object: `{ unified: string, raw?: string }`
-4. **Warning Types**: New V3 warning system with `feature` field
-
-### Who Is Affected?
-
-- ✅ **No changes needed** if you use high-level APIs: `generateText()`, `streamText()`
-- ⚠️ **Minor changes** if you access the provider directly for type annotations
-- ⚠️ **Significant changes** if you manually parse stream chunks
-
-### Migration Example
-
-```typescript
-// ❌ Before (3.x - V2)
-for await (const chunk of stream) {
-  if (chunk.type === "text-delta") {
-    process.stdout.write(chunk.textDelta); // Property renamed
-  }
-}
-
-// ✅ After (4.x - V3)
-for await (const chunk of stream) {
-  if (chunk.type === "text-delta") {
-    process.stdout.write(chunk.delta); // New property name
-  }
-}
-```
-
-**Full migration guide:** See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md#version-3x-to-4x-breaking-changes) for complete details.
-
-### V3 Features Not Supported by SAP AI Core
-
-The following V3 content types are not currently supported by SAP AI Core:
-
-- ❌ **File content generation** - SAP AI Core doesn't return file/image outputs
-- ❌ **Reasoning mode** - Explicit reasoning blocks not exposed
-- ❌ **Source attribution** - Citation sources not available
-- ❌ **Tool approval requests** - Not supported
-
-Attempting to use these features will result in warnings, but will not cause errors.
 
 ## Quick Start
 
@@ -550,6 +497,23 @@ npx tsx examples/example-generate-text.ts
 > **Note:** Examples require `AICORE_SERVICE_KEY` environment variable. See [Environment Setup](./ENVIRONMENT_SETUP.md) for configuration.
 
 ## Migration Guides
+
+### Upgrading from v3.x to v4.x
+
+Version 4.0 migrates from **LanguageModelV2** to **LanguageModelV3** specification (AI SDK 6.0+). **See the [Migration Guide](./MIGRATION_GUIDE.md#version-3x-to-4x-breaking-changes) for complete upgrade instructions.**
+
+**Key changes:**
+
+- **Finish Reason**: Changed from string to object (`result.finishReason.unified`)
+- **Usage Structure**: Nested format with detailed token breakdown (`result.usage.inputTokens.total`)
+- **Stream Events**: Structured blocks (`text-start`, `text-delta`, `text-end`) instead of simple deltas
+- **Warning Types**: Updated format with `feature` field for categorization
+
+**Impact by user type:**
+
+- High-level API users (`generateText`/`streamText`): ✅ Minimal impact (likely no changes)
+- Direct provider users: ⚠️ Update type imports (`LanguageModelV2` → `LanguageModelV3`)
+- Custom stream parsers: ⚠️ Update parsing logic for V3 structure
 
 ### Upgrading from v2.x to v3.x
 
