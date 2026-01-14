@@ -22,56 +22,42 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 # AI Agent Instructions
 
-This file provides instructions for AI coding assistants (GitHub Copilot, Cursor, etc.) working with this codebase.
-
-## Purpose
-
-AI agents should follow the project-specific guidelines and conventions documented in:
-
-- `.github/copilot-instructions.md` - Primary instructions for GitHub Copilot
-- `.cursor/rules/` - Cursor-specific rules organized by topic
-
-## Usage
-
-When an AI agent encounters this file, it should:
-
-1. Read and follow the instructions in `.github/copilot-instructions.md`
-2. Review relevant Cursor rules in `.cursor/rules/` for additional context
-3. Strictly adhere to the project's coding standards, testing requirements, and architectural patterns
+This file provides the entry point for AI coding assistants working with this codebase.
 
 ## Agent Instruction Files
 
 ### GitHub Copilot
 
-Primary instruction file: `.github/copilot-instructions.md`
-
-Key topics covered:
+See **`.github/copilot-instructions.md`** for comprehensive development instructions including:
 
 - Project overview and architecture
-- Build and test procedures
-- Example usage and validation
-- TypeScript and Node.js patterns
-- Provider integration specifics
+- Build, test, and validation workflows
+- Pull request review guidelines
+- Coding standards and best practices
 
-### Cursor Rules
+### Cursor
 
-Directory: `.cursor/rules/`
+See **`.cursor/rules/`** directory for modular topic-specific rules:
 
-Available rule sets:
+- `ai-sdk-integration.mdc` - Vercel AI SDK patterns
+- `build-and-publish.mdc` - Build and publish workflow
+- `environment-and-config.mdc` - Environment and configuration
+- `project-structure.mdc` - Project organization
+- `testing.mdc` - Testing strategy
+- `typescript-style.mdc` - TypeScript conventions
+- `usage-and-examples.mdc` - Usage patterns
 
-- `usage-and-examples.mdc` - Code examples and usage patterns
-- `build-and-publish.mdc` - Build pipeline and publishing workflow
-- `testing.mdc` - Testing strategy and requirements
-- `project-structure.mdc` - Codebase organization
-- `typescript-style.mdc` - TypeScript coding conventions
-- `environment-and-config.mdc` - Environment variables and configuration
-- `ai-sdk-integration.mdc` - Vercel AI SDK integration patterns
+### OpenSpec Workflows
+
+See **`openspec/AGENTS.md`** for spec-driven development instructions including:
+
+- Creating change proposals
+- Writing spec deltas
+- Validation and archiving
+- OpenSpec CLI commands
 
 ## For Human Developers
 
-If you're a human developer reading this file:
-
-- These instructions are optimized for AI coding assistants
-- For project documentation, see [README.md](./README.md)
-- For development guidelines, see [CONTRIBUTING.md](./CONTRIBUTING.md)
-- For architecture details, see [ARCHITECTURE.md](./ARCHITECTURE.md)
+- **Project documentation:** [README.md](./README.md)
+- **Contributing guidelines:** [CONTRIBUTING.md](./CONTRIBUTING.md)
+- **Architecture:** [ARCHITECTURE.md](./ARCHITECTURE.md)
