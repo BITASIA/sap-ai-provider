@@ -1104,11 +1104,13 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
                   controller.enqueue({ type: "text-start", id: textBlockId });
                   streamState.activeText = true;
                 }
-                controller.enqueue({
-                  type: "text-delta",
-                  id: textBlockId!,
-                  delta: deltaContent,
-                });
+                if (textBlockId) {
+                  controller.enqueue({
+                    type: "text-delta",
+                    id: textBlockId,
+                    delta: deltaContent,
+                  });
+                }
               }
 
               if (Array.isArray(deltaToolCalls) && deltaToolCalls.length > 0) {
@@ -1207,8 +1209,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
                     });
                   }
 
-                  if (streamState.activeText) {
-                    controller.enqueue({ type: "text-end", id: textBlockId! });
+                  if (streamState.activeText && textBlockId) {
+                    controller.enqueue({ type: "text-end", id: textBlockId });
                     streamState.activeText = false;
                   }
                 }
@@ -1251,8 +1253,8 @@ export class SAPAIChatLanguageModel implements LanguageModelV3 {
               });
             }
 
-            if (streamState.activeText) {
-              controller.enqueue({ type: "text-end", id: textBlockId! });
+            if (streamState.activeText && textBlockId) {
+              controller.enqueue({ type: "text-end", id: textBlockId });
             }
 
             // Determine final finish reason
