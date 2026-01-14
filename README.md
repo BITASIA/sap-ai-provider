@@ -22,6 +22,7 @@ A community provider for SAP AI Core that integrates seamlessly with the Vercel 
 - [Examples](#examples)
 - [Migration Guides](#migration-guides)
 - [Contributing](#contributing)
+- [Resources](#resources)
 - [License](#license)
 
 ## Features
@@ -545,34 +546,28 @@ Version 2.0 uses the official SAP AI SDK. **See the [Migration Guide](./MIGRATIO
 
 We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
 
-## License
+## Resources
 
-Apache License 2.0 - see [LICENSE](./LICENSE.md) for details.
+### Documentation
 
-## Support
-
-- 📖 [Documentation](https://github.com/BITASIA/sap-ai-provider)
-- 🐛 [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues)
-
-## Documentation
-
-### Guides
-
+- [Migration Guide](./MIGRATION_GUIDE.md) - Version upgrade instructions (v1.x → v2.x → v3.x → v4.x)
+- [API Reference](./API_REFERENCE.md) - Complete API documentation with all types and functions
 - [Environment Setup](./ENVIRONMENT_SETUP.md) - Authentication and configuration setup
-- [Migration Guide](./MIGRATION_GUIDE.md) - Upgrading from v1.x to v2.x with step-by-step instructions
+- [Troubleshooting](./TROUBLESHOOTING.md) - Common issues and solutions
+- [Architecture](./ARCHITECTURE.md) - Internal architecture, design decisions, and request flows
 - [curl API Testing](./CURL_API_TESTING_GUIDE.md) - Direct API testing for debugging
 
-### Reference
+### Community
 
-- [API Reference](./API_REFERENCE.md) - Complete API documentation with all types and functions
-- [Architecture](./ARCHITECTURE.md) - Internal architecture, design decisions, and request flows
+- 🐛 [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues) - Report bugs and request features
+- 💬 [Discussions](https://github.com/BITASIA/sap-ai-provider/discussions) - Ask questions and share ideas
 
-### Contributing
-
-- [Contributing Guide](./CONTRIBUTING.md) - How to contribute to this project
-
-## Related
+### Related Projects
 
 - [Vercel AI SDK](https://sdk.vercel.ai/) - The AI SDK this provider extends
 - [SAP AI SDK](https://sap.github.io/ai-sdk/) - Official SAP Cloud SDK for AI
 - [SAP AI Core Documentation](https://help.sap.com/docs/ai-core) - Official SAP AI Core docs
+
+## License
+
+Apache License 2.0 - see [LICENSE](./LICENSE.md) for details.
