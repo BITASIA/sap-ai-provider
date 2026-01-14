@@ -87,7 +87,7 @@ const REQUIRED_FILES = [
 const VERSION_CHECK_FILES = ["README.md", "MIGRATION_GUIDE.md"] as const;
 
 /** Directories to exclude from markdown file search */
-const EXCLUDED_DIRS = ["node_modules", ".git", "DOC_", "PHASE"] as const;
+const EXCLUDED_DIRS = ["node_modules", ".git"] as const;
 
 /** Regex patterns for detecting model IDs */
 const MODEL_ID_PATTERNS = [
