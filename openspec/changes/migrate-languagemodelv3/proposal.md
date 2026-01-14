@@ -105,6 +105,30 @@ The alternative—staying on V2—creates technical debt that will become more e
 
 This dual-repository approach ensures both community contribution (via upstream) and immediate availability (via origin).
 
+### Fork Context & Strategy
+
+**Background**: The upstream repository (`BITASIA/sap-ai-provider`) currently experiences maintenance challenges with unresolved bugs. This fork (`jerome-benoit/sap-ai-provider`) serves as a **functional alternative** providing bug fixes and new features while those issues are being addressed.
+
+**Current Status**:
+
+- **Upstream** (`@mymediset/sap-ai-provider`): v2.1.0 - stable release with known issues
+- **Fork** (`@jerome-benoit/sap-ai-provider`): v3.0.0 published, v4.0.0 in development
+- **Co-maintenance Request**: Pending response from upstream maintainers
+
+**Future Scenarios**:
+
+1. **If co-maintenance accepted**:
+   - Fork contributions merge into upstream
+   - Package may consolidate under `@mymediset` scope
+   - Fork repository may be archived after successful integration
+
+2. **If co-maintenance declined**:
+   - Fork continues as independent maintained alternative
+   - `@jerome-benoit/sap-ai-provider` remains primary for active development
+   - Community support shifts toward fork
+
+**For Users**: During this transition period, users seeking the latest features and bug fixes should use `@jerome-benoit/sap-ai-provider`. Both packages coexist to provide choice between upstream stability and fork innovation.
+
 ### Problem Statement
 
 The **Language Model Specification V3** (introduced in `@ai-sdk/provider` 3.0.0, corresponding to AI SDK 5.0) is now the standard for all modern providers. While V2 is still supported in AI SDK 6.x, V3 brings significant improvements:
