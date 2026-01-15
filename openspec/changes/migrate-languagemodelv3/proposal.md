@@ -1214,27 +1214,72 @@ Add 20% buffer for unexpected issues:
 
 ## Next Steps
 
-1. **Review & Approval**: Technical team validates approach
-2. **Create Design Document**: Detailed technical document
-3. **Create Tasks List**: Granular implementation list
-4. **Phase 1 Execution**: Start migration
-5. **Decision Point**: After each milestone, validation to continue
+### Immediate Post-Release Actions
+
+1. ✅ **v4.0.0 Release Published** - Complete (2026-01-15 19:33 UTC)
+2. ✅ **PR #28 Updated** - Complete (added release announcement)
+3. ⏳ **Release Announcement** - Pending (Discord, Twitter, SAP Community, GitHub Discussions)
+4. ⏳ **Monitor for Issues** - Ongoing (first 48 hours critical)
+5. ⏳ **Gather Community Feedback** - Ongoing (from production usage)
+
+### Medium-Term Actions
+
+1. **Upstream Integration** - PR #28 on `BITASIA/sap-ai-provider`
+   - Status: Open for review
+   - Next: Await maintainer feedback
+   - Timeline: TBD (based on upstream response)
+
+2. **Community Support**
+   - Respond to GitHub issues quickly
+   - Monitor npm download statistics
+   - Collect migration feedback from users
+   - Consider hotfix v4.0.1 if critical issues emerge
+
+3. **Documentation Updates**
+   - Update examples based on user feedback
+   - Expand migration guide if common issues emerge
+   - Consider blog post or tutorial content
+
+### Long-Term Considerations
+
+1. **OpenSpec Archival**
+   - Archive `migrate-languagemodelv3` proposal after stable period
+   - Timeline: After 2-4 weeks of stable v4.0.0 usage
+   - Command: `openspec archive migrate-languagemodelv3 --yes`
+
+2. **Future V3 Features**
+   - Monitor SAP AI Core for new capabilities
+   - Evaluate implementing currently unsupported V3 features:
+     - File generation
+     - Reasoning blocks
+     - Source attribution
+     - Tool approval
+
+3. **Maintenance & Evolution**
+   - Continue bug fixes and improvements
+   - Stay aligned with AI SDK updates
+   - Monitor ecosystem changes
 
 ---
 
+## Approval History
+
 **Approval Required From**:
 
-- **Repository Owner** (CRITICAL - Required before ANY merge or release)
+- **Repository Owner** (CRITICAL)
 - Technical Lead
 - Product Owner
 - Release Manager
 
 **Approval Gates**:
 
-1. **Initial Proposal Approval**: Before starting implementation (✅ COMPLETE)
-2. **Pre-Release Approval**: After implementation and documentation complete, before creating origin release (⏳ PENDING)
-3. **Post-Release Review**: After npm publish, before considering upstream merge (FUTURE)
+1. ✅ **Initial Proposal Approval**: Before starting implementation - **APPROVED**
+2. ✅ **Pre-Release Approval**: After implementation and documentation complete, before creating origin release - **APPROVED**
+3. ✅ **Release Approval**: Before v4.0.0 stable release - **APPROVED** (2026-01-15)
+4. ⏳ **Post-Release Review**: After npm publish, assess stability and plan archival - **PENDING**
 
-**IMPORTANT**: No origin release may be created without explicit approval from the repository owner. The upstream PR review and merge are independent processes that do not block the origin release.
+**Release Notes**:
 
-**Estimated Review Time**: 2-3 days
+- RC1 approval: 2026-01-14
+- RC2 approval: 2026-01-15 (expedited based on RC1 feedback)
+- v4.0.0 approval: 2026-01-15 (expedited based on comprehensive testing)

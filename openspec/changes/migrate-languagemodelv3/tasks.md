@@ -806,7 +806,8 @@ Remaining Tasks: 0
   - **Effort**: 10 minutes
   - **Dependencies**: Task 5.4.1
   - **Content**: Link to v4.0.0 release, npm package, and highlight it's production-ready
-  - **Completed**: Pending (after verification)
+  - **Completed**: 2026-01-15 19:35 UTC
+  - **Comment URL**: https://github.com/BITASIA/sap-ai-provider/pull/28#issuecomment-3756542503
 
 - [x] **Task 5.4.3**: Update documentation site (if exists)
   - **Files**: Documentation website
