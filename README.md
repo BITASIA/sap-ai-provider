@@ -347,10 +347,7 @@ const dpiConfig = buildDpiMaskingProvider({
 
 ```typescript
 import "dotenv/config"; // Load environment variables
-import {
-  createSAPAIProvider,
-  buildAzureContentSafetyFilter,
-} from "@mymediset/sap-ai-provider";
+import { createSAPAIProvider, buildAzureContentSafetyFilter } from "@mymediset/sap-ai-provider";
 
 const provider = createSAPAIProvider({
   defaultSettings: {
@@ -521,14 +518,16 @@ Error code reference table: [API Reference - HTTP Status Codes](./API_REFERENCE.
 
 The `examples/` directory contains complete, runnable examples demonstrating key features:
 
-| Example                             | Description                 | Key Features                           |
-| ----------------------------------- | --------------------------- | -------------------------------------- |
-| `example-generate-text.ts`          | Basic text generation       | Simple prompts, synchronous generation |
-| `example-simple-chat-completion.ts` | Simple chat conversation    | System messages, user prompts          |
-| `example-chat-completion-tool.ts`   | Tool calling with functions | Weather API tool, function execution   |
-| `example-streaming-chat.ts`         | Streaming responses         | Real-time text generation, SSE         |
-| `example-image-recognition.ts`      | Multi-modal with images     | Vision models, image analysis          |
-| `example-data-masking.ts`           | Data privacy integration    | DPI masking, anonymization             |
+| Example                             | Description                 | Key Features                            |
+| ----------------------------------- | --------------------------- | --------------------------------------- |
+| `example-generate-text.ts`          | Basic text generation       | Simple prompts, synchronous generation  |
+| `example-simple-chat-completion.ts` | Simple chat conversation    | System messages, user prompts           |
+| `example-chat-completion-tool.ts`   | Tool calling with functions | Weather API tool, function execution    |
+| `example-streaming-chat.ts`         | Streaming responses         | Real-time text generation, SSE          |
+| `example-image-recognition.ts`      | Multi-modal with images     | Vision models, image analysis           |
+| `example-data-masking.ts`           | Data privacy integration    | DPI masking, anonymization              |
+| `example-document-grounding.ts`     | Document grounding (RAG)    | Vector store, retrieval-augmented gen   |
+| `example-translation.ts`            | Input/output translation    | Multi-language support, SAP translation |
 
 **Running Examples:**
 

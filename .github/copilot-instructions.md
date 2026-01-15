@@ -206,6 +206,8 @@ npx tsx examples/example-streaming-chat.ts
 npx tsx examples/example-chat-completion-tool.ts
 npx tsx examples/example-image-recognition.ts
 npx tsx examples/example-data-masking.ts
+npx tsx examples/example-document-grounding.ts
+npx tsx examples/example-translation.ts
 ```
 
 ### Known Issues
