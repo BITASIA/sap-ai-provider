@@ -74,6 +74,6 @@ assignees: ""
 ### Checklist
 
 - [ ] I've searched existing issues and this is not a duplicate
-- [ ] I've checked the [API Reference](https://github.com/jerome-benoit/sap-ai-provider/blob/main/API_REFERENCE.md) to ensure this doesn't already exist
+- [ ] I've checked the [API Reference](https://github.com/BITASIA/sap-ai-provider/blob/main/API_REFERENCE.md) to ensure this doesn't already exist
 - [ ] I've provided a clear use case and example
 - [ ] I've considered backwards compatibility
