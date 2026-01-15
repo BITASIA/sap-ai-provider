@@ -376,7 +376,7 @@ A: Version 3.x will receive security and critical bug fixes for 6 months after v
 #### 1. Update Package
 
 ```bash
-npm install @mymediset/sap-ai-provider@3.0.0-rc.1
+npm install @mymediset/sap-ai-provider@3.0.0
 ```
 
 #### 2. Update Error Handling
@@ -731,7 +731,7 @@ createSAPAIProvider({
 
 ### Upgrading from 2.x to 3.x
 
-- [ ] Update package: `npm install @mymediset/sap-ai-provider@3.0.0-rc.1`
+- [ ] Update package: `npm install @mymediset/sap-ai-provider@3.0.0`
 - [ ] Replace `SAPAIError` imports with `APICallError` from `@ai-sdk/provider`
 - [ ] Update error handling code to use `error.statusCode` instead of `error.code`
 - [ ] Update error metadata access to parse `error.responseBody` JSON for SAP details
