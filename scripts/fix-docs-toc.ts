@@ -12,115 +12,39 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
-// ============================================================================
-// Helper Functions (duplicated from validate-docs.ts for independence)
-// ============================================================================
+import type { HeaderEntry } from "./markdown-utils.js";
 
-interface HeaderEntry {
-  anchor: string;
-  level: number;
-  lineNumber: number;
-  text: string;
-}
+import { detectToc, extractHeaders, inferTocDepth } from "./markdown-utils.js";
 
 /**
- * Detects if a file contains a Table of Contents section.
+ * Detects indentation from existing ToC entries.
+ *
+ * @param lines - File lines
+ * @param startLine - 0-based ToC start
+ * @param endLine - 0-based ToC end
+ * @returns Spaces per indent level (default: 2)
  */
-function detectToc(content: string): {
-  endLine: number;
-  hasToc: boolean;
-  startLine: number;
-} {
-  const lines = content.split("\n");
-  const tocPatterns = [/^##\s+Table of Contents$/i, /^##\s+Contents$/i, /^##\s+ToC$/i];
+function detectTocIndentation(lines: string[], startLine: number, endLine: number): number {
+  const tocPattern = /^(\s*)[-*]\s+\[/;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-
-    for (const pattern of tocPatterns) {
-      if (pattern.test(line)) {
-        let endLine = i + 1;
-        let emptyLines = 0;
-
-        for (let j = i + 1; j < lines.length; j++) {
-          const nextLine = lines[j].trim();
-
-          if (/^##\s+/.test(nextLine)) {
-            endLine = j;
-            break;
-          }
-
-          if (nextLine === "") {
-            emptyLines++;
-            if (emptyLines >= 2) {
-              endLine = j;
-              break;
-            }
-          } else {
-            emptyLines = 0;
-          }
-        }
-
-        return { endLine, hasToc: true, startLine: i };
+  for (let i = startLine + 1; i < endLine; i++) {
+    const match = tocPattern.exec(lines[i]);
+    if (match) {
+      const indent = match[1].length;
+      if (indent > 0) {
+        return indent;
       }
     }
   }
 
-  return { endLine: -1, hasToc: false, startLine: -1 };
+  return 2;
 }
 
 /**
- * Extracts actual headers from the document.
- */
-function extractHeaders(lines: string[], tocStartLine: number): HeaderEntry[] {
-  const headers: HeaderEntry[] = [];
-  let inCodeBlock = false;
-
-  // Track anchor duplicates (GitHub adds -1, -2, etc.)
-  const anchorCounts = new Map<string, number>();
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    if (line.trim().startsWith("```")) {
-      inCodeBlock = !inCodeBlock;
-      continue;
-    }
-
-    if (inCodeBlock || i === tocStartLine) {
-      continue;
-    }
-
-    const headerMatch = /^(#{2,6})\s+(.+)$/.exec(line);
-    if (headerMatch) {
-      const level = headerMatch[1].length;
-      const text = headerMatch[2].trim();
-      let anchor = textToAnchor(text);
-
-      // Handle duplicate anchors (GitHub appends -1, -2, etc.)
-      const baseAnchor = anchor;
-      const count = anchorCounts.get(baseAnchor) ?? 0;
-
-      if (count > 0) {
-        anchor = `${baseAnchor}-${String(count)}`;
-      }
-
-      anchorCounts.set(baseAnchor, count + 1);
-
-      headers.push({
-        anchor,
-        level,
-        lineNumber: i + 1,
-        text,
-      });
-    }
-  }
-
-  return headers;
-}
-
-/**
- * Fixes the ToC in a specific file.
+ * Fixes ToC in a file by regenerating entries from headers.
+ *
+ * @param filePath - Path to markdown file
+ * @returns True if ToC was updated, false if skipped
  */
 function fixTocInFile(filePath: string): boolean {
   console.log(`\n📄 Processing: ${filePath}`);
@@ -138,7 +62,9 @@ function fixTocInFile(filePath: string): boolean {
 
   console.log(`  📍 Found ToC at lines ${String(startLine + 1)}-${String(endLine + 1)}`);
 
-  // Extract headers
+  const indentSize = detectTocIndentation(lines, startLine, endLine);
+  console.log(`  🔍 Detected indentation: ${String(indentSize)} spaces per level`);
+
   const headers = extractHeaders(lines, startLine);
   console.log(`  📋 Found ${String(headers.length)} headers in document`);
 
@@ -147,38 +73,51 @@ function fixTocInFile(filePath: string): boolean {
     return false;
   }
 
-  // Infer depth
-  const tocDepth = inferTocDepthFromHeaders(headers);
+  const tocDepth = inferTocDepth(headers);
   const filteredHeaders = headers.filter((h) => h.level <= tocDepth);
   console.log(`  📊 ToC depth: ${String(tocDepth)} (${String(filteredHeaders.length)} entries)`);
 
-  // Generate new ToC
-  const newTocContent = generateTocMarkdown(headers, tocDepth);
+  const newTocContent = generateTocMarkdown(headers, tocDepth, indentSize);
 
-  // Replace ToC section
+  if (!newTocContent || newTocContent.trim().length === 0) {
+    console.log(`  ⚠️  Generated ToC is empty - skipping update`);
+    return false;
+  }
+
+  const generatedLines = newTocContent.split("\n");
+  if (generatedLines.length !== filteredHeaders.length) {
+    console.log(
+      `  ⚠️  Generated ToC mismatch: expected ${String(filteredHeaders.length)} lines, got ${String(generatedLines.length)}`,
+    );
+  }
+
   const beforeToc = lines.slice(0, startLine + 1);
   const afterToc = lines.slice(endLine);
 
-  const newLines = [...beforeToc, "", ...newTocContent.split("\n"), "", ...afterToc];
+  const newLines = [...beforeToc, "", ...generatedLines, "", ...afterToc];
 
   const newContent = newLines.join("\n");
 
-  // Write back
   writeFileSync(filePath, newContent, "utf-8");
 
-  console.log(`  ✅ ToC updated successfully`);
+  console.log(`  ✅ ToC updated successfully (${String(filteredHeaders.length)} entries)`);
   return true;
 }
 
 /**
  * Generates ToC markdown from headers.
+ *
+ * @param headers - Headers to include
+ * @param maxDepth - Maximum header level
+ * @param indentSize - Spaces per level (default: 2)
+ * @returns Markdown list with anchors
  */
-function generateTocMarkdown(headers: HeaderEntry[], maxDepth: number): string {
+function generateTocMarkdown(headers: HeaderEntry[], maxDepth: number, indentSize = 2): string {
   const filteredHeaders = headers.filter((h) => h.level <= maxDepth);
   const lines: string[] = [];
 
   for (const header of filteredHeaders) {
-    const indent = "  ".repeat(header.level - 2);
+    const indent = " ".repeat((header.level - 2) * indentSize);
     const line = `${indent}- [${header.text}](#${header.anchor})`;
     lines.push(line);
   }
@@ -186,36 +125,7 @@ function generateTocMarkdown(headers: HeaderEntry[], maxDepth: number): string {
   return lines.join("\n");
 }
 
-/**
- * Infers ToC depth from document structure.
- * Uses heuristic: include levels that have >3 entries OR are level 2.
- */
-function inferTocDepthFromHeaders(headers: HeaderEntry[]): number {
-  if (headers.length === 0) return 2;
-
-  const levelCounts = new Map<number, number>();
-  for (const header of headers) {
-    levelCounts.set(header.level, (levelCounts.get(header.level) ?? 0) + 1);
-  }
-
-  const levels = Array.from(levelCounts.keys()).sort((a, b) => a - b);
-  let maxDepth = 2;
-
-  for (const level of levels) {
-    const count = levelCounts.get(level) ?? 0;
-
-    // Include this level if:
-    // - It's level 2 (always include ##)
-    // - It has more than 3 entries
-    // - Previous level had entries (maintain hierarchy)
-    if (level === 2 || count > 3 || (level === maxDepth + 1 && count > 1)) {
-      maxDepth = level;
-    }
-  }
-
-  return maxDepth;
-}
-
+/** CLI entry point. Fixes ToC in specified file or all documentation files. */
 function main(): void {
   const args = process.argv.slice(2);
 
@@ -223,7 +133,6 @@ function main(): void {
   console.log("=".repeat(60));
 
   if (args.length === 0) {
-    // Fix all major documentation files with existing ToC
     const files = [
       "README.md",
       "API_REFERENCE.md",
@@ -258,34 +167,9 @@ function main(): void {
       console.log("   Run 'npm run validate-docs' to verify.\n");
     }
   } else {
-    // Fix specific file
     const file = args[0];
     fixTocInFile(file);
   }
-}
-
-// ============================================================================
-// Main Execution
-// ============================================================================
-
-/**
- * Converts header text to a GitHub-compatible anchor.
- *
- * GitHub's anchor generation rules (verified):
- * - Keep: Unicode letters (\p{L}), numbers (\p{N}), spaces, hyphens, underscores
- * - Remove: emoji, punctuation, special symbols, backticks
- * - Spaces → hyphens, collapse multiple hyphens, trim hyphens
- */
-function textToAnchor(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/`/g, "")
-    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
-    .replace(/\s+/g, " ")
-    .replace(/\s/g, "-")
-    .replace(/[-_]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 main();

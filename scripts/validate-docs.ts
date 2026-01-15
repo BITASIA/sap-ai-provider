@@ -1,29 +1,7 @@
 #!/usr/bin/env npx tsx
 /**
- * SAP AI Provider - Comprehensive Documentation Validation
- *
- * Consolidates all documentation checks into a single TypeScript script.
- * Replaces: validate-docs.sh, check-dotenv-imports.sh, check-links-format.sh
- *
- * Checks performed:
- * 1. Code-documentation consistency (exports, types)
- * 2. Broken internal markdown links
- * 3. Hardcoded model lists (should use dynamic types)
- * 4. Model ID format consistency (vendor prefixes)
- * 5. Dotenv imports in code examples
- * 6. Link format consistency (./path vs path)
- * 7. Required documentation files existence
- * 8. Table of Contents consistency (automatic detection and validation)
- * 9. Version consistency across docs
- * 10. Code metrics validation (test count, coverage) against OpenSpec claims
- * 11. Source code comments validation (links, model IDs in JSDoc/inline comments)
- * 12. Heading hierarchy validation (context-aware, ignores code blocks)
- * 13. Code block syntax validation (detects invalid backtick patterns)
- * 14. Orphan section detection (sections without content)
- *
- * Usage:
- *   npm run validate-docs
- *   npx tsx scripts/validate-docs.ts
+ * Documentation validation for SAP AI Provider.
+ * Performs 14 checks: exports, links, models, ToC, versions, metrics, syntax, hierarchy.
  */
 
 import { execSync } from "node:child_process";
@@ -34,43 +12,70 @@ import { join, relative } from "node:path";
 // Types and Interfaces
 // ============================================================================
 
+/** File path with validation threshold. */
 interface FileThreshold {
+  /** File path. */
   file: string;
+  /** Threshold count. */
   threshold: number;
 }
 
+/** Markdown header (internal, uses lineNumber). */
 interface HeaderEntry {
+  /** GitHub-style anchor. */
   anchor: string;
+  /** Header level (2-6). */
   level: number;
+  /** 1-based line number. */
   lineNumber: number;
+  /** Header text. */
   text: string;
 }
 
+/** package.json structure. */
 interface PackageJson {
   [key: string]: unknown;
+  /** Package version. */
   version: string;
 }
 
+/** ToC entry (internal, uses lineNumber). */
 interface TocEntry {
+  /** GitHub-style anchor. */
   anchor: string;
+  /** Header level (2-6). */
   level: number;
+  /** 1-based line number. */
   lineNumber: number;
+  /** Header text. */
   text: string;
 }
 
+/** ToC validation comparison result. */
 interface TocValidationResult {
+  /** Actual entries from ToC. */
   actualEntries: TocEntry[];
+  /** Expected entries from headers. */
   expectedEntries: HeaderEntry[];
+  /** Extra ToC entries. */
   extra: TocEntry[];
+  /** Whether ToC exists. */
   hasToc: boolean;
+  /** Mismatched entries. */
   mismatched: { actual: TocEntry; expected: HeaderEntry }[];
+  /** Missing entries. */
   missing: HeaderEntry[];
+  /** Inferred ToC depth. */
   tocDepth: number;
 }
 
+/** Validation check result. */
 interface ValidationResult {
+  /** Error messages. */
   errors: string[];
+  /** Whether check passed. */
   passed: boolean;
+  /** Warning messages. */
   warnings: string[];
 }
 
@@ -78,7 +83,6 @@ interface ValidationResult {
 // Constants
 // ============================================================================
 
-/** Critical exports that must be documented in API_REFERENCE.md */
 const CRITICAL_EXPORTS = [
   "createSAPAIProvider",
   "sapai",
@@ -87,13 +91,11 @@ const CRITICAL_EXPORTS = [
   "buildLlamaGuard38BFilter",
 ] as const;
 
-/** Files to check for hardcoded model ID lists */
 const MODEL_CHECK_FILES: FileThreshold[] = [
   { file: "README.md", threshold: 15 },
   { file: "API_REFERENCE.md", threshold: 20 },
 ];
 
-/** Documentation files to check for dotenv imports */
 const DOTENV_CHECK_FILES = [
   "README.md",
   "API_REFERENCE.md",
@@ -102,7 +104,6 @@ const DOTENV_CHECK_FILES = [
   "TROUBLESHOOTING.md",
 ] as const;
 
-/** Required documentation files */
 const REQUIRED_FILES = [
   "README.md",
   "LICENSE.md",
@@ -115,59 +116,39 @@ const REQUIRED_FILES = [
   ".env.example",
 ] as const;
 
-/** Files to check for version mentions */
 const VERSION_CHECK_FILES = ["README.md", "MIGRATION_GUIDE.md"] as const;
 
-/** Directories to exclude from markdown file search */
-const EXCLUDED_DIRS = ["node_modules", ".git"] as const;
+const DEFAULT_EXCLUDED_DIRS = ["node_modules", ".git"] as const;
 
-/** Tolerance for coverage percentage comparison (allows rounding differences) */
+/** Extended via CLI args if needed */
+const EXCLUDED_DIRS: string[] = [...DEFAULT_EXCLUDED_DIRS];
+
 const COVERAGE_TOLERANCE_PERCENT = 0.5;
-
-/** Minimum percentage threshold for ToC depth inference (10% of entries) */
 const TOC_DEPTH_INFERENCE_THRESHOLD = 0.1;
 
-/**
- * Regular expression patterns used throughout validation.
- * Extracted as constants for reusability and clarity.
- */
 const REGEX_PATTERNS = {
   // eslint-disable-next-line no-control-regex
-  ANSI_COLORS: /\x1b\[[0-9;]*m/g, // Removes ANSI color codes from terminal output
-  BLOCK_COMMENT_START: /\/\*\*?/, // Matches block comment start (JSDoc or regular)
-  INLINE_COMMENT: /\/\/(.*)$/, // Matches inline comments: // comment
-  JSDOC_ONE_LINER: /\/\*\*.*?\*\//, // Matches one-liner JSDoc: /** comment */
-  URL_PATTERN: /https?:\/\//, // Detects URLs to skip in validation
+  ANSI_COLORS: /\x1b\[[0-9;]*m/g,
+  BLOCK_COMMENT_START: /\/\*\*?/,
+  INLINE_COMMENT: /\/\/(.*)$/,
+  JSDOC_ONE_LINER: /\/\*\*(?!\*)(?:[^*]|\*(?!\/))*\*\//,
+  URL_PATTERN: /https?:\/\//,
 } as const;
 
-/**
- * Model ID validation rules
- *
- * Each rule defines patterns for:
- * - Counting model IDs in code (between quotes only, to avoid false positives)
- * - Validating format in markdown lists (vendor prefixes required)
- */
+/** Model ID validation rules: count patterns and format checks */
 const MODEL_VALIDATION_RULES = [
   {
-    // Match any GPT model (gpt-3, gpt-4, gpt-5, etc.) and o-series (o1, o3, etc.)
-    countPatterns: [
-      /"gpt-[\d.]+[a-z0-9-]*"/gi, // gpt-3.5-turbo, gpt-4o, gpt-5-ultra, etc.
-      /"o[\d]+-?[a-z]*"/gi, // o1, o3, o3-mini, etc.
-    ],
-    // No format validation (no vendor prefix required)
+    countPatterns: [/"gpt-[\d.]+[a-z0-9-]*"/gi, /"o[\d]+-?[a-z]*"/gi],
     incorrectPattern: null,
     vendor: "OpenAI",
   },
   {
-    // Match any Gemini model (current and future versions)
-    countPatterns: [/"gemini-[\d.]+-[a-z]+"/gi], // gemini-1.5-pro, gemini-2.0-flash, etc.
+    countPatterns: [/"gemini-[\d.]+-[a-z]+"/gi],
     incorrectPattern: null,
     vendor: "Google",
   },
   {
-    // Match any Claude model with anthropic-- prefix
-    countPatterns: [/"anthropic--claude-[^"]+"/gi], // anthropic--claude-3.5-sonnet, etc.
-    // Detect Claude without anthropic-- prefix in markdown lists
+    countPatterns: [/"anthropic--claude-[^"]+"/gi],
     incorrectPattern: {
       correctFormat: "anthropic--claude-*",
       pattern: /(?<!anthropic--)(\bclaude-[\d.]+-(sonnet|opus|haiku)\b)/g,
@@ -175,9 +156,7 @@ const MODEL_VALIDATION_RULES = [
     vendor: "Anthropic",
   },
   {
-    // Match any Amazon model with amazon-- prefix
-    countPatterns: [/"amazon--[a-z0-9-]+"/gi], // amazon--nova-pro, amazon--titan-*, etc.
-    // Detect Nova without amazon-- prefix in markdown lists
+    countPatterns: [/"amazon--[a-z0-9-]+"/gi],
     incorrectPattern: {
       correctFormat: "amazon--nova-*",
       pattern: /(?<!amazon--)(\bnova-(pro|lite|micro|premier)\b)/g,
@@ -185,9 +164,7 @@ const MODEL_VALIDATION_RULES = [
     vendor: "Amazon",
   },
   {
-    // Match any Llama model with meta-- prefix
-    countPatterns: [/"meta--llama[^"]+"/gi], // meta--llama3.1-70b-instruct, etc.
-    // Detect Llama without meta-- prefix or -instruct suffix
+    countPatterns: [/"meta--llama[^"]+"/gi],
     incorrectPattern: {
       correctFormat: "meta--llama*-instruct",
       pattern: /(?<!meta--)(\bllama[\d.]+(?!-instruct\b)[a-z\d.]*)\b/g,
@@ -195,9 +172,7 @@ const MODEL_VALIDATION_RULES = [
     vendor: "Meta",
   },
   {
-    // Match any Mistral model with mistralai-- prefix
-    countPatterns: [/"mistralai--[a-z0-9-]+"/gi], // mistralai--mistral-large-instruct, etc.
-    // Detect Mistral without mistralai-- prefix or -instruct suffix
+    countPatterns: [/"mistralai--[a-z0-9-]+"/gi],
     incorrectPattern: {
       correctFormat: "mistralai--mistral-*-instruct",
       pattern: /(?<!mistralai--)(\bmistralai-mistral-\w+)(?!-instruct\b)/g,
@@ -207,21 +182,24 @@ const MODEL_VALIDATION_RULES = [
 ] as const;
 
 // ============================================================================
-// Global State
-// ============================================================================
-
-// ============================================================================
 // Helper Functions
 // ============================================================================
 
+/** Test metrics from npm test. */
 interface TestMetrics {
+  /** Coverage percentage. */
   coverage?: number;
+  /** Whether tests passed. */
   passed: boolean;
+  /** Total test count. */
   totalTests: number;
 }
 
 /**
- * Aggregates multiple validation results into a single result.
+ * Combines multiple validation results.
+ *
+ * @param results - Validation results
+ * @returns Aggregated result
  */
 function aggregateResults(results: ValidationResult[]): ValidationResult {
   return results.reduce<ValidationResult>(
@@ -235,10 +213,10 @@ function aggregateResults(results: ValidationResult[]): ValidationResult {
 }
 
 /**
- * Detects if a file contains a Table of Contents section.
+ * Detects ToC section in markdown (internal copy of markdown-utils function).
  *
- * @param content - File content
- * @returns Object with ToC detection info
+ * @param content - Markdown content
+ * @returns Detection result with 0-based indices
  */
 function detectToc(content: string): {
   endLine: number;
@@ -246,8 +224,6 @@ function detectToc(content: string): {
   startLine: number;
 } {
   const lines = content.split("\n");
-
-  // Look for common ToC patterns
   const tocPatterns = [/^##\s+Table of Contents$/i, /^##\s+Contents$/i, /^##\s+ToC$/i];
 
   for (let i = 0; i < lines.length; i++) {
@@ -255,29 +231,26 @@ function detectToc(content: string): {
 
     for (const pattern of tocPatterns) {
       if (pattern.test(line)) {
-        // Find the end of ToC (next ## header or empty section)
         let endLine = i + 1;
         let emptyLines = 0;
 
         for (let j = i + 1; j < lines.length; j++) {
           const nextLine = lines[j].trim();
 
-          // End at next ## header
           if (/^##\s+/.test(nextLine)) {
             endLine = j;
             break;
           }
 
-          // Track empty lines
           if (nextLine === "") {
             emptyLines++;
-            if (emptyLines >= 2) {
-              // Two consecutive empty lines mark end
-              endLine = j;
-              break;
-            }
           } else {
             emptyLines = 0;
+          }
+
+          if (emptyLines >= 2) {
+            endLine = j - 1;
+            break;
           }
         }
 
@@ -290,11 +263,12 @@ function detectToc(content: string): {
 }
 
 /**
- * Extracts coverage metrics from npm run test:coverage output.
- * Parses the summary table at the end of the output.
+ * Extracts coverage % from test output.
+ *
+ * @param output - npm test output
+ * @returns Coverage percentage or null
  */
 function extractCoverage(output: string): null | number {
-  // Look for the "All files" row in the coverage table
   const allFilesMatch =
     /All files\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)/.exec(output);
   if (allFilesMatch) {
@@ -304,41 +278,29 @@ function extractCoverage(output: string): null | number {
 }
 
 /**
- * Extracts actual headers from the document (excluding ToC header itself).
+ * Extracts headers (## to ######), internal copy with 1-based lineNumber.
  *
- * @param lines - File lines
- * @param tocStartLine - ToC start line to exclude
- * @returns Array of header entries
+ * @param lines - Markdown lines
+ * @param tocStartLine - 0-based ToC index to skip
+ * @returns Headers with 1-based lineNumber
  */
 function extractHeaders(lines: string[], tocStartLine: number): HeaderEntry[] {
   const headers: HeaderEntry[] = [];
-  let inCodeBlock = false;
-
-  // Track anchor duplicates (GitHub adds -1, -2, etc. for duplicates)
+  const inCodeBlock = trackCodeBlocks(lines);
   const anchorCounts = new Map<string, number>();
 
   for (let i = 0; i < lines.length; i++) {
+    if (inCodeBlock[i] || i === tocStartLine) {
+      continue;
+    }
+
     const line = lines[i];
-
-    // Track code blocks
-    if (line.trim().startsWith("```")) {
-      inCodeBlock = !inCodeBlock;
-      continue;
-    }
-
-    // Skip code blocks and ToC header
-    if (inCodeBlock || i === tocStartLine) {
-      continue;
-    }
-
-    // Match headers (## Header, ### Header, etc.)
     const headerMatch = /^(#{2,6})\s+(.+)$/.exec(line);
     if (headerMatch) {
       const level = headerMatch[1].length;
       const text = headerMatch[2].trim();
       let anchor = textToAnchor(text);
 
-      // Handle duplicate anchors (GitHub appends -1, -2, etc.)
       const baseAnchor = anchor;
       const count = anchorCounts.get(baseAnchor) ?? 0;
 
@@ -361,21 +323,19 @@ function extractHeaders(lines: string[], tocStartLine: number): HeaderEntry[] {
 }
 
 /**
- * Extracts test count from npm test output.
- * Parses Vitest output like: "Tests  194 passed (194)"
- * Also handles colored output with ANSI codes
+ * Extracts test count from Vitest/Jest output.
+ *
+ * @param output - Test runner output
+ * @returns Total test count or null
  */
 function extractTestCount(output: string): null | number {
-  // Remove ANSI color codes
   const clean = output.replace(REGEX_PATTERNS.ANSI_COLORS, "");
 
-  // Try Vitest format: "Tests  194 passed (194)"
   const vitestMatch = /Tests\s+(\d+)\s+passed\s+\((\d+)\)/.exec(clean);
   if (vitestMatch) {
     return Number.parseInt(vitestMatch[2], 10);
   }
 
-  // Try Jest format: "Tests:  194 passed, 194 total"
   const jestMatch = /Tests:\s+(\d+)\s+passed,\s+(\d+)\s+total/.exec(clean);
   if (jestMatch) {
     return Number.parseInt(jestMatch[2], 10);
@@ -385,17 +345,15 @@ function extractTestCount(output: string): null | number {
 }
 
 /**
- * Extracts ToC entries from the ToC section.
+ * Extracts ToC entries from markdown list.
  *
  * @param lines - File lines
- * @param startLine - ToC start line
- * @param endLine - ToC end line
- * @returns Array of ToC entries
+ * @param startLine - 0-based ToC start
+ * @param endLine - 0-based ToC end
+ * @returns ToC entries with 1-based lineNumber
  */
 function extractTocEntries(lines: string[], startLine: number, endLine: number): TocEntry[] {
   const entries: TocEntry[] = [];
-
-  // Pattern: - [Text](#anchor) or * [Text](#anchor)
   const tocPattern = /^(\s*)[-*]\s+\[([^\]]+)\]\(#([^)]+)\)/;
 
   for (let i = startLine + 1; i < endLine; i++) {
@@ -406,9 +364,7 @@ function extractTocEntries(lines: string[], startLine: number, endLine: number):
       const indent = match[1].length;
       const text = match[2];
       const anchor = match[3];
-
-      // Calculate level based on indentation (2 spaces = 1 level)
-      const level = Math.floor(indent / 2) + 2; // Start at level 2 (##)
+      const level = Math.floor(indent / 2) + 2;
 
       entries.push({
         anchor,
@@ -423,10 +379,10 @@ function extractTocEntries(lines: string[], startLine: number, endLine: number):
 }
 
 /**
- * Extracts TypeScript code blocks from markdown content.
+ * Extracts TypeScript code blocks from markdown.
  *
- * @param content - Markdown file content
- * @returns Array of code block contents
+ * @param content - Markdown content
+ * @returns Code block contents
  */
 function extractTypeScriptCodeBlocks(content: string): string[] {
   const codeBlockPattern = /```typescript\n([\s\S]*?)\n```/g;
@@ -435,14 +391,14 @@ function extractTypeScriptCodeBlocks(content: string): string[] {
 }
 
 // ============================================================================
-// Code Metrics Validation
+// Helper Functions - Code Analysis
 // ============================================================================
 
 /**
- * Extracts JSDoc and inline comments from TypeScript source files.
- * Returns an array of comment blocks with their file location.
+ * Extracts comments (JSDoc, block, inline) from TypeScript.
  *
- * Handles multi-line JSDoc, one-liner JSDoc, block comments, and inline comments
+ * @param filePath - Path to .ts file
+ * @returns Comments with 1-based line numbers
  */
 function extractTypeScriptComments(filePath: string): {
   content: string;
@@ -460,30 +416,31 @@ function extractTypeScriptComments(filePath: string): {
     const line = lines[i];
     const trimmed = line.trim();
 
-    // Check for one-liner JSDoc: /** comment */
     const oneLineJSDoc = REGEX_PATTERNS.JSDOC_ONE_LINER.exec(line);
     if (oneLineJSDoc && !inBlockComment) {
       comments.push({
         content: oneLineJSDoc[0],
         lineNumber: i + 1,
       });
-      // Continue to check for inline comments after the JSDoc on same line
-    }
 
-    // Block comment start (JSDoc /** or regular /* )
-    if (!inBlockComment && REGEX_PATTERNS.BLOCK_COMMENT_START.test(trimmed)) {
-      // Skip if already handled as one-liner
-      if (oneLineJSDoc) {
+      const lineWithoutOneLiner = line.replace(oneLineJSDoc[0], "");
+      const trimmedRest = lineWithoutOneLiner.trim();
+
+      if (REGEX_PATTERNS.BLOCK_COMMENT_START.test(trimmedRest)) {
+        inBlockComment = true;
+        blockStartLine = i + 1;
+        currentBlock = [lineWithoutOneLiner];
         continue;
       }
+    }
 
+    if (!inBlockComment && REGEX_PATTERNS.BLOCK_COMMENT_START.test(trimmed)) {
       inBlockComment = true;
       blockStartLine = i + 1;
       currentBlock = [line];
       continue;
     }
 
-    // Inside block comment
     if (inBlockComment) {
       currentBlock.push(line);
       if (trimmed.endsWith("*/")) {
@@ -497,11 +454,10 @@ function extractTypeScriptComments(filePath: string): {
       continue;
     }
 
-    // Inline comments (anywhere in line)
     const inlineCommentMatch = REGEX_PATTERNS.INLINE_COMMENT.exec(line);
     if (inlineCommentMatch) {
       comments.push({
-        content: inlineCommentMatch[0], // Keep the // prefix
+        content: inlineCommentMatch[0],
         lineNumber: i + 1,
       });
     }
@@ -511,11 +467,11 @@ function extractTypeScriptComments(filePath: string): {
 }
 
 /**
- * Recursively finds all markdown files in a directory.
+ * Finds all .md files recursively, excluding specified directories.
  *
- * @param dir - Directory to search
- * @param exclude - Patterns to exclude from search
- * @returns Array of relative file paths
+ * @param dir - Root directory
+ * @param exclude - Directories to skip
+ * @returns Relative paths to .md files
  */
 function findMarkdownFiles(dir: string, exclude: readonly string[] = []): string[] {
   const files: string[] = [];
@@ -527,7 +483,6 @@ function findMarkdownFiles(dir: string, exclude: readonly string[] = []): string
       const fullPath = join(currentDir, entry);
       const relativePath = relative(process.cwd(), fullPath);
 
-      // Skip excluded paths
       if (exclude.some((ex) => relativePath.includes(ex))) {
         continue;
       }
@@ -545,34 +500,29 @@ function findMarkdownFiles(dir: string, exclude: readonly string[] = []): string
 }
 
 /**
- * Checks if a line contains an inline code example with markdown links.
+ * Checks if line contains inline code with markdown links.
  *
  * @param line - Line to check
- * @returns True if line has inline code with markdown syntax
+ * @returns True if has `[...](...)`
  */
 function hasInlineCodeExample(line: string): boolean {
   return line.includes("`[") && line.includes("](");
 }
 
 /**
- * Infers the maximum depth level that should be included in ToC.
- *
- * Uses statistical analysis: if >80% of ToC entries are at certain levels,
- * those levels define the ToC depth.
+ * Infers ToC depth from entry distribution (≥10% threshold).
  *
  * @param tocEntries - ToC entries
- * @returns Maximum level depth (e.g., 2 means only ##, 3 means ## and ###)
+ * @returns Max depth (minimum 2)
  */
 function inferTocDepth(tocEntries: TocEntry[]): number {
   if (tocEntries.length === 0) return 2;
 
-  // Count entries at each level
   const levelCounts = new Map<number, number>();
   for (const entry of tocEntries) {
     levelCounts.set(entry.level, (levelCounts.get(entry.level) ?? 0) + 1);
   }
 
-  // Find the maximum level that has significant representation
   const levels = Array.from(levelCounts.keys()).sort((a, b) => a - b);
   const totalEntries = tocEntries.length;
 
@@ -581,7 +531,6 @@ function inferTocDepth(tocEntries: TocEntry[]): number {
     const count = levelCounts.get(level) ?? 0;
     const percentage = count / totalEntries;
 
-    // If this level has significant representation, include it in depth
     if (percentage > TOC_DEPTH_INFERENCE_THRESHOLD) {
       maxDepth = Math.max(maxDepth, level);
     }
@@ -591,11 +540,11 @@ function inferTocDepth(tocEntries: TocEntry[]): number {
 }
 
 /**
- * Checks if a line is inside a code block.
+ * Checks if line is inside code block.
  *
- * @param lines - All lines in the file
- * @param lineIndex - Index of current line
- * @returns True if line is in a code block
+ * @param lines - All file lines
+ * @param lineIndex - 0-based line index
+ * @returns True if in code block
  */
 function isLineInCodeBlock(lines: string[], lineIndex: number): boolean {
   let inCodeBlock = false;
@@ -609,9 +558,7 @@ function isLineInCodeBlock(lines: string[], lineIndex: number): boolean {
   return inCodeBlock;
 }
 
-/**
- * Runs all validation checks and reports results.
- */
+/** CLI entry point. Runs all 14 validation checks and reports results. */
 function main(): void {
   console.log("📚 SAP AI Provider - Documentation Validation");
   console.log("=".repeat(60));
@@ -644,7 +591,6 @@ function main(): void {
 
   const results = aggregateResults(allResults);
 
-  // Print summary
   console.log("");
   console.log("=".repeat(60));
   console.log("\n📊 Summary:");
@@ -665,7 +611,6 @@ function main(): void {
     });
   }
 
-  // Exit with appropriate status
   console.log("");
   if (results.errors.length === 0 && results.warnings.length === 0) {
     console.log("✅ Documentation validation PASSED - No issues found!\n");
@@ -682,23 +627,75 @@ function main(): void {
 }
 
 /**
- * Safely reads and parses a JSON file.
+ * Runs all validation checks and reports results.
+ */
+
+/**
+ * Parses CLI arguments.
+ * Supports: --exclude-dirs dir1,dir2 --help
+ */
+function parseCliArgs(): void {
+  const args = process.argv.slice(2);
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === "--exclude-dirs" || arg === "--exclude-dir") {
+      const nextArg = args[i + 1];
+      if (!nextArg || nextArg.startsWith("--")) {
+        console.error(`Error: ${arg} requires a comma-separated list of directories`);
+        console.error("Usage: npm run validate-docs -- --exclude-dirs dir1,dir2,dir3");
+        process.exit(1);
+      }
+
+      const additionalDirs = nextArg
+        .split(",")
+        .map((d) => d.trim())
+        .filter(Boolean);
+      EXCLUDED_DIRS.push(...additionalDirs);
+      i++; // Skip next arg since we consumed it
+    } else if (arg === "--help" || arg === "-h") {
+      console.log("SAP AI Provider - Documentation Validation");
+      console.log("");
+      console.log("Usage:");
+      console.log("  npm run validate-docs");
+      console.log("  npm run validate-docs -- --exclude-dirs dir1,dir2");
+      console.log("");
+      console.log("Options:");
+      console.log(
+        "  --exclude-dirs <dirs>  Comma-separated list of additional directories to exclude",
+      );
+      console.log("  --help, -h             Show this help message");
+      console.log("");
+      console.log("Default excluded directories:", DEFAULT_EXCLUDED_DIRS.join(", "));
+      process.exit(0);
+    } else {
+      console.error(`Unknown option: ${arg}`);
+      console.error("Use --help for usage information");
+      process.exit(1);
+    }
+  }
+}
+
+/**
+ * Reads and parses JSON file safely.
  *
- * @param filePath - Path to JSON file
- * @returns Parsed JSON object or null if error
+ * @param filePath - Path to .json file
+ * @returns Parsed object or null on error
  */
 function readJsonFile(filePath: string): null | PackageJson {
   try {
     const content = readFileSync(filePath, "utf-8");
     return JSON.parse(content) as PackageJson;
   } catch {
-    // Silently return null on error - caller will handle
     return null;
   }
 }
 
 /**
- * Runs npm run test:coverage and extracts metrics.
+ * Runs npm test:coverage and extracts metrics.
+ *
+ * @returns Test count and coverage or null
  */
 function runCoverageCheck(): null | TestMetrics {
   try {
@@ -726,54 +723,33 @@ function runCoverageCheck(): null | TestMetrics {
 }
 
 /**
- * Converts header text to a GitHub-compatible anchor.
- *
- * GitHub's anchor generation rules (verified):
- * 1. Convert to lowercase
- * 2. Remove backticks
- * 3. Keep: Unicode letters (\p{L}), Unicode numbers (\p{N}), spaces, hyphens, underscores
- * 4. Remove: emoji, punctuation, special symbols
- * 5. Replace spaces with hyphens
- * 6. Collapse multiple hyphens to single
- * 7. Remove leading/trailing hyphens
- *
- * Examples:
- * - "🚀 Getting Started" → "getting-started" (emoji removed)
- * - "日本語セクション" → "日本語セクション" (Unicode kept)
- * - "Über uns" → "über-uns" (ü kept)
- * - "Q&A / FAQ" → "qa-faq" (punctuation removed)
- * - "API: `createProvider()`" → "api-createprovider" (backticks/parens removed)
+ * Converts header text to GitHub-compatible anchor.
  *
  * @param text - Header text
- * @returns Anchor string
+ * @returns Lowercase, hyphenated anchor
+ * @example
+ * textToAnchor("🚀 Getting Started") // "getting-started"
+ * textToAnchor("日本語セクション") // "日本語セクション"
+ * textToAnchor("API: `createProvider()`") // "api-createprovider"
  */
 function textToAnchor(text: string): string {
-  return (
-    text
-      .toLowerCase()
-      .trim()
-      // Remove backticks (common in code references)
-      .replace(/`/g, "")
-      // Keep ONLY: Unicode letters, Unicode numbers, spaces, hyphens, underscores
-      // \p{L} = any Unicode letter, \p{N} = any Unicode number
-      .replace(/[^\p{L}\p{N}\s_-]/gu, "")
-      // Replace multiple spaces with single space
-      .replace(/\s+/g, " ")
-      // Replace spaces with hyphens
-      .replace(/\s/g, "-")
-      // Replace multiple hyphens/underscores with single hyphen
-      .replace(/[-_]+/g, "-")
-      // Remove leading/trailing hyphens
-      .replace(/^-+|-+$/g, "")
-  );
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/`/g, "")
+    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s/g, "-")
+    .replace(/[-_]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 /**
- * Tracks code block state with proper backtick count matching.
- * More robust than isLineInCodeBlock for advanced validation.
+ * Tracks which lines are in code blocks.
+ * Matches opening/closing backtick counts (3+).
  *
- * @param lines - All lines in the file
- * @returns Array of booleans indicating if each line is in a code block
+ * @param lines - File lines
+ * @returns Boolean array (true = in code block)
  */
 function trackCodeBlocks(lines: string[]): boolean[] {
   const inCodeBlock: boolean[] = new Array<boolean>(lines.length).fill(false);
@@ -784,12 +760,10 @@ function trackCodeBlocks(lines: string[]): boolean[] {
     const match = /^(`{3,})/.exec(lines[i]);
 
     if (match && !isInBlock) {
-      // Opening code block
       isInBlock = true;
       openingBackticks = match[1].length;
       inCodeBlock[i] = true;
     } else if (match && isInBlock && match[1].length === openingBackticks) {
-      // Closing code block
       inCodeBlock[i] = true;
       isInBlock = false;
       openingBackticks = 0;
@@ -802,14 +776,7 @@ function trackCodeBlocks(lines: string[]): boolean[] {
 }
 
 /**
- * Check 13: Validates code block syntax for common errors.
- *
- * Detects:
- * - Quadruple backticks (````) in non-meta-documentation contexts
- * - Mismatched opening/closing backticks
- * - Language identifiers on closing fences
- *
- * Algorithm: Proper parser with context detection for meta-documentation.
+ * Check 13: Validates code block syntax.
  */
 function validateCodeBlockSyntax(): ValidationResult {
   const errors: string[] = [];
@@ -819,15 +786,24 @@ function validateCodeBlockSyntax(): ValidationResult {
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
   let issuesFound = 0;
 
-  // Meta-documentation contexts where quadruple backticks are valid
   const metaDocFiles = ["openspec/", "AGENTS.md", ".github/copilot-instructions.md"];
   const metaLanguages = new Set(["javascript", "js", "markdown", "md", "ts", "typescript"]);
+
+  const isMetaDocFile = (file: string, patterns: string[]): boolean => {
+    return patterns.some((pattern) => {
+      if (pattern.endsWith("/")) {
+        return file.startsWith(pattern) || file.includes(`/${pattern}`);
+      } else {
+        return file === pattern || file.endsWith(`/${pattern}`);
+      }
+    });
+  };
 
   for (const file of mdFiles) {
     const content = readFileSync(file, "utf-8");
     const lines = content.split("\n");
 
-    const isMetaDocFile = metaDocFiles.some((pattern) => file.includes(pattern));
+    const isMetaDoc = isMetaDocFile(file, metaDocFiles);
     let inCodeBlock = false;
     let openingBackticks = 0;
     let openingLine = 0;
@@ -844,15 +820,13 @@ function validateCodeBlockSyntax(): ValidationResult {
       const language = match[2].toLowerCase();
 
       if (!inCodeBlock) {
-        // Opening fence
         inCodeBlock = true;
         openingBackticks = backticks;
         openingLine = i + 1;
 
-        // Check for quadruple+ backticks
         if (backticks >= 4) {
           const isMetaLanguage = metaLanguages.has(language);
-          const isValidContext = isMetaDocFile || isMetaLanguage;
+          const isValidContext = isMetaDoc || isMetaLanguage;
 
           if (!isValidContext) {
             warnings.push(
@@ -862,7 +836,6 @@ function validateCodeBlockSyntax(): ValidationResult {
           }
         }
       } else if (backticks === openingBackticks) {
-        // Closing fence
         if (language) {
           warnings.push(
             `${file}:${String(i + 1)} - Language identifier on closing fence: \`\`\`${language} (should be just \`\`\`)`,
@@ -876,12 +849,10 @@ function validateCodeBlockSyntax(): ValidationResult {
       }
     }
 
-    // Check for unclosed code blocks
     if (inCodeBlock) {
       errors.push(
         `${file}:${String(openingLine)} - Unclosed code block (opened with ${String(openingBackticks)} backticks)`,
       );
-      // Error tracked in errors array
       issuesFound++;
     }
   }
@@ -900,7 +871,7 @@ function validateCodeBlockSyntax(): ValidationResult {
 }
 
 /**
- * Check 10: Validates code metrics against OpenSpec claims
+ * Check 10: Validates test metrics match OpenSpec claims.
  */
 function validateCodeMetrics(): ValidationResult {
   console.log("\n🔟 Checking code metrics against OpenSpec documents...");
@@ -908,7 +879,6 @@ function validateCodeMetrics(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Read OpenSpec files
   const auditFile = "openspec/changes/migrate-languagemodelv3/IMPLEMENTATION_AUDIT.md";
   const releaseNotesFile = "openspec/changes/migrate-languagemodelv3/RELEASE_NOTES.md";
 
@@ -921,14 +891,12 @@ function validateCodeMetrics(): ValidationResult {
   const auditContent = readFileSync(auditFile, "utf-8");
   const releaseNotesContent = readFileSync(releaseNotesFile, "utf-8");
 
-  // Extract claimed test count from OpenSpec
   const auditTestMatch = /(\d+)\/(\d+) tests passing/.exec(auditContent);
   const releaseTestMatch = /(\d+) tests/.exec(releaseNotesContent);
 
   const claimedTestsAudit = auditTestMatch ? Number.parseInt(auditTestMatch[2], 10) : null;
   const claimedTestsRelease = releaseTestMatch ? Number.parseInt(releaseTestMatch[1], 10) : null;
 
-  // Extract claimed coverage from OpenSpec
   const coverageMatch = /Coverage[:\s]+(\d+\.?\d*)%\s+overall/.exec(auditContent);
   const claimedCoverage = coverageMatch ? Number.parseFloat(coverageMatch[1]) : null;
 
@@ -943,7 +911,6 @@ function validateCodeMetrics(): ValidationResult {
     console.log(`    • Coverage: ${String(claimedCoverage)}%`);
   }
 
-  // Run actual tests
   console.log("\n  🧪 Running test suite...");
   const testMetrics = runCoverageCheck();
 
@@ -960,7 +927,6 @@ function validateCodeMetrics(): ValidationResult {
   }
   console.log(`    • All tests passed: ${testMetrics.passed ? "YES" : "NO"}`);
 
-  // Validate test count consistency
   if (claimedTestsAudit !== null && claimedTestsAudit !== testMetrics.totalTests) {
     errors.push(
       `IMPLEMENTATION_AUDIT.md claims ${String(claimedTestsAudit)} tests, but actual count is ${String(testMetrics.totalTests)}`,
@@ -973,7 +939,6 @@ function validateCodeMetrics(): ValidationResult {
     );
   }
 
-  // Validate coverage claims
   if (claimedCoverage !== null && testMetrics.coverage !== undefined) {
     const diff = Math.abs(claimedCoverage - testMetrics.coverage);
     if (diff > COVERAGE_TOLERANCE_PERCENT) {
@@ -983,12 +948,10 @@ function validateCodeMetrics(): ValidationResult {
     }
   }
 
-  // Validate all tests pass
   if (!testMetrics.passed) {
-    errors.push("Test suite has failing tests, but OpenSpec claims all tests passing");
+    errors.push("Some tests are failing - all tests must pass");
   }
 
-  // Check version consistency between package.json and OpenSpec
   const pkg = readJsonFile("package.json");
   if (pkg?.version) {
     const version = pkg.version;
@@ -997,7 +960,6 @@ function validateCodeMetrics(): ValidationResult {
     }
   }
 
-  // Print validation results
   console.log("");
   if (errors.length === 0) {
     console.log("  ✅ Code metrics match OpenSpec claims");
@@ -1022,9 +984,7 @@ function validateCodeMetrics(): ValidationResult {
 // Validation Checks
 // ============================================================================
 
-/**
- * Check 5: Validates dotenv imports in code examples
- */
+/** Check 5: Validates dotenv imports in code examples. */
 function validateDotenvImports(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -1042,7 +1002,6 @@ function validateDotenvImports(): ValidationResult {
     const codeBlocks = extractTypeScriptCodeBlocks(content);
 
     for (const code of codeBlocks) {
-      // If block uses provider creation, check for dotenv import or env comment
       if (!code.includes("createSAPAIProvider") && !code.includes("sapai(")) {
         continue;
       }
@@ -1082,13 +1041,7 @@ function validateDotenvImports(): ValidationResult {
 }
 
 /**
- * Check 12: Validates heading hierarchy with context awareness.
- *
- * Detects invalid heading jumps (e.g., H2 → H4 without H3) while properly
- * ignoring headers inside code blocks and handling edge cases.
- *
- * Algorithm: Uses state machine to track heading levels outside code blocks.
- * Validates that each heading is at most one level deeper than previous.
+ * Check 12: Validates heading hierarchy (no level skipping).
  */
 function validateHeadingHierarchySmart(): ValidationResult {
   const errors: string[] = [];
@@ -1107,7 +1060,6 @@ function validateHeadingHierarchySmart(): ValidationResult {
     let previousLine = 0;
 
     for (let i = 0; i < lines.length; i++) {
-      // Skip code blocks
       if (inCodeBlock[i]) {
         continue;
       }
@@ -1118,12 +1070,10 @@ function validateHeadingHierarchySmart(): ValidationResult {
       if (headerMatch) {
         const level = headerMatch[1].length;
 
-        // Allow backward jumps (H4 → H2 is OK), only check forward jumps
         if (level > previousLevel + 1) {
           errors.push(
             `${file}:${String(i + 1)} - Invalid heading jump: H${String(previousLevel)} → H${String(level)} (line ${String(previousLine)} → ${String(i + 1)}). Insert H${String(previousLevel + 1)} level first.`,
           );
-          // Error tracked in errors array
           issuesFound++;
         }
 
@@ -1147,7 +1097,7 @@ function validateHeadingHierarchySmart(): ValidationResult {
 }
 
 /**
- * Check 2: Detects broken internal markdown links
+ * Check 2: Detects broken internal markdown links.
  */
 function validateInternalLinks(): ValidationResult {
   const errors: string[] = [];
@@ -1157,8 +1107,18 @@ function validateInternalLinks(): ValidationResult {
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
   let brokenCount = 0;
 
+  const fileExistsCache = new Map<string, boolean>();
+
+  const checkFileExists = (path: string): boolean => {
+    if (!fileExistsCache.has(path)) {
+      fileExistsCache.set(path, existsSync(path));
+    }
+    const result = fileExistsCache.get(path);
+    return result ?? false;
+  };
+
   for (const file of mdFiles) {
-    if (!existsSync(file)) {
+    if (!checkFileExists(file)) {
       continue;
     }
 
@@ -1168,31 +1128,26 @@ function validateInternalLinks(): ValidationResult {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Skip code blocks and inline code examples
       if (isLineInCodeBlock(lines, i) || hasInlineCodeExample(line)) {
         continue;
       }
 
-      // Match only internal relative links (not http/https URLs)
       const linkPattern = /\[([^\]]+)\]\(((?!https?:\/\/)(?:\.\/)?([^)#]+\.md))(#[^)]+)?\)/g;
       const matches = Array.from(line.matchAll(linkPattern));
 
       for (const match of matches) {
-        const fullPath = match[2]; // The full path without # anchor
-        const targetFile = match[3]; // Just the filename
+        const fullPath = match[2];
+        const targetFile = match[3];
 
-        // Skip if it looks like a URL (safety check)
         if (fullPath.includes("://")) {
           continue;
         }
 
-        // Resolve target path relative to the source file's directory
         const sourceDir = file.includes("/") ? file.substring(0, file.lastIndexOf("/")) : ".";
         const resolvedPath = join(sourceDir, fullPath);
 
-        if (!existsSync(resolvedPath)) {
+        if (!checkFileExists(resolvedPath)) {
           errors.push(`${file}:${String(i + 1)} - Broken link to ${targetFile}`);
-          // Error tracked in errors array
           brokenCount++;
         }
       }
@@ -1213,7 +1168,7 @@ function validateInternalLinks(): ValidationResult {
 }
 
 /**
- * Check 6: Validates link format consistency (./file.md vs file.md)
+ * Check 6: Validates link format (requires ./ prefix).
  */
 function validateLinkFormat(): ValidationResult {
   const errors: string[] = [];
@@ -1230,12 +1185,10 @@ function validateLinkFormat(): ValidationResult {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Skip code blocks
       if (isLineInCodeBlock(lines, i)) {
         continue;
       }
 
-      // Match links like [text](FILE.md) but not [text](./FILE.md) or [text](http://...)
       const badLinkPattern = /\[([^\]]+)\]\((?!\.\/|https?:\/\/|#)([^)]+\.md[^)]*)\)/g;
       const matches = Array.from(line.matchAll(badLinkPattern));
 
@@ -1260,10 +1213,7 @@ function validateLinkFormat(): ValidationResult {
 }
 
 /**
- * Check 4: Validates model ID format consistency
- *
- * Detects model IDs without required vendor prefixes in markdown lists.
- * Uses MODEL_VALIDATION_RULES to check for incorrect formats.
+ * Check 4: Validates model ID vendor prefixes.
  */
 function validateModelIdFormats(): ValidationResult {
   const errors: string[] = [];
@@ -1284,17 +1234,15 @@ function validateModelIdFormats(): ValidationResult {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Skip code blocks, model usage in code, and markdown tables
       if (
         line.trim().startsWith("```") ||
         line.includes('model: provider("') ||
         line.includes("model: sapai(") ||
-        line.trim().startsWith("|") // Skip markdown table rows
+        line.trim().startsWith("|")
       ) {
         continue;
       }
 
-      // Check each rule's incorrect pattern
       for (const rule of MODEL_VALIDATION_RULES) {
         if (!rule.incorrectPattern) continue;
 
@@ -1306,7 +1254,6 @@ function validateModelIdFormats(): ValidationResult {
           errors.push(
             `${file}:${String(i + 1)} - Model ID format error (${rule.vendor}): "${incorrect}" should be "${correctFormat}"`,
           );
-          // Error tracked in errors array
           issuesFound++;
         }
       }
@@ -1327,7 +1274,7 @@ function validateModelIdFormats(): ValidationResult {
 }
 
 /**
- * Check 3: Detects excessive hardcoded model ID lists
+ * Check 3: Detects excessive hardcoded model lists.
  */
 function validateModelLists(): ValidationResult {
   const errors: string[] = [];
@@ -1341,7 +1288,6 @@ function validateModelLists(): ValidationResult {
 
     const content = readFileSync(file, "utf-8");
 
-    // Count model ID mentions using patterns from rules
     let modelMentions = 0;
     for (const rule of MODEL_VALIDATION_RULES) {
       for (const pattern of rule.countPatterns) {
@@ -1371,12 +1317,7 @@ function validateModelLists(): ValidationResult {
 }
 
 /**
- * Check 14: Detects orphan sections (headers without content).
- *
- * Identifies sections that have no content between the header and the next
- * header, which may indicate incomplete documentation.
- *
- * Algorithm: Track line count between consecutive headers, warn if < 2 lines.
+ * Check 14: Detects empty sections without content.
  */
 function validateOrphanSections(): ValidationResult {
   const errors: string[] = [];
@@ -1393,7 +1334,6 @@ function validateOrphanSections(): ValidationResult {
 
     const headers: { level: number; line: number; text: string }[] = [];
 
-    // Extract all headers outside code blocks
     for (let i = 0; i < lines.length; i++) {
       if (inCodeBlock[i]) {
         continue;
@@ -1409,25 +1349,30 @@ function validateOrphanSections(): ValidationResult {
       }
     }
 
-    // Check content between consecutive headers
     for (let i = 0; i < headers.length - 1; i++) {
       const current = headers[i];
       const next = headers[i + 1];
 
-      // Calculate non-empty lines between headers
-      const startLine = current.line; // 1-based
-      const endLine = next.line - 1; // 1-based, before next header
-      let contentLines = 0;
+      const startIdx = current.line;
+      const endIdx = next.line - 2;
+      let hasTextContent = false;
+      let hasCodeBlock = false;
 
-      for (let lineIdx = startLine; lineIdx < endLine; lineIdx++) {
-        const line = lines[lineIdx].trim(); // lines array is 0-based
-        if (line && !inCodeBlock[lineIdx]) {
-          contentLines++;
+      for (let lineIdx = startIdx; lineIdx <= endIdx; lineIdx++) {
+        const line = lines[lineIdx].trim();
+        if (line) {
+          if (inCodeBlock[lineIdx]) {
+            hasCodeBlock = true;
+          } else {
+            hasTextContent = true;
+          }
         }
       }
 
-      // Orphan section: no content between headers (or only whitespace/code blocks)
-      if (contentLines === 0) {
+      const isSubHeader = next.level > current.level;
+      const hasContent = hasTextContent || hasCodeBlock;
+
+      if (!isSubHeader && !hasContent) {
         warnings.push(
           `${file}:${String(current.line)} - Orphan section: "${"#".repeat(current.level)} ${current.text}" has no content before next header`,
         );
@@ -1450,7 +1395,7 @@ function validateOrphanSections(): ValidationResult {
 }
 
 /**
- * Check 1: Verifies that all public exports are documented in API_REFERENCE.md
+ * Check 1: Verifies critical exports are documented.
  */
 function validatePublicExportsDocumented(): ValidationResult {
   const errors: string[] = [];
@@ -1462,7 +1407,6 @@ function validatePublicExportsDocumented(): ValidationResult {
 
   if (!existsSync(indexPath) || !existsSync(apiRefPath)) {
     errors.push("Missing src/index.ts or API_REFERENCE.md");
-    // Error tracked in errors array
     console.log("  ❌ Critical files missing");
     return { errors, passed: false, warnings };
   }
@@ -1470,10 +1414,8 @@ function validatePublicExportsDocumented(): ValidationResult {
   const indexContent = readFileSync(indexPath, "utf-8");
   const apiRefContent = readFileSync(apiRefPath, "utf-8");
 
-  // Extract all exports from index.ts
   const exports = new Set<string>();
 
-  // Direct exports: export const/function/class/type/interface NAME
   const directExports = Array.from(
     indexContent.matchAll(/export\s+(?:const|function|class|type|interface)\s+(\w+)/g),
   );
@@ -1481,7 +1423,6 @@ function validatePublicExportsDocumented(): ValidationResult {
     exports.add(match[1]);
   }
 
-  // Re-exports: export { NAME1, NAME2, ... }
   const reExportMatches = Array.from(indexContent.matchAll(/export\s*\{\s*([^}]+)\s*\}/g));
   for (const match of reExportMatches) {
     const names = match[1]
@@ -1497,7 +1438,6 @@ function validatePublicExportsDocumented(): ValidationResult {
     names.forEach((n) => exports.add(n));
   }
 
-  // Check if critical exports are documented
   let undocumented = 0;
   for (const exportName of CRITICAL_EXPORTS) {
     if (!exports.has(exportName)) {
@@ -1505,7 +1445,6 @@ function validatePublicExportsDocumented(): ValidationResult {
       continue;
     }
 
-    // Check if documented in API reference
     const patterns = [
       new RegExp(`\`${exportName}\``),
       new RegExp(`###.*${exportName}`),
@@ -1536,7 +1475,7 @@ function validatePublicExportsDocumented(): ValidationResult {
 }
 
 /**
- * Check 7: Verifies required documentation files exist
+ * Check 7: Verifies required files exist.
  */
 function validateRequiredFiles(): ValidationResult {
   const errors: string[] = [];
@@ -1548,7 +1487,6 @@ function validateRequiredFiles(): ValidationResult {
   for (const file of REQUIRED_FILES) {
     if (!existsSync(file)) {
       errors.push(`Missing required file: ${file}`);
-      // Error tracked in errors array
       missingCount++;
     }
   }
@@ -1566,12 +1504,8 @@ function validateRequiredFiles(): ValidationResult {
   };
 }
 
-// ============================================================================
-// Advanced Structural Validations (Checks 12-14)
-// ============================================================================
-
 /**
- * Check 11: Validates links and model IDs in TypeScript source code comments
+ * Check 11: Validates links in TypeScript comments.
  */
 function validateSourceCodeComments(): ValidationResult {
   const errors: string[] = [];
@@ -1605,25 +1539,20 @@ function validateSourceCodeComments(): ValidationResult {
         const line = commentLines[lineOffset];
         const absoluteLine = comment.lineNumber + lineOffset;
 
-        // Check 1: Validate markdown links in JSDoc
-        // Match: [text](path), {@link path}, {@see path}
         const mdLinkPattern = /\[([^\]]+)\]\(((?!https?:\/\/)([^)#]+))(#[^)]+)?\)/g;
         const jsdocLinkPattern = /\{@(?:link|see)\s+([^}]+)\}/g;
 
         const mdMatches = Array.from(line.matchAll(mdLinkPattern));
         const jsdocMatches = Array.from(line.matchAll(jsdocLinkPattern));
 
-        // Validate markdown-style links
         for (const match of mdMatches) {
           linksChecked++;
           const targetPath = match[3];
 
-          // Skip if it's a code identifier (no file extension)
           if (!targetPath.includes(".")) {
             continue;
           }
 
-          // Resolve relative to project root (where source files are)
           const resolvedPath = join(".", targetPath);
 
           if (!existsSync(resolvedPath)) {
@@ -1634,11 +1563,9 @@ function validateSourceCodeComments(): ValidationResult {
           }
         }
 
-        // Validate JSDoc @link references to files (not code symbols)
         for (const match of jsdocMatches) {
           const target = match[1].trim();
 
-          // Only validate if it looks like a file path (has extension)
           if (target.includes(".md") || target.includes(".ts")) {
             linksChecked++;
             const resolvedPath = join(".", target);
@@ -1652,7 +1579,6 @@ function validateSourceCodeComments(): ValidationResult {
           }
         }
 
-        // Check 2: Validate model ID formats in examples
         for (const rule of MODEL_VALIDATION_RULES) {
           if (!rule.incorrectPattern) continue;
 
@@ -1660,8 +1586,6 @@ function validateSourceCodeComments(): ValidationResult {
           const matches = line.matchAll(new RegExp(pattern.source, pattern.flags));
 
           for (const match of matches) {
-            // Skip if inside code fence or @example block (allowed in examples)
-            // Also skip if in external URLs (https://, http://)
             if (
               line.includes("```") ||
               line.includes("@example") ||
@@ -1705,7 +1629,7 @@ function validateSourceCodeComments(): ValidationResult {
 }
 
 /**
- * Check 8: Validates Table of Contents in all markdown files
+ * Check 8: Validates ToC accuracy.
  */
 function validateTableOfContents(): ValidationResult {
   const errors: string[] = [];
@@ -1720,7 +1644,6 @@ function validateTableOfContents(): ValidationResult {
     const content = readFileSync(file, "utf-8");
     const lines = content.split("\n");
 
-    // Detect if file has ToC
     const { endLine, hasToc, startLine } = detectToc(content);
 
     if (!hasToc) {
@@ -1729,7 +1652,6 @@ function validateTableOfContents(): ValidationResult {
 
     filesWithToc++;
 
-    // Extract ToC entries
     const tocEntries = extractTocEntries(lines, startLine, endLine);
 
     if (tocEntries.length === 0) {
@@ -1738,27 +1660,21 @@ function validateTableOfContents(): ValidationResult {
       continue;
     }
 
-    // Infer ToC depth
     const tocDepth = inferTocDepth(tocEntries);
 
-    // Extract actual headers
     const headers = extractHeaders(lines, startLine);
 
-    // Validate ToC against headers
     const validation = validateTocEntries(tocEntries, headers, tocDepth);
 
-    // Report missing entries
     if (validation.missing.length > 0) {
       for (const header of validation.missing) {
         errors.push(
           `${file}:${String(header.lineNumber)} - Missing in ToC: "${"#".repeat(header.level)} ${header.text}" (anchor: #${header.anchor})`,
         );
-        // Error tracked in errors array
         issuesFound++;
       }
     }
 
-    // Report extra entries
     if (validation.extra.length > 0) {
       for (const entry of validation.extra) {
         warnings.push(
@@ -1768,14 +1684,12 @@ function validateTableOfContents(): ValidationResult {
       }
     }
 
-    // Report mismatched entries
     if (validation.mismatched.length > 0) {
       for (const { actual, expected } of validation.mismatched) {
         if (actual.text !== expected.text) {
           errors.push(
             `${file}:${String(actual.lineNumber)} - ToC text mismatch: "${actual.text}" should be "${expected.text}"`,
           );
-          // Error tracked in errors array
           issuesFound++;
         }
         if (actual.level !== expected.level) {
@@ -1816,14 +1730,12 @@ function validateTocEntries(
   headers: HeaderEntry[],
   tocDepth: number,
 ): TocValidationResult {
-  // Filter headers to only those that should be in ToC (by depth)
   const expectedHeaders = headers.filter((h) => h.level <= tocDepth);
 
   const missing: HeaderEntry[] = [];
   const extra: TocEntry[] = [];
   const mismatched: { actual: TocEntry; expected: HeaderEntry }[] = [];
 
-  // Create maps for efficient lookup
   const tocMap = new Map<string, TocEntry>();
   for (const entry of tocEntries) {
     tocMap.set(entry.anchor, entry);
@@ -1834,21 +1746,18 @@ function validateTocEntries(
     headerMap.set(header.anchor, header);
   }
 
-  // Find missing entries (in headers but not in ToC)
   for (const header of expectedHeaders) {
     const tocEntry = tocMap.get(header.anchor);
 
     if (!tocEntry) {
       missing.push(header);
     } else {
-      // Check for mismatches (wrong text or level)
       if (tocEntry.text !== header.text || tocEntry.level !== header.level) {
         mismatched.push({ actual: tocEntry, expected: header });
       }
     }
   }
 
-  // Find extra entries (in ToC but not in headers)
   for (const tocEntry of tocEntries) {
     if (!headerMap.has(tocEntry.anchor)) {
       extra.push(tocEntry);
@@ -1866,12 +1775,8 @@ function validateTocEntries(
   };
 }
 
-// ============================================================================
-// Main Execution
-// ============================================================================
-
 /**
- * Check 9: Validates version consistency across documentation
+ * Check 9: Validates package.json version appears in docs.
  */
 function validateVersionConsistency(): ValidationResult {
   const errors: string[] = [];
@@ -1928,5 +1833,10 @@ function validateVersionConsistency(): ValidationResult {
   };
 }
 
-// Run main function
+// ============================================================================
+// CLI Entry Point
+// ============================================================================
+
+// Parse CLI arguments and run main function
+parseCliArgs();
 main();
