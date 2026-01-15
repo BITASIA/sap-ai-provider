@@ -13,21 +13,21 @@
 - ✅ **Phases 1-4**: Complete (Preparation, Core Migration, Tests, Documentation) - 68/68 tasks
 - ✅ **Phase 5.1**: Pre-Release Preparation Complete - 6/6 tasks (includes comprehensive audit)
 - ✅ **Phase 5.1a**: Pre-Release RC1 Complete - 7/7 tasks (v4.0.0-rc.1 published, feedback gathered)
-- ✅ **Phase 5.1b**: Pre-Release RC2 Complete - 3/3 tasks (v4.0.0-rc.2 prepared, awaiting release)
-- ⏳ **Phase 5.2**: Final v4.0.0 release - Awaiting RC2 feedback completion
+- ✅ **Phase 5.1b**: Pre-Release RC2 Published - 3/4 tasks (v4.0.0-rc.2 released, gathering feedback)
+- ⏳ **Phase 5.2**: Final v4.0.0 release - Awaiting RC2 feedback completion (Task 5.1b.4)
 - ⏳ **Phase 5.3**: Final release publication - Pending Phase 5.2
 - ⏳ **Phase 5.4**: Post-release tasks pending release publication
-- 📦 **Package**: v4.0.0-rc.2 prepared (ready for npm publish under `next` tag)
+- 📦 **Package**: v4.0.0-rc.2 published to npm (tag: `next`)
 - 🔗 **PR #28**: Open on upstream (BITASIA/sap-ai-provider), reviewed by Copilot + Cursor
 - 🏷️ **Git Tag**: v4.0.0-rc.2 created and pushed
 - 🎯 **Implementation Quality**: 9.8/10 audit score (improved from 9.5/10) - APPROVED for production release
-- 🎯 **Next Steps**: Release RC2, gather feedback, then proceed to final v4.0.0 release
+- 🎯 **Next Steps**: Gather RC2 feedback (Task 5.1b.4), then proceed to final v4.0.0 release
 
 ## Task Overview
 
-Total Tasks: 102 (added Phase 5.1b with 3 RC2 tasks)
-Completed Tasks: 87/102 (85.3%)  
-Remaining Tasks: 15 (Phase 5.2-5.4 pending)
+Total Tasks: 103 (added Phase 5.1b with 4 RC2 tasks, including feedback gathering)
+Completed Tasks: 87/103 (84.5%)  
+Remaining Tasks: 16 (1 in Phase 5.1b feedback monitoring, 15 in Phase 5.2-5.4 pending)
 
 ---
 
@@ -692,6 +692,17 @@ Remaining Tasks: 15 (Phase 5.2-5.4 pending)
   - **Effort**: 1 hour
   - **Dependencies**: Tasks 5.1b.1, 5.1b.2
   - **Completed**: Documented RC2 improvements comprehensively in all OpenSpec documents
+
+- [ ] **Task 5.1b.4**: Gather feedback from RC2
+  - **Action**: Monitor GitHub issues, npm downloads, user reports, PR #28 comments
+  - **Effort**: 3-7 days
+  - **Dependencies**: Task 5.1b.3
+  - **Success Criteria**:
+    - No critical bugs reported
+    - Positive feedback on validator enhancements
+    - Test coverage improvements validated
+    - Migration guide confirmed accurate
+  - **Decision Point**: If no critical issues, proceed to Task 5.2.1 (final v4.0.0). If critical issues found, create RC3.
 
 ### 5.2 Release Execution (Final v4.0.0)
 
