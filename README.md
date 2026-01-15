@@ -176,86 +176,55 @@ Authentication is handled automatically by the SAP AI SDK using the `AICORE_SERV
 
 ### Text Generation
 
+**Complete example:** [examples/example-generate-text.ts](./examples/example-generate-text.ts)
+
 ```typescript
-import "dotenv/config"; // Load environment variables
-import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
-import { generateText } from "ai";
-import { APICallError } from "@ai-sdk/provider";
-
-const provider = createSAPAIProvider();
-
-try {
-  const result = await generateText({
-    model: provider("gpt-4o"),
-    prompt: "Write a short story about a robot learning to paint.",
-  });
-
-  console.log(result.text);
-} catch (error) {
-  if (error instanceof APICallError) {
-    console.error("API error:", error.message, "- Status:", error.statusCode);
-  }
-  throw error;
-}
+const result = await generateText({
+  model: provider("gpt-4o"),
+  prompt: "Write a short story about a robot learning to paint.",
+});
+console.log(result.text);
 ```
 
+**Run it:** `npx tsx examples/example-generate-text.ts`
+
 ### Chat Conversations
+
+**Complete example:** [examples/example-simple-chat-completion.ts](./examples/example-simple-chat-completion.ts)
 
 Note: assistant `reasoning` parts are dropped by default. Set `includeReasoning: true` on the model settings if you explicitly want to forward them.
 
 ```typescript
-import "dotenv/config"; // Load environment variables
-import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
-import { generateText } from "ai";
-import { APICallError } from "@ai-sdk/provider";
-
-const provider = createSAPAIProvider();
-
-try {
-  const result = await generateText({
-    model: provider("anthropic--claude-3.5-sonnet"),
-    messages: [
-      { role: "system", content: "You are a helpful coding assistant." },
-      {
-        role: "user",
-        content: "How do I implement binary search in TypeScript?",
-      },
-    ],
-  });
-} catch (error) {
-  if (error instanceof APICallError) {
-    console.error("API error:", error.message, "- Status:", error.statusCode);
-  }
-  throw error;
-}
+const result = await generateText({
+  model: provider("anthropic--claude-3.5-sonnet"),
+  messages: [
+    { role: "system", content: "You are a helpful coding assistant." },
+    {
+      role: "user",
+      content: "How do I implement binary search in TypeScript?",
+    },
+  ],
+});
 ```
+
+**Run it:** `npx tsx examples/example-simple-chat-completion.ts`
 
 ### Streaming Responses
 
+**Complete example:** [examples/example-streaming-chat.ts](./examples/example-streaming-chat.ts)
+
 ```typescript
-import "dotenv/config"; // Load environment variables
-import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
-import { streamText } from "ai";
-import { APICallError } from "@ai-sdk/provider";
+const result = streamText({
+  model: provider("gpt-4o"),
+  prompt: "Explain machine learning concepts.",
+});
 
-const provider = createSAPAIProvider();
-
-try {
-  const result = streamText({
-    model: provider("gpt-4o"),
-    prompt: "Explain machine learning concepts.",
-  });
-
-  for await (const delta of result.textStream) {
-    process.stdout.write(delta);
-  }
-} catch (error) {
-  if (error instanceof APICallError) {
-    console.error("API error:", error.message, "- Status:", error.statusCode);
-  }
-  throw error;
+for await (const delta of result.textStream) {
+  process.stdout.write(delta);
 }
 ```
+
+**Run it:** `npx tsx examples/example-streaming-chat.ts`
 
 ### Model Configuration
 
@@ -316,27 +285,14 @@ The following helper functions are exported by this package for convenient confi
 
 > **Note on Terminology:** This documentation uses "tool calling" (Vercel AI SDK convention), equivalent to "function calling" in OpenAI documentation. Both terms refer to the same capability of models invoking external functions.
 
-📖 **Complete guide:** [API Reference - Tool Calling](./API_REFERENCE.md#tool-calling-function-calling)
+📖 **Complete guide:** [API Reference - Tool Calling](./API_REFERENCE.md#tool-calling-function-calling)  
+**Complete example:** [examples/example-chat-completion-tool.ts](./examples/example-chat-completion-tool.ts)
 
 ```typescript
-import "dotenv/config"; // Load environment variables
-import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
-import { generateText, tool } from "ai";
-import { z } from "zod";
-
-const provider = createSAPAIProvider();
-
-const weatherSchema = z.object({
-  location: z.string(),
-});
-
 const weatherTool = tool({
   description: "Get weather for a location",
-  inputSchema: weatherSchema,
-  execute: (args: z.infer<typeof weatherSchema>) => {
-    const { location } = args;
-    return `Weather in ${location}: sunny, 72°F`;
-  },
+  inputSchema: z.object({ location: z.string() }),
+  execute: (args) => `Weather in ${args.location}: sunny, 72°F`,
 });
 
 const result = await generateText({
@@ -345,21 +301,17 @@ const result = await generateText({
   tools: { getWeather: weatherTool },
   maxSteps: 3,
 });
-
-console.log(result.text);
 ```
+
+**Run it:** `npx tsx examples/example-chat-completion-tool.ts`
 
 ⚠️ **Important:** Gemini models support only 1 tool per request. For multi-tool applications, use GPT-4o, Claude, or Amazon Nova models. See [API Reference - Tool Calling](./API_REFERENCE.md#tool-calling-function-calling) for complete model comparison.
 
 ### Multi-modal Input (Images)
 
+**Complete example:** [examples/example-image-recognition.ts](./examples/example-image-recognition.ts)
+
 ```typescript
-import "dotenv/config"; // Load environment variables
-import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
-import { generateText } from "ai";
-
-const provider = createSAPAIProvider();
-
 const result = await generateText({
   model: provider("gpt-4o"),
   messages: [
@@ -373,6 +325,8 @@ const result = await generateText({
   ],
 });
 ```
+
+**Run it:** `npx tsx examples/example-image-recognition.ts`
 
 ### Data Masking (SAP DPI)
 
@@ -418,15 +372,12 @@ const provider = createSAPAIProvider({
 
 ### Document Grounding (RAG)
 
-Ground LLM responses in your own documents using vector databases:
+Ground LLM responses in your own documents using vector databases.
+
+**Complete example:** [examples/example-document-grounding.ts](./examples/example-document-grounding.ts)  
+**Complete documentation:** [API Reference - Document Grounding](./API_REFERENCE.md#builddocumentgroundingconfigconfig)
 
 ```typescript
-import "dotenv/config"; // Load environment variables
-import {
-  createSAPAIProvider,
-  buildDocumentGroundingConfig,
-} from "@mymediset/sap-ai-provider";
-
 const provider = createSAPAIProvider({
   defaultSettings: {
     grounding: buildDocumentGroundingConfig({
@@ -448,20 +399,16 @@ const provider = createSAPAIProvider({
 const model = provider("gpt-4o");
 ```
 
-**Full example:** [examples/example-document-grounding.ts](./examples/example-document-grounding.ts)  
-**Full documentation:** [API_REFERENCE.md - Document Grounding](./API_REFERENCE.md#builddocumentgroundingconfigconfig)
+**Run it:** `npx tsx examples/example-document-grounding.ts`
 
 ### Translation
 
-Automatically translate user queries and model responses:
+Automatically translate user queries and model responses.
+
+**Complete example:** [examples/example-translation.ts](./examples/example-translation.ts)  
+**Complete documentation:** [API Reference - Translation](./API_REFERENCE.md#buildtranslationconfigtype-config)
 
 ```typescript
-import "dotenv/config"; // Load environment variables
-import {
-  createSAPAIProvider,
-  buildTranslationConfig,
-} from "@mymediset/sap-ai-provider";
-
 const provider = createSAPAIProvider({
   defaultSettings: {
     translation: {
@@ -482,8 +429,7 @@ const provider = createSAPAIProvider({
 const model = provider("gpt-4o");
 ```
 
-**Full example:** [examples/example-translation.ts](./examples/example-translation.ts)  
-**Full documentation:** [API_REFERENCE.md - Translation](./API_REFERENCE.md#buildtranslationconfigtype-config)
+**Run it:** `npx tsx examples/example-translation.ts`
 
 ## Configuration Options
 

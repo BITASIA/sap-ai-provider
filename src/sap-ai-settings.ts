@@ -159,6 +159,8 @@ export interface SAPAISettings {
    * When provided, sensitive information in prompts can be anonymized or
    * pseudonymized by SAP Data Privacy Integration (DPI).
    *
+   * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/data-privacy-integration SAP DPI Documentation}
+   *
    * @example
    * ```typescript
    * import { buildDpiMaskingProvider } from '@sap-ai-sdk/orchestration';
@@ -180,6 +182,8 @@ export interface SAPAISettings {
   /**
    * Filtering configuration for input and output content safety.
    * Supports Azure Content Safety and Llama Guard filters.
+   *
+   * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/content-filtering SAP Content Filtering Documentation}
    *
    * @example
    * ```typescript
@@ -206,6 +210,8 @@ export interface SAPAISettings {
    * Enables retrieval-augmented generation using SAP Document Grounding Service.
    *
    * Use `buildDocumentGroundingConfig()` to create the configuration.
+   *
+   * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/document-grounding SAP Document Grounding Documentation}
    *
    * @example
    * ```typescript
@@ -236,6 +242,8 @@ export interface SAPAISettings {
    * Enables automatic translation using SAP Document Translation service.
    *
    * Use `buildTranslationConfig()` to create input/output configurations.
+   *
+   * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/translation SAP Translation Documentation}
    *
    * @example
    * ```typescript
@@ -328,6 +336,8 @@ export interface SAPAISettings {
  * These models are available through the SAP AI Core Orchestration service.
  * **Note:** The models listed here are representative examples. Actual model availability
  * depends on your SAP AI Core tenant configuration, region, and subscription.
+ *
+ * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/models-and-scenarios SAP AI Core Models Documentation}
  *
  * **Azure OpenAI Models:**
  * - gpt-4o, gpt-4o-mini

@@ -297,6 +297,9 @@ interface SAPAIConfig {
  * - AWS Bedrock models (anthropic--claude-*, amazon--nova-*, etc.)
  * - AI Core open source models (mistralai--, cohere--, etc.)
  *
+ * @see {@link https://sdk.vercel.ai/docs/ai-sdk-core/language-model-v3 Vercel AI SDK LanguageModelV3}
+ * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/orchestration SAP AI Core Orchestration}
+ *
  * @example
  * ```typescript
  * // Create via provider
@@ -977,6 +980,8 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * - Finish reason format: `{ unified: string, raw?: string }`
    * - Usage format: `{ inputTokens: { total, ... }, outputTokens: { total, ... } }`
    * - Warnings only in `stream-start` event
+   *
+   * @see {@link https://sdk.vercel.ai/docs/ai-sdk-core/streaming Vercel AI SDK Streaming}
    *
    * @param options - Streaming options including prompt, tools, and settings
    * @returns Promise resolving to stream and request metadata

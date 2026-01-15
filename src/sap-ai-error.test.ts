@@ -1,3 +1,10 @@
+/**
+ * Unit tests for SAP AI Error Handling
+ *
+ * Tests error conversion from SAP AI SDK format to Vercel AI SDK format,
+ * including status code mapping, retry logic, and error message enhancement.
+ */
+
 import { describe, it, expect } from "vitest";
 import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
 import type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";

@@ -1105,10 +1105,9 @@ function buildDpiMaskingProvider(
 
 **Example:**
 
-```typescript
-import "dotenv/config"; // Load environment variables
-import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
+**Complete example:** [examples/example-data-masking.ts](./examples/example-data-masking.ts)
 
+```typescript
 const dpiMasking = buildDpiMaskingProvider({
   method: "anonymization",
   entities: [
@@ -1129,6 +1128,8 @@ const provider = createSAPAIProvider({
   },
 });
 ```
+
+**Run it:** `npx tsx examples/example-data-masking.ts`
 
 ---
 
@@ -1161,9 +1162,6 @@ function buildAzureContentSafetyFilter(
 **Example:**
 
 ```typescript
-import "dotenv/config"; // Load environment variables
-import { buildAzureContentSafetyFilter } from "@mymediset/sap-ai-provider";
-
 const provider = createSAPAIProvider({
   defaultSettings: {
     filtering: {
@@ -1207,9 +1205,6 @@ function buildLlamaGuard38BFilter(
 **Example:**
 
 ```typescript
-import "dotenv/config"; // Load environment variables
-import { buildLlamaGuard38BFilter } from "@mymediset/sap-ai-provider";
-
 const provider = createSAPAIProvider({
   defaultSettings: {
     filtering: {
@@ -1243,10 +1238,9 @@ function buildDocumentGroundingConfig(
 
 **Example:**
 
-```typescript
-import "dotenv/config"; // Load environment variables
-import { buildDocumentGroundingConfig } from "@mymediset/sap-ai-provider";
+**Complete example:** [examples/example-document-grounding.ts](./examples/example-document-grounding.ts)
 
+```typescript
 const groundingConfig = buildDocumentGroundingConfig({
   filters: [
     {
@@ -1270,6 +1264,8 @@ const provider = createSAPAIProvider({
 // Now queries will be grounded in your documents
 const model = provider("gpt-4o");
 ```
+
+**Run it:** `npx tsx examples/example-document-grounding.ts`
 
 **See also:** [`examples/example-document-grounding.ts`](./examples/example-document-grounding.ts)
 
@@ -1300,13 +1296,9 @@ function buildTranslationConfig(
 
 **Example:**
 
-```typescript
-import "dotenv/config"; // Load environment variables
-import {
-  createSAPAIProvider,
-  buildTranslationConfig,
-} from "@mymediset/sap-ai-provider";
+**Complete example:** [examples/example-translation.ts](./examples/example-translation.ts)
 
+```typescript
 // Translate user input from German to English
 const inputTranslation = buildTranslationConfig("input", {
   sourceLanguage: "de",
@@ -1330,6 +1322,8 @@ const provider = createSAPAIProvider({
 // Now the model handles German input/output automatically
 const model = provider("gpt-4o");
 ```
+
+**Run it:** `npx tsx examples/example-translation.ts`
 
 **See also:** [`examples/example-translation.ts`](./examples/example-translation.ts)
 

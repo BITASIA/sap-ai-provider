@@ -10,7 +10,7 @@
  *   npm run fix-docs-toc                 # Fix all files with existing ToC
  */
 
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 // ============================================================================
 // Helper Functions (duplicated from validate-docs.ts for independence)

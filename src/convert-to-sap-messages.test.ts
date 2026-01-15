@@ -1,3 +1,10 @@
+/**
+ * Unit tests for Message Conversion
+ *
+ * Tests conversion from Vercel AI SDK prompt format to SAP AI SDK ChatMessage format,
+ * including system/user/assistant messages, tool calls, multi-modal content, and reasoning parts.
+ */
+
 import { describe, it, expect } from "vitest";
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import type { LanguageModelV3Prompt } from "@ai-sdk/provider";

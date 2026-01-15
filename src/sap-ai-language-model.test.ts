@@ -1,3 +1,13 @@
+/**
+ * Unit tests for SAP AI Language Model
+ *
+ * Tests the LanguageModelV3 implementation including:
+ * - Text generation (streaming and non-streaming)
+ * - Tool calling
+ * - Multi-modal inputs
+ * - Message conversion and formatting
+ */
+
 import { describe, it, expect, vi } from "vitest";
 import { SAPAILanguageModel } from "./sap-ai-language-model";
 import type {

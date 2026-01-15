@@ -1,3 +1,10 @@
+/**
+ * Unit tests for SAP AI Provider
+ *
+ * Tests provider creation, configuration, model instantiation,
+ * and settings merge behavior.
+ */
+
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { createSAPAIProvider, sapai } from "./sap-ai-provider";
 

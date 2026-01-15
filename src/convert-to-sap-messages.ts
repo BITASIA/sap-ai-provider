@@ -46,6 +46,9 @@ interface UserContentItem {
  * **Behavior:**
  * - Reasoning parts are dropped by default; when enabled via `includeReasoning`, they are preserved inline as `<reasoning>...</reasoning>` markers
  *
+ * @see {@link https://sdk.vercel.ai/docs/ai-sdk-core/prompt-engineering Vercel AI SDK Prompt Engineering}
+ * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/orchestration SAP AI Core Orchestration}
+ *
  * @param prompt - The AI SDK prompt to convert
  * @param options - Optional conversion settings
  * @returns Array of SAP AI SDK compatible ChatMessage objects

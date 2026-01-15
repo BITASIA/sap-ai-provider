@@ -21,8 +21,8 @@
  *   npx tsx scripts/validate-docs.ts
  */
 
-import { readFileSync, existsSync, readdirSync, statSync } from "fs";
-import { join, relative } from "path";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 
 // ============================================================================
 // Types and Interfaces
