@@ -513,7 +513,7 @@ The migration to LanguageModelV3 SHALL be considered complete when:
 
 ## References
 
-- [AI SDK Provider Interface Specification](https://sdk.vercel.ai/docs/ai-sdk-core/provider-interfaces)
+- [AI SDK Provider Interface Specification](https://sdk.vercel.ai/docs/ai-sdk-core/provider-management)
 - [LanguageModelV3 Type Definitions](https://github.com/vercel/ai/blob/main/packages/provider/src/language-model/v3)
 - [Mistral V3 Reference Implementation](https://github.com/vercel/ai/blob/main/packages/mistral/src/mistral-chat-language-model.ts)
 - [SAP AI SDK Orchestration Client](https://help.sap.com/docs/sap-ai-core)

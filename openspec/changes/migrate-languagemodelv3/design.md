@@ -1072,7 +1072,7 @@ blocks + accumulate content
 
 ## References
 
-- [AI SDK V3 Specification](https://sdk.vercel.ai/docs/ai-sdk-core/provider-interfaces)
+- [AI SDK V3 Specification](https://sdk.vercel.ai/docs/ai-sdk-core/provider-management)
 - [Mistral V3 Implementation](https://github.com/vercel/ai/blob/main/packages/mistral/src/mistral-chat-language-model.ts)
 - [SAP AI SDK Documentation](https://help.sap.com/docs/sap-ai-core)
 - [Semantic Versioning](https://semver.org/)
