@@ -1,9 +1,6 @@
-# Release Notes: v4.0.0 (TEMPLATE FOR FINAL RELEASE)
+# Release Notes: v4.0.0
 
-> **Note**: This document serves as the template for the final v4.0.0 stable release.  
-> **Current Status**: v4.0.0-rc.2 published (2026-01-15 11:32 UTC) - gathering feedback  
-> **Release Date**: TBD (pending RC2 feedback period completion, 3-7 days)
-
+**Release Date**: 2026-01-15  
 **Type**: Major Version - Breaking Changes  
 **Specification**: LanguageModelV3 (AI SDK 6.0+)
 
@@ -13,9 +10,9 @@
 
 Version 4.0.0 migrates from `LanguageModelV2` to `LanguageModelV3` specification, ensuring compatibility with AI SDK 6+ and unlocking access to modern AI capabilities (agents, reasoning, enhanced streaming).
 
-**Quality**: 249/249 tests passing | Coverage: 91.13% | Implementation audit: 9.8/10
+**Quality**: 194/194 tests passing | Coverage: 92.87% | Implementation audit: 9.8/10
 
-**Pre-Release**: v4.0.0-rc.2 available for testing (`npm install @jerome-benoit/sap-ai-provider@next`)
+**Installation**: `npm install @jerome-benoit/sap-ai-provider@4.0.0`
 
 ---
 
@@ -57,12 +54,11 @@ RC2 introduces powerful documentation validation enhancements to prevent OpenSpe
 
 ### Test Coverage Improvements (scripts/validate-docs.ts)
 
-- ✅ 249/249 tests passing (was 184 in RC1) - +65 tests
-- ✅ 91.13% coverage overall (was 90.49% in RC1) - updated
-- ✅ 93.93% message conversion coverage (was 77.27%) - +16.66%
-- ✅ Added 5 edge case tests (Uint8Array, Buffer, null data, invalid roles)
-- ✅ Created mock builder functions reducing 243 lines of boilerplate
-- ✅ Refactored 19 tests for cleaner, maintainable code
+- ✅ 194/194 tests passing (100%)
+- ✅ 92.87% coverage overall (+2.38% from RC1)
+- ✅ 93.93% message conversion coverage (+16.66% from v3.x)
+- ✅ Added 10 new tests for edge cases
+- ✅ Refactored tests for cleaner, maintainable code
 
 ### Quality Metrics
 
@@ -70,10 +66,6 @@ RC2 introduces powerful documentation validation enhancements to prevent OpenSpe
 - ✅ TypeScript: Strict mode, 0 errors
 - ✅ Build: Successful (ESM + CJS + DTS)
 - ✅ Implementation Audit Score: **9.8/10**
-
----
-
-## Pre-Release
 
 ---
 
@@ -197,13 +189,12 @@ if (chunk.type === "text-delta") {
 - `convert-to-sap-messages.ts` - V3 message conversion
 - `sap-ai-provider.ts` - V3 interface
 
-**Tests** (249 tests, all passing):
+**Tests** (194 tests, all passing):
 
 - 91 tests for V3 language model
 - 34 tests for message conversion (5 new edge cases)
 - 55 tests for error handling
 - 14 tests for provider interface
-- 55 tests for markdown utilities (scripts)
 
 **Documentation** (Complete):
 
@@ -218,8 +209,8 @@ if (chunk.type === "text-delta") {
 
 - ✅ TypeScript strict mode: 0 errors
 - ✅ ESLint: 0 errors, 0 warnings
-- ✅ Tests: 249/249 passing (100%)
-- ✅ Test coverage: 91.13% overall
+- ✅ Tests: 194/194 passing (100%)
+- ✅ Test coverage: 92.87% overall
 - ✅ Build: ESM + CJS + DTS verified
 - ✅ Implementation audit: 9.8/10
 
