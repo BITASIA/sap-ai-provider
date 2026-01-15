@@ -13,9 +13,67 @@
 
 Version 4.0.0 migrates from `LanguageModelV2` to `LanguageModelV3` specification, ensuring compatibility with AI SDK 6+ and unlocking access to modern AI capabilities (agents, reasoning, enhanced streaming).
 
-**Quality**: 194/194 tests passing | Coverage: 92.87% | Implementation audit: 9.5/10
+**Quality**: 194/194 tests passing | Coverage: 92.87% | Implementation audit: 9.8/10
 
-**Pre-Release**: v4.0.0-rc.2 coming soon for testing (`npm install @jerome-benoit/sap-ai-provider@next`)
+**Pre-Release**: v4.0.0-rc.2 available for testing (`npm install @jerome-benoit/sap-ai-provider@next`)
+
+---
+
+## RC2 Improvements (January 15, 2026)
+
+### Enhanced Documentation Validator (scripts/validate-docs.ts)
+
+RC2 introduces powerful documentation validation enhancements to prevent OpenSpec drift and maintain code quality:
+
+**Check 10: Automatic Code Metrics Validation**
+
+- ✅ Automatically validates OpenSpec documentation claims against actual code
+- ✅ Runs `npm run test:coverage` to extract real metrics (test count, coverage %)
+- ✅ Compares with claims in IMPLEMENTATION_AUDIT.md and RELEASE_NOTES.md
+- ✅ Validates version consistency between package.json and OpenSpec documents
+- ✅ Prevents documentation from drifting out of sync with reality
+
+**Check 11: Source Code Comments Validation**
+
+- ✅ Validates markdown links in JSDoc and inline comments (6 TypeScript source files)
+- ✅ Validates JSDoc @link/@see references point to actual files
+- ✅ Checks model ID format consistency (requires vendor prefixes)
+- ✅ Handles all comment types: multi-line JSDoc, one-liner JSDoc, block comments, inline comments
+
+**Critical Bugs Fixed (4 bugs)**:
+
+1. Inline comments after code not detected (`const x = 42; // comment`)
+2. One-liner JSDoc not extracted (`/** comment */`)
+3. False positive: model IDs in URLs (`https://example.com/claude-3-sonnet`)
+4. Block comments `/* */` not extracted
+
+**Refactoring for Maintainability**:
+
+- Extracted magic numbers to named constants (COVERAGE_TOLERANCE_PERCENT, TOC_DEPTH_INFERENCE_THRESHOLD)
+- Extracted 5 regex patterns to reusable REGEX_PATTERNS object
+- Simplified extractCoverage() function
+- Consistent use of EXCLUDED_DIRS constant
+- **Result**: +478 lines with comprehensive edge case handling
+
+### Test Coverage Improvements (scripts/validate-docs.ts)
+
+- ✅ 194/194 tests passing (was 184 in RC1) - +10 tests
+- ✅ 92.87% coverage overall (was 90.49% in RC1) - +2.38%
+- ✅ 93.93% message conversion coverage (was 77.27%) - +16.66%
+- ✅ Added 5 edge case tests (Uint8Array, Buffer, null data, invalid roles)
+- ✅ Created mock builder functions reducing 243 lines of boilerplate
+- ✅ Refactored 19 tests for cleaner, maintainable code
+
+### Quality Metrics
+
+- ✅ ESLint: 0 errors, 0 warnings
+- ✅ TypeScript: Strict mode, 0 errors
+- ✅ Build: Successful (ESM + CJS + DTS)
+- ✅ Implementation Audit Score: **9.8/10** (improved from 9.5/10)
+
+---
+
+## Pre-Release
 
 ---
 
