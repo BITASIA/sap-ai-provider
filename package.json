@@ -26,6 +26,9 @@
   },
   "license": "Apache-2.0",
   "author": "mymediset",
+  "volta": {
+    "node": "24.13.0"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
