@@ -12,7 +12,7 @@
 As of 2026-01-15 19:45 UTC:
 
 - ✅ **Implementation**: Complete (157 commits on `feature/languagemodelv3`, merged to `main`)
-- ✅ **Tests**: 194/194 passing (100%)
+- ✅ **Tests**: 249/249 passing (194 package + 55 scripts = 100%)
 - ✅ **Build**: Successful (ESM + CJS + DTS artifacts generated)
 - ✅ **Type-check**: Successful (strict mode)
 - ✅ **Documentation**: Complete (README.md, MIGRATION_GUIDE.md, API_REFERENCE.md, JSDoc)
@@ -49,7 +49,7 @@ All CI/CD checks defined in `.github/workflows/check-pr.yaml` are passing:
 
 - ✅ **format-check**: ESLint (0 errors) + Prettier (all files formatted)
 - ✅ **type-check**: TypeScript compilation with strict mode
-- ✅ **test**: 194/194 tests passing (unit + node + edge runtimes)
+- ✅ **test**: 249/249 tests passing (194 package + 55 scripts: unit + node + edge runtimes)
 - ✅ **build**: Package compilation + output validation
 - ✅ **docs-validation**: Documentation structure and links verified
 
@@ -192,7 +192,7 @@ The **Language Model Specification V3** (introduced in `@ai-sdk/provider` 3.0.0,
 #### Functional Requirements
 
 - [x] `LanguageModelV3` interface correctly implemented
-- [x] All existing tests pass (194/194)
+- [x] All existing tests pass (249/249: 194 package + 55 scripts)
 - [x] New content types supported (according to SAP capabilities)
 - [x] Streaming compliant with V3 spec
 - [x] Documentation updated (README, MIGRATION_GUIDE, JSDoc)
@@ -755,7 +755,7 @@ A full audit against Vercel AI SDK v6 LanguageModelV3 specification and referenc
 **Key Findings**:
 
 - ✅ **100% V3 Specification Compliance**: All required features correctly implemented
-- ✅ **194/194 Tests Passing**: Comprehensive test coverage with 100% pass rate
+- ✅ **249/249 Tests Passing**: Comprehensive test coverage with 100% pass rate (194 package tests + 55 script tests)
 - ✅ **Superior Error Handling**: Enhanced messages with SAP-specific guidance
 - ✅ **Excellent Developer Experience**: Non-blocking validation, comprehensive JSDoc
 - ✅ **Performance Optimized**: Efficient streaming, minimal memory footprint
@@ -773,7 +773,7 @@ A full audit against Vercel AI SDK v6 LanguageModelV3 specification and referenc
 1. Best-in-class warning system (non-blocking parameter validation)
 2. Enhanced error messages with SAP-specific guidance and documentation links
 3. Superior abort signal handling with detailed platform limitation docs
-4. Comprehensive test suite (194 tests covering all edge cases)
+4. Comprehensive test suite (249 tests: 194 package + 55 scripts, covering all edge cases)
 
 **Audit Recommendation**: **APPROVE FOR PRODUCTION RELEASE** - Implementation exceeds industry standards.
 
@@ -787,7 +787,7 @@ Following RC1 feedback and enhancements, the audit score improved to **9.8/10**:
   - Check 10: Automatic code metrics validation (prevents OpenSpec drift)
   - Check 11: Source code comments validation (links, model IDs)
   - Fixed 4 critical bugs in comment extraction
-- ✅ **Improved Test Coverage**: 184 → 194 tests (+10 tests)
+- ✅ **Improved Test Coverage**: 184 → 249 tests (+65 tests: +10 package tests, +55 script tests)
 - ✅ **Better Coverage**: 90.49% → 92.87% overall (+2.38%)
 - ✅ **Refactoring**: Extracted constants, improved maintainability
 
@@ -1075,7 +1075,7 @@ To ensure successful adoption of v4.0.0, we need a comprehensive communication s
    - Decision point: proceed to testing
 
 2. **M2: Tests Validated** (Day 6) - ✅ **COMPLETE**
-   - All tests pass (unit + integration): 194/194 passing
+   - All tests pass (unit + integration): 249/249 passing (194 package + 55 scripts)
    - Manual validation OK
    - Performance benchmarks acceptable
    - Decision point: proceed to documentation
