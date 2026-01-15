@@ -670,7 +670,7 @@ Remaining Tasks: 0
 - Enhanced documentation validator with 2 new checks (Check 10: metrics validation, Check 11: code comments validation)
 - Fixed 4 critical bugs in comment extraction
 - Improved test coverage: 184 → 249 tests (+65: +10 package tests, +55 script tests)
-- Overall coverage: 90.49% → 92.87% (+2.38%)
+- Overall coverage: 90.49% → 91.13% (+0.64%)
 - Refactored validator for maintainability (+478 lines)
 - Implementation audit score: 9.5/10 → 9.8/10
 
@@ -685,7 +685,7 @@ Remaining Tasks: 0
   - **Files**: `tests/**/*.test.ts`
   - **Effort**: 3 hours
   - **Dependencies**: Task 5.1a.7
-  - **Completed**: Added 10 tests, improved coverage to 92.87%, refactored 19 tests
+  - **Completed**: Added 10 tests, improved coverage to 91.13% overall (92.87% src/), refactored 19 tests
 
 - [x] **Task 5.1b.3**: Update OpenSpec documentation for RC2
   - **Files**: `openspec/changes/migrate-languagemodelv3/IMPLEMENTATION_AUDIT.md`, `RELEASE_NOTES.md`, `tasks.md`
