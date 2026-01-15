@@ -17,6 +17,9 @@
  * 9. Version consistency across docs
  * 10. Code metrics validation (test count, coverage) against OpenSpec claims
  * 11. Source code comments validation (links, model IDs in JSDoc/inline comments)
+ * 12. Heading hierarchy validation (context-aware, ignores code blocks)
+ * 13. Code block syntax validation (detects invalid backtick patterns)
+ * 14. Orphan section detection (sections without content)
  *
  * Usage:
  *   npm run validate-docs
@@ -605,6 +608,39 @@ function isLineInCodeBlock(lines: string[], lineIndex: number): boolean {
 }
 
 /**
+ * Tracks code block state with proper backtick count matching.
+ * More robust than isLineInCodeBlock for advanced validation.
+ *
+ * @param lines - All lines in the file
+ * @returns Array of booleans indicating if each line is in a code block
+ */
+function trackCodeBlocks(lines: string[]): boolean[] {
+  const inCodeBlock: boolean[] = new Array(lines.length).fill(false);
+  let isInBlock = false;
+  let openingBackticks = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(/^(`{3,})/);
+
+    if (match && !isInBlock) {
+      // Opening code block
+      isInBlock = true;
+      openingBackticks = match[1].length;
+      inCodeBlock[i] = true;
+    } else if (match && isInBlock && match[1].length === openingBackticks) {
+      // Closing code block
+      inCodeBlock[i] = true;
+      isInBlock = false;
+      openingBackticks = 0;
+    } else if (isInBlock) {
+      inCodeBlock[i] = true;
+    }
+  }
+
+  return inCodeBlock;
+}
+
+/**
  * Runs all validation checks and reports results.
  */
 function main(): void {
@@ -630,6 +666,11 @@ function main(): void {
 
     // Validate source code comments
     validateSourceCodeComments();
+
+    // New structural validations
+    validateHeadingHierarchySmart();
+    validateCodeBlockSyntax();
+    validateOrphanSections();
   } catch (error) {
     results.errors.push(
       `Validation error: ${error instanceof Error ? error.message : String(error)}`,
@@ -1516,6 +1557,229 @@ function validateTocEntries(
     missing,
     tocDepth,
   };
+}
+
+// ============================================================================
+// Advanced Structural Validations (Checks 12-14)
+// ============================================================================
+
+/**
+ * Check 12: Validates heading hierarchy with context awareness.
+ *
+ * Detects invalid heading jumps (e.g., H2 → H4 without H3) while properly
+ * ignoring headers inside code blocks and handling edge cases.
+ *
+ * Algorithm: Uses state machine to track heading levels outside code blocks.
+ * Validates that each heading is at most one level deeper than previous.
+ */
+function validateHeadingHierarchySmart(): void {
+  console.log("\n1️⃣2️⃣  Checking heading hierarchy (context-aware)...");
+
+  const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
+  let issuesFound = 0;
+
+  for (const file of mdFiles) {
+    const content = readFileSync(file, "utf-8");
+    const lines = content.split("\n");
+    const inCodeBlock = trackCodeBlocks(lines);
+
+    let previousLevel = 1; // H1 is implicit (document title)
+    let previousLine = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      // Skip code blocks
+      if (inCodeBlock[i]) {
+        continue;
+      }
+
+      const line = lines[i];
+      const headerMatch = /^(#{1,6})\s+(.+)$/.exec(line);
+
+      if (headerMatch) {
+        const level = headerMatch[1].length;
+        const text = headerMatch[2].trim();
+
+        // Allow backward jumps (H4 → H2 is OK), only check forward jumps
+        if (level > previousLevel + 1) {
+          results.errors.push(
+            `${file}:${String(i + 1)} - Invalid heading jump: H${String(previousLevel)} → H${String(level)} (line ${String(previousLine)} → ${String(i + 1)}). Insert H${String(previousLevel + 1)} level first.`,
+          );
+          results.passed = false;
+          issuesFound++;
+        }
+
+        previousLevel = level;
+        previousLine = i + 1;
+      }
+    }
+  }
+
+  if (issuesFound > 0) {
+    console.log(`  ❌ ${String(issuesFound)} heading hierarchy issues`);
+  } else {
+    console.log("  ✅ Heading hierarchy is valid");
+  }
+}
+
+/**
+ * Check 13: Validates code block syntax for common errors.
+ *
+ * Detects:
+ * - Quadruple backticks (````) in non-meta-documentation contexts
+ * - Mismatched opening/closing backticks
+ * - Language identifiers on closing fences
+ *
+ * Algorithm: Proper parser with context detection for meta-documentation.
+ */
+function validateCodeBlockSyntax(): void {
+  console.log("\n1️⃣3️⃣  Checking code block syntax...");
+
+  const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
+  let issuesFound = 0;
+
+  // Meta-documentation contexts where quadruple backticks are valid
+  const metaDocFiles = ["openspec/", "AGENTS.md", ".github/copilot-instructions.md"];
+  const metaLanguages = new Set(["markdown", "md", "typescript", "ts", "javascript", "js"]);
+
+  for (const file of mdFiles) {
+    const content = readFileSync(file, "utf-8");
+    const lines = content.split("\n");
+
+    const isMetaDocFile = metaDocFiles.some((pattern) => file.includes(pattern));
+    let inCodeBlock = false;
+    let openingBackticks = 0;
+    let openingLine = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const match = line.match(/^(`{3,})(\w*)/);
+
+      if (!match) {
+        continue;
+      }
+
+      const backticks = match[1].length;
+      const language = match[2].toLowerCase();
+
+      if (!inCodeBlock) {
+        // Opening fence
+        inCodeBlock = true;
+        openingBackticks = backticks;
+        openingLine = i + 1;
+
+        // Check for quadruple+ backticks
+        if (backticks >= 4) {
+          const isMetaLanguage = metaLanguages.has(language);
+          const isValidContext = isMetaDocFile || isMetaLanguage;
+
+          if (!isValidContext) {
+            results.warnings.push(
+              `${file}:${String(i + 1)} - Unusual code fence: ${String(backticks)} backticks (expected 3). May be syntax error.`,
+            );
+            issuesFound++;
+          }
+        }
+      } else if (backticks === openingBackticks) {
+        // Closing fence
+        if (language) {
+          results.warnings.push(
+            `${file}:${String(i + 1)} - Language identifier on closing fence: \`\`\`${language} (should be just \`\`\`)`,
+          );
+          issuesFound++;
+        }
+
+        inCodeBlock = false;
+        openingBackticks = 0;
+        openingLine = 0;
+      }
+    }
+
+    // Check for unclosed code blocks
+    if (inCodeBlock) {
+      results.errors.push(
+        `${file}:${String(openingLine)} - Unclosed code block (opened with ${String(openingBackticks)} backticks)`,
+      );
+      results.passed = false;
+      issuesFound++;
+    }
+  }
+
+  if (issuesFound > 0) {
+    console.log(`  ⚠️  ${String(issuesFound)} code block syntax issues`);
+  } else {
+    console.log("  ✅ All code blocks have valid syntax");
+  }
+}
+
+/**
+ * Check 14: Detects orphan sections (headers without content).
+ *
+ * Identifies sections that have no content between the header and the next
+ * header, which may indicate incomplete documentation.
+ *
+ * Algorithm: Track line count between consecutive headers, warn if < 2 lines.
+ */
+function validateOrphanSections(): void {
+  console.log("\n1️⃣4️⃣  Checking for orphan sections...");
+
+  const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
+  let issuesFound = 0;
+
+  for (const file of mdFiles) {
+    const content = readFileSync(file, "utf-8");
+    const lines = content.split("\n");
+    const inCodeBlock = trackCodeBlocks(lines);
+
+    const headers: { level: number; line: number; text: string }[] = [];
+
+    // Extract all headers outside code blocks
+    for (let i = 0; i < lines.length; i++) {
+      if (inCodeBlock[i]) {
+        continue;
+      }
+
+      const headerMatch = /^(#{1,6})\s+(.+)$/.exec(lines[i]);
+      if (headerMatch) {
+        headers.push({
+          level: headerMatch[1].length,
+          line: i + 1,
+          text: headerMatch[2].trim(),
+        });
+      }
+    }
+
+    // Check content between consecutive headers
+    for (let i = 0; i < headers.length - 1; i++) {
+      const current = headers[i];
+      const next = headers[i + 1];
+
+      // Calculate non-empty lines between headers
+      const startLine = current.line; // 1-based
+      const endLine = next.line - 1; // 1-based, before next header
+      let contentLines = 0;
+
+      for (let lineIdx = startLine; lineIdx < endLine; lineIdx++) {
+        const line = lines[lineIdx].trim(); // lines array is 0-based
+        if (line && !inCodeBlock[lineIdx]) {
+          contentLines++;
+        }
+      }
+
+      // Orphan section: no content between headers (or only whitespace/code blocks)
+      if (contentLines === 0) {
+        results.warnings.push(
+          `${file}:${String(current.line)} - Orphan section: "${"#".repeat(current.level)} ${current.text}" has no content before next header`,
+        );
+        issuesFound++;
+      }
+    }
+  }
+
+  if (issuesFound > 0) {
+    console.log(`  ⚠️  ${String(issuesFound)} orphan sections found`);
+  } else {
+    console.log("  ✅ No orphan sections detected");
+  }
 }
 
 // ============================================================================
