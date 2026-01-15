@@ -15,12 +15,15 @@
  * 7. Required documentation files existence
  * 8. Table of Contents consistency (automatic detection and validation)
  * 9. Version consistency across docs
+ * 10. Code metrics validation (test count, coverage) against OpenSpec claims
+ * 11. Source code comments validation (links, model IDs in JSDoc/inline comments)
  *
  * Usage:
  *   npm run validate-docs
  *   npx tsx scripts/validate-docs.ts
  */
 
+import { execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
@@ -115,6 +118,25 @@ const VERSION_CHECK_FILES = ["README.md", "MIGRATION_GUIDE.md"] as const;
 /** Directories to exclude from markdown file search */
 const EXCLUDED_DIRS = ["node_modules", ".git"] as const;
 
+/** Tolerance for coverage percentage comparison (allows rounding differences) */
+const COVERAGE_TOLERANCE_PERCENT = 0.5;
+
+/** Minimum percentage threshold for ToC depth inference (10% of entries) */
+const TOC_DEPTH_INFERENCE_THRESHOLD = 0.1;
+
+/**
+ * Regular expression patterns used throughout validation.
+ * Extracted as constants for reusability and clarity.
+ */
+const REGEX_PATTERNS = {
+  // eslint-disable-next-line no-control-regex
+  ANSI_COLORS: /\x1b\[[0-9;]*m/g, // Removes ANSI color codes from terminal output
+  BLOCK_COMMENT_START: /\/\*\*?/, // Matches block comment start (JSDoc or regular)
+  INLINE_COMMENT: /\/\/(.*)$/, // Matches inline comments: // comment
+  JSDOC_ONE_LINER: /\/\*\*.*?\*\//, // Matches one-liner JSDoc: /** comment */
+  URL_PATTERN: /https?:\/\//, // Detects URLs to skip in validation
+} as const;
+
 /**
  * Model ID validation rules
  *
@@ -195,6 +217,18 @@ const results: ValidationResult = {
 // Helper Functions
 // ============================================================================
 
+interface CodeMetricsResult {
+  errors: string[];
+  testMetrics?: TestMetrics;
+  warnings: string[];
+}
+
+interface TestMetrics {
+  coverage?: number;
+  passed: boolean;
+  totalTests: number;
+}
+
 /**
  * Detects if a file contains a Table of Contents section.
  *
@@ -255,6 +289,22 @@ function detectToc(content: string): {
 }
 
 /**
+ * Extracts coverage metrics from npm run test:coverage output.
+ * Parses the summary table at the end of the output.
+ */
+function extractCoverage(output: string): null | number {
+  // Look for the "All files" row in the coverage table
+  const allFilesMatch =
+    /All files\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)/.exec(
+      output,
+    );
+  if (allFilesMatch) {
+    return Number.parseFloat(allFilesMatch[1]);
+  }
+  return null;
+}
+
+/**
  * Extracts actual headers from the document (excluding ToC header itself).
  *
  * @param lines - File lines
@@ -312,6 +362,30 @@ function extractHeaders(lines: string[], tocStartLine: number): HeaderEntry[] {
 }
 
 /**
+ * Extracts test count from npm test output.
+ * Parses Vitest output like: "Tests  194 passed (194)"
+ * Also handles colored output with ANSI codes
+ */
+function extractTestCount(output: string): null | number {
+  // Remove ANSI color codes
+  const clean = output.replace(REGEX_PATTERNS.ANSI_COLORS, "");
+
+  // Try Vitest format: "Tests  194 passed (194)"
+  const vitestMatch = /Tests\s+(\d+)\s+passed\s+\((\d+)\)/.exec(clean);
+  if (vitestMatch) {
+    return Number.parseInt(vitestMatch[2], 10);
+  }
+
+  // Try Jest format: "Tests:  194 passed, 194 total"
+  const jestMatch = /Tests:\s+(\d+)\s+passed,\s+(\d+)\s+total/.exec(clean);
+  if (jestMatch) {
+    return Number.parseInt(jestMatch[2], 10);
+  }
+
+  return null;
+}
+
+/**
  * Extracts ToC entries from the ToC section.
  *
  * @param lines - File lines
@@ -363,6 +437,82 @@ function extractTypeScriptCodeBlocks(content: string): string[] {
   const codeBlockPattern = /```typescript\n([\s\S]*?)\n```/g;
   const matches = Array.from(content.matchAll(codeBlockPattern));
   return matches.map((match) => match[1]);
+}
+
+// ============================================================================
+// Code Metrics Validation
+// ============================================================================
+
+/**
+ * Extracts JSDoc and inline comments from TypeScript source files.
+ * Returns an array of comment blocks with their file location.
+ *
+ * Handles multi-line JSDoc, one-liner JSDoc, block comments, and inline comments
+ */
+function extractTypeScriptComments(filePath: string): {
+  content: string;
+  lineNumber: number;
+}[] {
+  const content = readFileSync(filePath, "utf-8");
+  const lines = content.split("\n");
+  const comments: { content: string; lineNumber: number }[] = [];
+
+  let inBlockComment = false;
+  let currentBlock: string[] = [];
+  let blockStartLine = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Check for one-liner JSDoc: /** comment */
+    const oneLineJSDoc = REGEX_PATTERNS.JSDOC_ONE_LINER.exec(line);
+    if (oneLineJSDoc && !inBlockComment) {
+      comments.push({
+        content: oneLineJSDoc[0],
+        lineNumber: i + 1,
+      });
+      // Continue to check for inline comments after the JSDoc on same line
+    }
+
+    // Block comment start (JSDoc /** or regular /* )
+    if (!inBlockComment && REGEX_PATTERNS.BLOCK_COMMENT_START.test(trimmed)) {
+      // Skip if already handled as one-liner
+      if (oneLineJSDoc) {
+        continue;
+      }
+
+      inBlockComment = true;
+      blockStartLine = i + 1;
+      currentBlock = [line];
+      continue;
+    }
+
+    // Inside block comment
+    if (inBlockComment) {
+      currentBlock.push(line);
+      if (trimmed.endsWith("*/")) {
+        inBlockComment = false;
+        comments.push({
+          content: currentBlock.join("\n"),
+          lineNumber: blockStartLine,
+        });
+        currentBlock = [];
+      }
+      continue;
+    }
+
+    // Inline comments (anywhere in line)
+    const inlineCommentMatch = REGEX_PATTERNS.INLINE_COMMENT.exec(line);
+    if (inlineCommentMatch) {
+      comments.push({
+        content: inlineCommentMatch[0], // Keep the // prefix
+        lineNumber: i + 1,
+      });
+    }
+  }
+
+  return comments;
 }
 
 /**
@@ -439,8 +589,8 @@ function inferTocDepth(tocEntries: TocEntry[]): number {
     const count = levelCounts.get(level) ?? 0;
     const percentage = count / totalEntries;
 
-    // If this level has >10% of entries, include it in depth
-    if (percentage > 0.1) {
+    // If this level has significant representation, include it in depth
+    if (percentage > TOC_DEPTH_INFERENCE_THRESHOLD) {
       maxDepth = Math.max(maxDepth, level);
     }
   }
@@ -485,6 +635,14 @@ function main(): void {
     validateRequiredFiles();
     validateTableOfContents();
     validateVersionConsistency();
+
+    // Validate code metrics against OpenSpec claims
+    const metricsResult = validateCodeMetrics();
+    results.errors.push(...metricsResult.errors);
+    results.warnings.push(...metricsResult.warnings);
+
+    // Validate source code comments
+    validateSourceCodeComments();
   } catch (error) {
     results.errors.push(
       `Validation error: ${error instanceof Error ? error.message : String(error)}`,
@@ -548,6 +706,34 @@ function readJsonFile(filePath: string): null | PackageJson {
 }
 
 /**
+ * Runs npm run test:coverage and extracts metrics.
+ */
+function runCoverageCheck(): null | TestMetrics {
+  try {
+    const output = execSync("npm run test:coverage -- --passWithNoTests", {
+      cwd: process.cwd(),
+      encoding: "utf-8",
+      stdio: "pipe",
+    });
+
+    const totalTests = extractTestCount(output);
+    const coverage = extractCoverage(output);
+
+    if (totalTests === null) {
+      return null;
+    }
+
+    return {
+      coverage: coverage ?? undefined,
+      passed: true,
+      totalTests,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Converts header text to a GitHub-compatible anchor.
  *
  * GitHub's anchor generation rules (verified):
@@ -590,9 +776,152 @@ function textToAnchor(text: string): string {
   );
 }
 
-// ============================================================================
-// Validation Checks
-// ============================================================================
+/**
+ * Check 10: Validates code metrics against OpenSpec claims
+ */
+function validateCodeMetrics(): CodeMetricsResult {
+  console.log("\n🔟 Checking code metrics against OpenSpec documents...");
+
+  const result: CodeMetricsResult = {
+    errors: [],
+    warnings: [],
+  };
+
+  // Read OpenSpec files
+  const auditFile =
+    "openspec/changes/migrate-languagemodelv3/IMPLEMENTATION_AUDIT.md";
+  const releaseNotesFile =
+    "openspec/changes/migrate-languagemodelv3/RELEASE_NOTES.md";
+
+  if (!existsSync(auditFile) || !existsSync(releaseNotesFile)) {
+    result.warnings.push(
+      "OpenSpec files not found, skipping code metrics validation",
+    );
+    console.log("  ⚠️  OpenSpec files not found, skipping");
+    return result;
+  }
+
+  const auditContent = readFileSync(auditFile, "utf-8");
+  const releaseNotesContent = readFileSync(releaseNotesFile, "utf-8");
+
+  // Extract claimed test count from OpenSpec
+  const auditTestMatch = /(\d+)\/(\d+) tests passing/.exec(auditContent);
+  const releaseTestMatch = /(\d+) tests/.exec(releaseNotesContent);
+
+  const claimedTestsAudit = auditTestMatch
+    ? Number.parseInt(auditTestMatch[2], 10)
+    : null;
+  const claimedTestsRelease = releaseTestMatch
+    ? Number.parseInt(releaseTestMatch[1], 10)
+    : null;
+
+  // Extract claimed coverage from OpenSpec
+  const coverageMatch = /Coverage[:\s]+(\d+\.?\d*)%\s+overall/.exec(
+    auditContent,
+  );
+  const claimedCoverage = coverageMatch
+    ? Number.parseFloat(coverageMatch[1])
+    : null;
+
+  console.log("\n  📝 OpenSpec Claims:");
+  if (claimedTestsAudit !== null) {
+    console.log(
+      `    • IMPLEMENTATION_AUDIT.md: ${String(claimedTestsAudit)} tests`,
+    );
+  }
+  if (claimedTestsRelease !== null) {
+    console.log(`    • RELEASE_NOTES.md: ${String(claimedTestsRelease)} tests`);
+  }
+  if (claimedCoverage !== null) {
+    console.log(`    • Coverage: ${String(claimedCoverage)}%`);
+  }
+
+  // Run actual tests
+  console.log("\n  🧪 Running test suite...");
+  const testMetrics = runCoverageCheck();
+
+  if (!testMetrics) {
+    result.warnings.push("Could not extract test metrics from npm test output");
+    console.log("  ⚠️  Could not extract test metrics");
+    return result;
+  }
+
+  result.testMetrics = testMetrics;
+
+  console.log("\n  ✅ Actual Metrics:");
+  console.log(`    • Test count: ${String(testMetrics.totalTests)}`);
+  if (testMetrics.coverage !== undefined) {
+    console.log(`    • Coverage: ${testMetrics.coverage.toFixed(2)}%`);
+  }
+  console.log(`    • All tests passed: ${testMetrics.passed ? "YES" : "NO"}`);
+
+  // Validate test count consistency
+  if (
+    claimedTestsAudit !== null &&
+    claimedTestsAudit !== testMetrics.totalTests
+  ) {
+    result.errors.push(
+      `IMPLEMENTATION_AUDIT.md claims ${String(claimedTestsAudit)} tests, but actual count is ${String(testMetrics.totalTests)}`,
+    );
+  }
+
+  if (
+    claimedTestsRelease !== null &&
+    claimedTestsRelease !== testMetrics.totalTests
+  ) {
+    result.errors.push(
+      `RELEASE_NOTES.md claims ${String(claimedTestsRelease)} tests, but actual count is ${String(testMetrics.totalTests)}`,
+    );
+  }
+
+  // Validate coverage claims
+  if (claimedCoverage !== null && testMetrics.coverage !== undefined) {
+    const diff = Math.abs(claimedCoverage - testMetrics.coverage);
+    if (diff > COVERAGE_TOLERANCE_PERCENT) {
+      result.errors.push(
+        `OpenSpec claims ${String(claimedCoverage)}% coverage, but actual is ${testMetrics.coverage.toFixed(2)}%`,
+      );
+    }
+  }
+
+  // Validate all tests pass
+  if (!testMetrics.passed) {
+    result.errors.push(
+      "Test suite has failing tests, but OpenSpec claims all tests passing",
+    );
+  }
+
+  // Check version consistency between package.json and OpenSpec
+  const pkg = readJsonFile("package.json");
+  if (pkg?.version) {
+    const version = pkg.version;
+    if (!auditContent.includes(version)) {
+      result.warnings.push(
+        `package.json version (${version}) not found in IMPLEMENTATION_AUDIT.md`,
+      );
+    }
+  }
+
+  // Print validation results
+  console.log("");
+  if (result.errors.length === 0) {
+    console.log("  ✅ Code metrics match OpenSpec claims");
+  } else {
+    console.log("  ❌ Code metrics validation failed:");
+    result.errors.forEach((err) => {
+      console.log(`    • ${err}`);
+    });
+  }
+
+  if (result.warnings.length > 0) {
+    console.log("  ⚠️  Warnings:");
+    result.warnings.forEach((warn) => {
+      console.log(`    • ${warn}`);
+    });
+  }
+
+  return result;
+}
 
 /**
  * Check 5: Validates dotenv imports in code examples
@@ -646,6 +975,10 @@ function validateDotenvImports(): void {
     console.log("  ✅ All code examples have proper environment setup");
   }
 }
+
+// ============================================================================
+// Validation Checks
+// ============================================================================
 
 /**
  * Check 2: Detects broken internal markdown links
@@ -716,7 +1049,7 @@ function validateInternalLinks(): void {
 function validateLinkFormat(): void {
   console.log("\n6️⃣  Checking link format consistency...");
 
-  const mdFiles = findMarkdownFiles(".", ["node_modules", ".git"]);
+  const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
   let badLinksCount = 0;
 
   for (const file of mdFiles) {
@@ -965,6 +1298,139 @@ function validateRequiredFiles(): void {
     console.log(
       `  ✅ All ${String(REQUIRED_FILES.length)} required files present`,
     );
+  }
+}
+
+/**
+ * Check 11: Validates links and model IDs in TypeScript source code comments
+ */
+function validateSourceCodeComments(): void {
+  console.log("\n1️⃣1️⃣  Checking source code comments (JSDoc, inline)...");
+
+  const sourceFiles = [
+    "src/sap-ai-error.ts",
+    "src/sap-ai-language-model.ts",
+    "src/sap-ai-provider.ts",
+    "src/index.ts",
+    "src/sap-ai-settings.ts",
+    "src/convert-to-sap-messages.ts",
+  ];
+
+  let linksChecked = 0;
+  let brokenLinksCount = 0;
+  let modelIdIssues = 0;
+
+  for (const file of sourceFiles) {
+    if (!existsSync(file)) {
+      continue;
+    }
+
+    const comments = extractTypeScriptComments(file);
+
+    for (const comment of comments) {
+      const commentLines = comment.content.split("\n");
+
+      for (let lineOffset = 0; lineOffset < commentLines.length; lineOffset++) {
+        const line = commentLines[lineOffset];
+        const absoluteLine = comment.lineNumber + lineOffset;
+
+        // Check 1: Validate markdown links in JSDoc
+        // Match: [text](path), {@link path}, {@see path}
+        const mdLinkPattern =
+          /\[([^\]]+)\]\(((?!https?:\/\/)([^)#]+))(#[^)]+)?\)/g;
+        const jsdocLinkPattern = /\{@(?:link|see)\s+([^}]+)\}/g;
+
+        const mdMatches = Array.from(line.matchAll(mdLinkPattern));
+        const jsdocMatches = Array.from(line.matchAll(jsdocLinkPattern));
+
+        // Validate markdown-style links
+        for (const match of mdMatches) {
+          linksChecked++;
+          const targetPath = match[3];
+
+          // Skip if it's a code identifier (no file extension)
+          if (!targetPath.includes(".")) {
+            continue;
+          }
+
+          // Resolve relative to project root (where source files are)
+          const resolvedPath = join(".", targetPath);
+
+          if (!existsSync(resolvedPath)) {
+            results.warnings.push(
+              `${file}:${String(absoluteLine)} - Comment contains broken link: ${targetPath}`,
+            );
+            brokenLinksCount++;
+          }
+        }
+
+        // Validate JSDoc @link references to files (not code symbols)
+        for (const match of jsdocMatches) {
+          const target = match[1].trim();
+
+          // Only validate if it looks like a file path (has extension)
+          if (target.includes(".md") || target.includes(".ts")) {
+            linksChecked++;
+            const resolvedPath = join(".", target);
+
+            if (!existsSync(resolvedPath)) {
+              results.warnings.push(
+                `${file}:${String(absoluteLine)} - JSDoc @link to non-existent file: ${target}`,
+              );
+              brokenLinksCount++;
+            }
+          }
+        }
+
+        // Check 2: Validate model ID formats in examples
+        for (const rule of MODEL_VALIDATION_RULES) {
+          if (!rule.incorrectPattern) continue;
+
+          const { correctFormat, pattern } = rule.incorrectPattern;
+          const matches = line.matchAll(
+            new RegExp(pattern.source, pattern.flags),
+          );
+
+          for (const match of matches) {
+            // Skip if inside code fence or @example block (allowed in examples)
+            // Also skip if in external URLs (https://, http://)
+            if (
+              line.includes("```") ||
+              line.includes("@example") ||
+              line.includes("model: sapai(") ||
+              line.includes('model: provider("') ||
+              REGEX_PATTERNS.URL_PATTERN.test(line)
+            ) {
+              continue;
+            }
+
+            const incorrect = match[1];
+            results.warnings.push(
+              `${file}:${String(absoluteLine)} - Comment mentions model without vendor prefix: "${incorrect}" should be "${correctFormat}"`,
+            );
+            modelIdIssues++;
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`  📝 Checked ${String(linksChecked)} links in source comments`);
+
+  if (brokenLinksCount > 0) {
+    console.log(
+      `  ⚠️  ${String(brokenLinksCount)} broken links in source comments`,
+    );
+  } else {
+    console.log("  ✅ No broken links in source comments");
+  }
+
+  if (modelIdIssues > 0) {
+    console.log(
+      `  ⚠️  ${String(modelIdIssues)} model ID format issues in comments`,
+    );
+  } else {
+    console.log("  ✅ Model IDs in comments use correct format");
   }
 }
 
