@@ -72,7 +72,7 @@ async function streamingChatExample() {
 
       // Parse SAP-specific metadata
       const sapError = JSON.parse(error.responseBody ?? "{}") as {
-        error?: { code?: string; request_id?: string; };
+        error?: { code?: string; request_id?: string };
       };
       if (sapError.error?.request_id) {
         console.error("   SAP Request ID:", sapError.error.request_id);

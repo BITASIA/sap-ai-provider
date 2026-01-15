@@ -111,7 +111,7 @@ export function convertToSAPMessages(
       case "assistant": {
         let text = "";
         const toolCalls: {
-          function: { arguments: string; name: string; };
+          function: { arguments: string; name: string };
           id: string;
           type: "function";
         }[] = [];

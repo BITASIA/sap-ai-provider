@@ -35,7 +35,7 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
           };
           getToolCalls: () =>
             | undefined
-            | { function: { arguments: string; name: string; }; id: string; }[];
+            | { function: { arguments: string; name: string }; id: string }[];
           rawResponse?: { headers?: Record<string, unknown> };
         };
     static lastChatCompletionRequest: unknown;
@@ -47,7 +47,7 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
           getDeltaToolCalls: () =>
             | undefined
             | {
-                function?: { arguments?: string; name?: string; };
+                function?: { arguments?: string; name?: string };
                 id?: string;
                 index: number;
               }[];
@@ -202,7 +202,7 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
         getDeltaToolCalls: () =>
           | undefined
           | {
-              function?: { arguments?: string; name?: string; };
+              function?: { arguments?: string; name?: string };
               id?: string;
               index: number;
             }[];
@@ -313,7 +313,7 @@ describe("SAPAILanguageModel", () => {
   };
 
   const expectWarningMessageContains = (
-    warnings: { message?: string; type: string; }[],
+    warnings: { message?: string; type: string }[],
     substring: string,
   ) => {
     expect(
@@ -323,6 +323,106 @@ describe("SAPAILanguageModel", () => {
           warning.message.includes(substring),
       ),
     ).toBe(true);
+  };
+
+  /**
+   * Mock response builder for chat completion.
+   * Creates a mock response with sensible defaults that can be overridden.
+   *
+   * @example
+   * ```typescript
+   * const response = createMockChatResponse({
+   *   content: "Custom response",
+   *   finishReason: "stop"
+   * });
+   * MockClient.setChatCompletionResponse(response);
+   * ```
+   */
+  const createMockChatResponse = (
+    overrides: {
+      content?: null | string;
+      finishReason?: string;
+      headers?: Record<string, unknown>;
+      toolCalls?: {
+        function: { arguments: string; name: string };
+        id: string;
+      }[];
+      usage?: {
+        completion_tokens: number;
+        prompt_tokens: number;
+        total_tokens: number;
+      };
+    } = {},
+  ) => {
+    const defaults = {
+      content: "Hello!",
+      finishReason: "stop",
+      headers: { "x-request-id": "test-request-id" },
+      toolCalls: undefined,
+      usage: {
+        completion_tokens: 5,
+        prompt_tokens: 10,
+        total_tokens: 15,
+      },
+    };
+
+    const merged = { ...defaults, ...overrides };
+
+    return {
+      getContent: () => merged.content,
+      getFinishReason: () => merged.finishReason,
+      getTokenUsage: () => merged.usage,
+      getToolCalls: () => merged.toolCalls,
+      rawResponse: { headers: merged.headers },
+    };
+  };
+
+  /**
+   * Mock stream chunk builder.
+   * Creates stream chunks with sensible defaults.
+   *
+   * @example
+   * ```typescript
+   * const chunks = [
+   *   createMockStreamChunk({ deltaContent: "Hello" }),
+   *   createMockStreamChunk({ deltaContent: " world", finishReason: "stop" })
+   * ];
+   * MockClient.setStreamChunks(chunks);
+   * ```
+   */
+  const createMockStreamChunk = (
+    overrides: {
+      deltaContent?: null | string;
+      deltaToolCalls?: {
+        function?: { arguments?: string; name?: string };
+        id?: string;
+        index: number;
+      }[];
+      finishReason?: null | string | undefined;
+      usage?:
+        | undefined
+        | {
+            completion_tokens: number;
+            prompt_tokens: number;
+            total_tokens: number;
+          };
+    } = {},
+  ) => {
+    const defaults = {
+      deltaContent: null,
+      deltaToolCalls: undefined,
+      finishReason: null,
+      usage: undefined,
+    };
+
+    const merged = { ...defaults, ...overrides };
+
+    return {
+      getDeltaContent: () => merged.deltaContent,
+      getDeltaToolCalls: () => merged.deltaToolCalls,
+      getFinishReason: () => merged.finishReason,
+      getTokenUsage: () => merged.usage,
+    };
   };
 
   describe("model properties", () => {
@@ -753,27 +853,27 @@ describe("SAPAILanguageModel", () => {
         throw new Error("mock missing setChatCompletionResponse");
       }
 
-      MockClient.setChatCompletionResponse({
-        getContent: () => null,
-        getFinishReason: () => "tool_calls",
-        getTokenUsage: () => ({
-          completion_tokens: 5,
-          prompt_tokens: 10,
-          total_tokens: 15,
-        }),
-        getToolCalls: () => [
-          {
-            function: {
-              arguments: '{"location":"Paris"}',
-              name: "get_weather",
-            },
-            id: "call_123",
-          },
-        ],
-        rawResponse: {
+      MockClient.setChatCompletionResponse(
+        createMockChatResponse({
+          content: null,
+          finishReason: "tool_calls",
           headers: { "x-request-id": "tool-call-test" },
-        },
-      });
+          toolCalls: [
+            {
+              function: {
+                arguments: '{"location":"Paris"}',
+                name: "get_weather",
+              },
+              id: "call_123",
+            },
+          ],
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      );
 
       const model = createModel();
       const prompt = createPrompt("What's the weather?");
@@ -852,17 +952,18 @@ describe("SAPAILanguageModel", () => {
           throw new Error("mock missing setChatCompletionResponse");
         }
 
-        MockClient.setChatCompletionResponse({
-          getContent: () => "Response",
-          getFinishReason: () => "stop",
-          getTokenUsage: () => ({
-            completion_tokens: 5,
-            prompt_tokens: 10,
-            total_tokens: 15,
+        MockClient.setChatCompletionResponse(
+          createMockChatResponse({
+            content: "Response",
+            finishReason: "stop",
+            headers,
+            usage: {
+              completion_tokens: 5,
+              prompt_tokens: 10,
+              total_tokens: 15,
+            },
           }),
-          getToolCalls: () => undefined,
-          rawResponse: { headers },
-        });
+        );
 
         const model = createModel();
         const prompt = createPrompt("Test");
@@ -914,9 +1015,8 @@ describe("SAPAILanguageModel", () => {
       // This triggers a warning during the final tool-call flush.
 
       await setStreamChunks([
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
+        createMockStreamChunk({
+          deltaToolCalls: [
             {
               function: {
                 arguments: '{"x":1}',
@@ -925,13 +1025,13 @@ describe("SAPAILanguageModel", () => {
               index: 0,
             },
           ],
-          getFinishReason: () => "tool_calls",
-          getTokenUsage: () => ({
+          finishReason: "tool_calls",
+          usage: {
             completion_tokens: 1,
             prompt_tokens: 1,
             total_tokens: 2,
-          }),
-        },
+          },
+        }),
       ]);
 
       const model = createModel();
@@ -965,42 +1065,37 @@ describe("SAPAILanguageModel", () => {
 
     it("should not emit text deltas after tool-call deltas", async () => {
       await setStreamChunks([
-        {
-          getDeltaContent: () => "Hello",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
+        createMockStreamChunk({
+          deltaContent: "Hello",
+        }),
+        createMockStreamChunk({
           // Tool call deltas appear before a finish reason is reported.
           // Any text content after this point must not be emitted.
-          getDeltaContent: () => " SHOULD_NOT_APPEAR",
-          getDeltaToolCalls: () => [
+          deltaContent: " SHOULD_NOT_APPEAR",
+          deltaToolCalls: [
             {
               function: { arguments: '{"x":', name: "calc" },
               id: "call_0",
               index: 0,
             },
           ],
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
-          getDeltaContent: () => " ALSO_SHOULD_NOT_APPEAR",
-          getDeltaToolCalls: () => [
+        }),
+        createMockStreamChunk({
+          deltaContent: " ALSO_SHOULD_NOT_APPEAR",
+          deltaToolCalls: [
             {
               function: { arguments: "1}" },
               id: "call_0",
               index: 0,
             },
           ],
-          getFinishReason: () => "tool_calls",
-          getTokenUsage: () => ({
+          finishReason: "tool_calls",
+          usage: {
             completion_tokens: 5,
             prompt_tokens: 10,
             total_tokens: 15,
-          }),
-        },
+          },
+        }),
       ]);
 
       const model = createModel();
@@ -1016,22 +1111,18 @@ describe("SAPAILanguageModel", () => {
 
     it("should stream text response", async () => {
       await setStreamChunks([
-        {
-          getDeltaContent: () => "Hello",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
-          getDeltaContent: () => "!",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => "stop",
-          getTokenUsage: () => ({
+        createMockStreamChunk({
+          deltaContent: "Hello",
+        }),
+        createMockStreamChunk({
+          deltaContent: "!",
+          finishReason: "stop",
+          usage: {
             completion_tokens: 5,
             prompt_tokens: 10,
             total_tokens: 15,
-          }),
-        },
+          },
+        }),
       ]);
 
       const model = createModel();
@@ -1067,43 +1158,36 @@ describe("SAPAILanguageModel", () => {
 
     it("should flush tool calls immediately on tool-calls finishReason", async () => {
       await setStreamChunks([
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
+        createMockStreamChunk({
+          deltaToolCalls: [
             {
               function: { arguments: '{"city":', name: "get_weather" },
               id: "call_0",
               index: 0,
             },
           ],
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
+        }),
+        createMockStreamChunk({
           // On this chunk, the model declares tool_calls and we expect the
           // provider to flush tool-call parts immediately.
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
+          deltaToolCalls: [
             {
               function: { arguments: '"Paris"}' },
               id: "call_0",
               index: 0,
             },
           ],
-          getFinishReason: () => "tool_calls",
-          getTokenUsage: () => ({
+          finishReason: "tool_calls",
+          usage: {
             completion_tokens: 5,
             prompt_tokens: 10,
             total_tokens: 15,
-          }),
-        },
-        {
+          },
+        }),
+        createMockStreamChunk({
           // A trailing chunk after tool_calls should not produce text deltas.
-          getDeltaContent: () => "SHOULD_NOT_APPEAR",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
+          deltaContent: "SHOULD_NOT_APPEAR",
+        }),
       ]);
 
       const model = createModel();
@@ -1141,9 +1225,8 @@ describe("SAPAILanguageModel", () => {
 
     it("should handle interleaved tool call deltas across multiple indices", async () => {
       await setStreamChunks([
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
+        createMockStreamChunk({
+          deltaToolCalls: [
             {
               function: { arguments: '{"a":', name: "first" },
               id: "call_0",
@@ -1155,12 +1238,9 @@ describe("SAPAILanguageModel", () => {
               index: 1,
             },
           ],
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
+        }),
+        createMockStreamChunk({
+          deltaToolCalls: [
             {
               function: { arguments: "1}" },
               id: "call_0",
@@ -1172,13 +1252,13 @@ describe("SAPAILanguageModel", () => {
               index: 1,
             },
           ],
-          getFinishReason: () => "tool_calls",
-          getTokenUsage: () => ({
+          finishReason: "tool_calls",
+          usage: {
             completion_tokens: 5,
             prompt_tokens: 10,
             total_tokens: 15,
-          }),
-        },
+          },
+        }),
       ]);
 
       const model = createModel();
@@ -1207,34 +1287,30 @@ describe("SAPAILanguageModel", () => {
 
     it("should use latest tool call id when it changes", async () => {
       await setStreamChunks([
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
+        createMockStreamChunk({
+          deltaToolCalls: [
             {
               function: { arguments: "{", name: "calc" },
               id: "call_old",
               index: 0,
             },
           ],
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => [
+        }),
+        createMockStreamChunk({
+          deltaToolCalls: [
             {
               function: { arguments: '"x":1}' },
               id: "call_new",
               index: 0,
             },
           ],
-          getFinishReason: () => "tool_calls",
-          getTokenUsage: () => ({
+          finishReason: "tool_calls",
+          usage: {
             completion_tokens: 5,
             prompt_tokens: 10,
             total_tokens: 15,
-          }),
-        },
+          },
+        }),
       ]);
 
       const model = createModel();
@@ -1314,16 +1390,15 @@ describe("SAPAILanguageModel", () => {
       "should handle stream with finish reason: $description",
       async ({ expected, input }) => {
         await setStreamChunks([
-          {
-            getDeltaContent: () => "test content",
-            getDeltaToolCalls: () => undefined,
-            getFinishReason: () => input,
-            getTokenUsage: () => ({
+          createMockStreamChunk({
+            deltaContent: "test content",
+            finishReason: input,
+            usage: {
               completion_tokens: 2,
               prompt_tokens: 1,
               total_tokens: 3,
-            }),
-          },
+            },
+          }),
         ]);
 
         const model = createModel();
@@ -1354,28 +1429,18 @@ describe("SAPAILanguageModel", () => {
 
     it("should handle stream chunks with null content", async () => {
       await setStreamChunks([
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
-          getDeltaContent: () => "Hello",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
-          getDeltaContent: () => null,
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => "stop",
-          getTokenUsage: () => ({
+        createMockStreamChunk({}), // All defaults (null content, no tools, null finishReason)
+        createMockStreamChunk({
+          deltaContent: "Hello",
+        }),
+        createMockStreamChunk({
+          finishReason: "stop",
+          usage: {
             completion_tokens: 1,
             prompt_tokens: 10,
             total_tokens: 11,
-          }),
-        },
+          },
+        }),
       ]);
 
       const model = createModel();
@@ -1395,22 +1460,18 @@ describe("SAPAILanguageModel", () => {
 
     it("should handle stream with empty string content", async () => {
       await setStreamChunks([
-        {
-          getDeltaContent: () => "",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => null,
-          getTokenUsage: () => undefined,
-        },
-        {
-          getDeltaContent: () => "Response",
-          getDeltaToolCalls: () => undefined,
-          getFinishReason: () => "stop",
-          getTokenUsage: () => ({
+        createMockStreamChunk({
+          deltaContent: "",
+        }),
+        createMockStreamChunk({
+          deltaContent: "Response",
+          finishReason: "stop",
+          usage: {
             completion_tokens: 1,
             prompt_tokens: 10,
             total_tokens: 11,
-          }),
-        },
+          },
+        }),
       ]);
 
       const model = createModel();
@@ -1429,9 +1490,8 @@ describe("SAPAILanguageModel", () => {
         // (node-only)
         // Simulate tool call without a name (never receives name in any chunk)
         await setStreamChunks([
-          {
-            getDeltaContent: () => null,
-            getDeltaToolCalls: () => [
+          createMockStreamChunk({
+            deltaToolCalls: [
               {
                 function: { arguments: '{"x":1}' },
                 id: "call_nameless",
@@ -1439,13 +1499,13 @@ describe("SAPAILanguageModel", () => {
                 // Note: No "name" property
               },
             ],
-            getFinishReason: () => "tool_calls",
-            getTokenUsage: () => ({
+            finishReason: "tool_calls",
+            usage: {
               completion_tokens: 5,
               prompt_tokens: 10,
               total_tokens: 15,
-            }),
-          },
+            },
+          }),
         ]);
 
         const model = createModel();
@@ -1507,12 +1567,9 @@ describe("SAPAILanguageModel", () => {
 
         // Set up chunks that complete normally, but error is thrown after
         await setStreamChunks([
-          {
-            getDeltaContent: () => "Hello",
-            getDeltaToolCalls: () => undefined,
-            getFinishReason: () => null,
-            getTokenUsage: () => undefined,
-          },
+          createMockStreamChunk({
+            deltaContent: "Hello",
+          }),
         ]);
         const axiosError = new Error("Stream iteration failed") as unknown as {
           isAxiosError: boolean;
@@ -1563,49 +1620,45 @@ describe("SAPAILanguageModel", () => {
 
         // Reset the stream error for other tests
         await setStreamChunks([
-          {
-            getDeltaContent: () => "reset",
-            getDeltaToolCalls: () => undefined,
-            getFinishReason: () => "stop",
-            getTokenUsage: () => ({
+          createMockStreamChunk({
+            deltaContent: "reset",
+            finishReason: "stop",
+            usage: {
               completion_tokens: 5,
               prompt_tokens: 10,
               total_tokens: 15,
-            }),
-          },
+            },
+          }),
         ]);
       });
 
       it("should skip tool call deltas with invalid index", async () => {
         await setStreamChunks([
-          {
-            getDeltaContent: () => "Hello",
-            getDeltaToolCalls: () => [
+          createMockStreamChunk({
+            deltaContent: "Hello",
+            deltaToolCalls: [
               {
                 function: { arguments: "{}", name: "test_tool" },
                 id: "call_invalid",
                 index: NaN, // Invalid index
               },
             ],
-            getFinishReason: () => null,
-            getTokenUsage: () => undefined,
-          },
-          {
-            getDeltaContent: () => null,
-            getDeltaToolCalls: () => [
+          }),
+          createMockStreamChunk({
+            deltaToolCalls: [
               {
                 function: { arguments: "{}", name: "other_tool" },
                 id: "call_undefined",
                 index: undefined as unknown as number, // Also invalid
               },
             ],
-            getFinishReason: () => "stop",
-            getTokenUsage: () => ({
+            finishReason: "stop",
+            usage: {
               completion_tokens: 5,
               prompt_tokens: 10,
               total_tokens: 15,
-            }),
-          },
+            },
+          }),
         ]);
 
         const model = createModel();
@@ -1632,22 +1685,18 @@ describe("SAPAILanguageModel", () => {
         // Regression test for StreamIdGenerator bug (commit 3ca38c6)
         // Ensures text blocks get truly unique UUIDs instead of hardcoded "0"
         await setStreamChunks([
-          {
-            getDeltaContent: () => "First text block",
-            getDeltaToolCalls: () => undefined,
-            getFinishReason: () => null,
-            getTokenUsage: () => undefined,
-          },
-          {
-            getDeltaContent: () => " continuation",
-            getDeltaToolCalls: () => undefined,
-            getFinishReason: () => "stop",
-            getTokenUsage: () => ({
+          createMockStreamChunk({
+            deltaContent: "First text block",
+          }),
+          createMockStreamChunk({
+            deltaContent: " continuation",
+            finishReason: "stop",
+            usage: {
               completion_tokens: 5,
               prompt_tokens: 10,
               total_tokens: 15,
-            }),
-          },
+            },
+          }),
         ]);
 
         const model = createModel();
@@ -1731,29 +1780,24 @@ describe("SAPAILanguageModel", () => {
 
       it("should flush unflushed tool calls at stream end (with finishReason=stop)", async () => {
         await setStreamChunks([
-          {
-            getDeltaContent: () => null,
-            getDeltaToolCalls: () => [
+          createMockStreamChunk({
+            deltaToolCalls: [
               {
                 function: { arguments: '{"q":"test"}', name: "get_info" },
                 id: "call_unflushed",
                 index: 0,
               },
             ],
-            getFinishReason: () => null,
-            getTokenUsage: () => undefined,
-          },
+          }),
           // End stream without tool-calls finish reason - tool should still be emitted
-          {
-            getDeltaContent: () => null,
-            getDeltaToolCalls: () => undefined,
-            getFinishReason: () => "stop",
-            getTokenUsage: () => ({
+          createMockStreamChunk({
+            finishReason: "stop",
+            usage: {
               completion_tokens: 5,
               prompt_tokens: 10,
               total_tokens: 15,
-            }),
-          },
+            },
+          }),
         ]);
 
         const model = createModel();
@@ -1789,22 +1833,19 @@ describe("SAPAILanguageModel", () => {
 
       it("should handle undefined finish reason from stream", async () => {
         await setStreamChunks([
-          {
-            getDeltaContent: () => "Hello",
-            getDeltaToolCalls: () => undefined,
-            getFinishReason: () => undefined as unknown as string,
-            getTokenUsage: () => undefined,
-          },
-          {
-            getDeltaContent: () => "!",
-            getDeltaToolCalls: () => undefined,
-            getFinishReason: () => undefined as unknown as string,
-            getTokenUsage: () => ({
+          createMockStreamChunk({
+            deltaContent: "Hello",
+            finishReason: undefined as unknown as string,
+          }),
+          createMockStreamChunk({
+            deltaContent: "!",
+            finishReason: undefined as unknown as string,
+            usage: {
               completion_tokens: 5,
               prompt_tokens: 10,
               total_tokens: 15,
-            }),
-          },
+            },
+          }),
         ]);
 
         const model = createModel();
@@ -1834,9 +1875,8 @@ describe("SAPAILanguageModel", () => {
 
       it("should flush tool calls that never received input-start", async () => {
         await setStreamChunks([
-          {
-            getDeltaContent: () => null,
-            getDeltaToolCalls: () => [
+          createMockStreamChunk({
+            deltaToolCalls: [
               {
                 // No name in first chunk - so didEmitInputStart stays false
                 function: { arguments: '{"partial":' },
@@ -1844,25 +1884,22 @@ describe("SAPAILanguageModel", () => {
                 index: 0,
               },
             ],
-            getFinishReason: () => null,
-            getTokenUsage: () => undefined,
-          },
-          {
-            getDeltaContent: () => null,
-            getDeltaToolCalls: () => [
+          }),
+          createMockStreamChunk({
+            deltaToolCalls: [
               {
                 // Name comes later but input-start was never emitted
                 function: { arguments: '"value"}', name: "delayed_name" },
                 index: 0,
               },
             ],
-            getFinishReason: () => "tool_calls",
-            getTokenUsage: () => ({
+            finishReason: "tool_calls",
+            usage: {
               completion_tokens: 5,
               prompt_tokens: 10,
               total_tokens: 15,
-            }),
-          },
+            },
+          }),
         ]);
 
         const model = createModel();
@@ -2464,7 +2501,7 @@ describe("SAPAILanguageModel", () => {
           );
 
           const customTool = tools.find(
-            (tool): tool is { function?: { name?: string }; type?: string; } =>
+            (tool): tool is { function?: { name?: string }; type?: string } =>
               typeof tool === "object" &&
               tool !== null &&
               (tool as { type?: unknown }).type === "function" &&

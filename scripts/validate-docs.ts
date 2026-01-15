@@ -57,7 +57,7 @@ interface TocValidationResult {
   expectedEntries: HeaderEntry[];
   extra: TocEntry[];
   hasToc: boolean;
-  mismatched: { actual: TocEntry; expected: HeaderEntry; }[];
+  mismatched: { actual: TocEntry; expected: HeaderEntry }[];
   missing: HeaderEntry[];
   tocDepth: number;
 }
@@ -1083,7 +1083,7 @@ function validateTocEntries(
 
   const missing: HeaderEntry[] = [];
   const extra: TocEntry[] = [];
-  const mismatched: { actual: TocEntry; expected: HeaderEntry; }[] = [];
+  const mismatched: { actual: TocEntry; expected: HeaderEntry }[] = [];
 
   // Create maps for efficient lookup
   const tocMap = new Map<string, TocEntry>();

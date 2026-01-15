@@ -695,4 +695,139 @@ describe("convertToSAPMessages", () => {
       "Content type unknown_type",
     );
   });
+
+  describe("Image data conversion edge cases", () => {
+    it("should convert Uint8Array image data to base64", () => {
+      const imageData = new Uint8Array([137, 80, 78, 71]); // PNG header bytes
+      const prompt: LanguageModelV3Prompt = [
+        {
+          content: [
+            { text: "What is this?", type: "text" },
+            {
+              data: imageData,
+              mediaType: "image/png",
+              type: "file",
+            },
+          ],
+          role: "user",
+        },
+      ];
+
+      const result = convertToSAPMessages(prompt);
+
+      expect(result).toHaveLength(1);
+      const userMessage = result[0] as {
+        content: { image_url?: { url: string }; type: string }[];
+        role: string;
+      };
+      expect(userMessage.content).toHaveLength(2);
+      const imageContent = userMessage.content[1];
+      expect(imageContent.type).toBe("image_url");
+      expect(imageContent.image_url?.url).toMatch(
+        /^data:image\/png;base64,iVBORw==/,
+      ); // Base64 of PNG header
+    });
+
+    it("should convert Buffer image data to base64", () => {
+      const imageData = Buffer.from([137, 80, 78, 71]); // PNG header bytes
+      const prompt: LanguageModelV3Prompt = [
+        {
+          content: [
+            { text: "What is this?", type: "text" },
+            {
+              data: imageData,
+              mediaType: "image/png",
+              type: "file",
+            },
+          ],
+          role: "user",
+        },
+      ];
+
+      const result = convertToSAPMessages(prompt);
+
+      expect(result).toHaveLength(1);
+      const userMessage = result[0] as {
+        content: { image_url?: { url: string }; type: string }[];
+        role: string;
+      };
+      expect(userMessage.content).toHaveLength(2);
+      const imageContent = userMessage.content[1];
+      expect(imageContent.type).toBe("image_url");
+      expect(imageContent.image_url?.url).toMatch(
+        /^data:image\/png;base64,iVBORw==/,
+      );
+    });
+
+    it("should convert buffer-like object with toString to base64", () => {
+      // Simulate a buffer-like object that has toString method
+      const bufferLike = {
+        toString: (encoding?: string) => {
+          if (encoding === "base64") {
+            return "aGVsbG8="; // "hello" in base64
+          }
+          return "hello";
+        },
+      };
+
+      const prompt: LanguageModelV3Prompt = [
+        {
+          content: [
+            {
+              data: bufferLike as unknown as Uint8Array,
+              mediaType: "image/png",
+              type: "file",
+            },
+          ],
+          role: "user",
+        },
+      ];
+
+      const result = convertToSAPMessages(prompt);
+
+      expect(result).toHaveLength(1);
+      const userMessage = result[0] as {
+        content: { image_url?: { url: string }; type: string }[];
+        role: string;
+      };
+      expect(userMessage.content[0].image_url?.url).toBe(
+        "data:image/png;base64,aGVsbG8=",
+      );
+    });
+
+    it("should throw UnsupportedFunctionalityError for unsupported image data type", () => {
+      const unsupportedData = null; // null doesn't have toString and isn't handled by earlier checks
+
+      const prompt: LanguageModelV3Prompt = [
+        {
+          content: [
+            {
+              data: unsupportedData as unknown as Uint8Array,
+              mediaType: "image/png",
+              type: "file",
+            },
+          ],
+          role: "user",
+        },
+      ];
+
+      expect(() => convertToSAPMessages(prompt)).toThrow(
+        "Unsupported file data type for image",
+      );
+    });
+  });
+
+  it("should throw error for unsupported message role", () => {
+    // Force an unsupported role to trigger the exhaustive check
+    const prompt = [
+      {
+        content: "Test content",
+        role: "unsupported_role",
+      },
+    ] as unknown as LanguageModelV3Prompt;
+
+    expect(() => convertToSAPMessages(prompt)).toThrow(
+      "Unsupported role: unsupported_role",
+    );
+  });
 });

@@ -283,7 +283,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
       const promptTemplating =
         orchestrationConfig.promptTemplating as unknown as {
-          prompt: { response_format?: unknown; tools?: unknown; };
+          prompt: { response_format?: unknown; tools?: unknown };
         };
 
       const requestBody = {
@@ -518,7 +518,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
       const promptTemplating =
         orchestrationConfig.promptTemplating as unknown as {
-          prompt: { response_format?: unknown; tools?: unknown; };
+          prompt: { response_format?: unknown; tools?: unknown };
         };
 
       const requestBody = {
