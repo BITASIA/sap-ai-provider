@@ -5,8 +5,8 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import type { HeaderEntry, TocEntry } from "./markdown-utils.js";
 
@@ -14,7 +14,9 @@ import {
   detectToc,
   extractHeaders,
   extractTocEntries,
+  findMarkdownFiles,
   inferTocDepth,
+  readJsonFile,
   trackCodeBlocks,
 } from "./markdown-utils.js";
 
@@ -323,39 +325,6 @@ function extractTypeScriptComments(filePath: string): {
 }
 
 /**
- * Finds all .md files recursively, excluding specified directories.
- *
- * @param dir - Root directory
- * @param exclude - Directories to skip
- * @returns Relative paths to .md files
- */
-function findMarkdownFiles(dir: string, exclude: readonly string[] = []): string[] {
-  const files: string[] = [];
-
-  function walk(currentDir: string): void {
-    const entries = readdirSync(currentDir);
-
-    for (const entry of entries) {
-      const fullPath = join(currentDir, entry);
-      const relativePath = relative(process.cwd(), fullPath);
-
-      if (exclude.some((ex) => relativePath.includes(ex))) {
-        continue;
-      }
-
-      if (statSync(fullPath).isDirectory()) {
-        walk(fullPath);
-      } else if (entry.endsWith(".md")) {
-        files.push(relativePath);
-      }
-    }
-  }
-
-  walk(dir);
-  return files;
-}
-
-/**
  * Checks if line contains inline code with markdown links.
  *
  * @param line - Line to check
@@ -363,25 +332,6 @@ function findMarkdownFiles(dir: string, exclude: readonly string[] = []): string
  */
 function hasInlineCodeExample(line: string): boolean {
   return line.includes("`[") && line.includes("](");
-}
-
-/**
- * Checks if line is inside code block.
- *
- * @param lines - All file lines
- * @param lineIndex - 0-based line index
- * @returns True if in code block
- */
-function isLineInCodeBlock(lines: string[], lineIndex: number): boolean {
-  let inCodeBlock = false;
-
-  for (let i = 0; i <= lineIndex; i++) {
-    if (lines[i].trim().startsWith("```")) {
-      inCodeBlock = !inCodeBlock;
-    }
-  }
-
-  return inCodeBlock;
 }
 
 /**
@@ -456,10 +406,6 @@ function main(): void {
 }
 
 /**
- * Runs all validation checks and reports results.
- */
-
-/**
  * Parses CLI arguments.
  * Supports: --exclude-dirs dir1,dir2 --help
  */
@@ -503,21 +449,6 @@ function parseCliArgs(): void {
       console.error("Use --help for usage information");
       process.exit(1);
     }
-  }
-}
-
-/**
- * Reads and parses JSON file safely.
- *
- * @param filePath - Path to .json file
- * @returns Parsed object or null on error
- */
-function readJsonFile(filePath: string): null | PackageJson {
-  try {
-    const content = readFileSync(filePath, "utf-8");
-    return JSON.parse(content) as PackageJson;
-  } catch {
-    return null;
   }
 }
 
@@ -734,7 +665,7 @@ function validateCodeMetrics(): ValidationResult {
     errors.push("Some tests are failing - all tests must pass");
   }
 
-  const pkg = readJsonFile("package.json");
+  const pkg = readJsonFile("package.json") as null | PackageJson;
   if (pkg?.version) {
     const version = pkg.version;
     if (!auditContent.includes(version)) {
@@ -917,11 +848,12 @@ function validateInternalLinks(): ValidationResult {
 
     const content = readFileSync(file, "utf-8");
     const lines = content.split("\n");
+    const inCodeBlock = trackCodeBlocks(lines);
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      if (isLineInCodeBlock(lines, i) || hasInlineCodeExample(line)) {
+      if (inCodeBlock[i] || hasInlineCodeExample(line)) {
         continue;
       }
 
@@ -977,11 +909,12 @@ function validateLinkFormat(): ValidationResult {
   for (const file of mdFiles) {
     const content = readFileSync(file, "utf-8");
     const lines = content.split("\n");
+    const inCodeBlock = trackCodeBlocks(lines);
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      if (isLineInCodeBlock(lines, i)) {
+      if (inCodeBlock[i]) {
         continue;
       }
 
@@ -1609,7 +1542,7 @@ function validateVersionConsistency(): ValidationResult {
     return { errors, passed: true, warnings };
   }
 
-  const pkg = readJsonFile("package.json");
+  const pkg = readJsonFile("package.json") as null | PackageJson;
   if (!pkg?.version) {
     warnings.push("Unable to read version from package.json");
     console.log("  ⚠️  Unable to read version");

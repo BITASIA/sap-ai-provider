@@ -14,31 +14,12 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 import type { HeaderEntry } from "./markdown-utils.js";
 
-import { detectToc, extractHeaders, inferTocDepth } from "./markdown-utils.js";
-
-/**
- * Detects indentation from existing ToC entries.
- *
- * @param lines - File lines
- * @param startLine - 0-based ToC start
- * @param endLine - 0-based ToC end
- * @returns Spaces per indent level (default: 2)
- */
-function detectTocIndentation(lines: string[], startLine: number, endLine: number): number {
-  const tocPattern = /^(\s*)[-*]\s+\[/;
-
-  for (let i = startLine + 1; i < endLine; i++) {
-    const match = tocPattern.exec(lines[i]);
-    if (match) {
-      const indent = match[1].length;
-      if (indent > 0) {
-        return indent;
-      }
-    }
-  }
-
-  return 2;
-}
+import {
+  detectToc,
+  detectTocIndentation,
+  extractHeaders,
+  inferTocDepth,
+} from "./markdown-utils.js";
 
 /**
  * Fixes ToC in a file by regenerating entries from headers.

@@ -3,7 +3,8 @@
  * Used by validate-docs.ts and fix-docs-toc.ts to ensure consistency.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 
 /** Markdown header with anchor and position. */
 export interface HeaderEntry {
@@ -81,6 +82,30 @@ export function detectToc(content: string): {
   }
 
   return { endLine: -1, hasToc: false, startLine: -1 };
+}
+
+/**
+ * Detects indentation from existing ToC entries.
+ *
+ * @param lines - File lines
+ * @param startLine - 0-based ToC start
+ * @param endLine - 0-based ToC end
+ * @returns Spaces per indent level (default: 2)
+ */
+export function detectTocIndentation(lines: string[], startLine: number, endLine: number): number {
+  const tocPattern = /^(\s*)[-*]\s+\[/;
+
+  for (let i = startLine + 1; i < endLine; i++) {
+    const match = tocPattern.exec(lines[i]);
+    if (match) {
+      const indent = match[1].length;
+      if (indent > 0) {
+        return indent;
+      }
+    }
+  }
+
+  return 2;
 }
 
 /**
@@ -164,6 +189,39 @@ export function extractTocEntries(lines: string[], startLine: number, endLine: n
 }
 
 /**
+ * Finds all .md files recursively, excluding specified directories.
+ *
+ * @param dir - Root directory
+ * @param exclude - Directories to skip
+ * @returns Relative paths to .md files
+ */
+export function findMarkdownFiles(dir: string, exclude: readonly string[] = []): string[] {
+  const files: string[] = [];
+
+  function walk(currentDir: string): void {
+    const entries = readdirSync(currentDir);
+
+    for (const entry of entries) {
+      const fullPath = join(currentDir, entry);
+      const relativePath = relative(process.cwd(), fullPath);
+
+      if (exclude.some((ex) => relativePath.includes(ex))) {
+        continue;
+      }
+
+      if (statSync(fullPath).isDirectory()) {
+        walk(fullPath);
+      } else if (entry.endsWith(".md")) {
+        files.push(relativePath);
+      }
+    }
+  }
+
+  walk(dir);
+  return files;
+}
+
+/**
  * Infers ToC depth from header distribution.
  * Includes levels with ≥10% representation.
  *
@@ -191,21 +249,18 @@ export function inferTocDepth(headers: HeaderEntry[]): number {
 }
 
 /**
- * Reads a file if it exists, returns null if not found.
- * Useful for optional file reading with consistent error handling.
+ * Reads and parses JSON file safely.
  *
- * @param filePath - Path to file
- * @param encoding - File encoding (default: "utf-8")
- * @returns File content or null if not found
+ * @param filePath - Path to .json file
+ * @returns Parsed object or null on error
  */
-export function readFileIfExists(
-  filePath: string,
-  encoding: BufferEncoding = "utf-8",
-): null | string {
-  if (!existsSync(filePath)) {
+export function readJsonFile(filePath: string): null | Record<string, unknown> {
+  try {
+    const content = readFileSync(filePath, "utf-8");
+    return JSON.parse(content) as Record<string, unknown>;
+  } catch {
     return null;
   }
-  return readFileSync(filePath, encoding);
 }
 
 /**
@@ -274,19 +329,3 @@ export function trackCodeBlocks(lines: string[]): boolean[] {
 
   return inCodeBlock;
 }
-
-/**
- * Console logging helpers with consistent emoji formatting.
- */
-export const logger = {
-  /** Log error message with ❌ */
-  error: (msg: string): void => { console.log(`  ❌ ${msg}`); },
-  /** Log info message with ℹ️ */
-  info: (msg: string): void => { console.log(`  ℹ️  ${msg}`); },
-  /** Log section header */
-  section: (emoji: string, title: string): void => { console.log(`\n${emoji}  ${title}`); },
-  /** Log success message with ✅ */
-  success: (msg: string): void => { console.log(`  ✅ ${msg}`); },
-  /** Log warning message with ⚠️ */
-  warning: (msg: string): void => { console.log(`  ⚠️  ${msg}`); },
-};
