@@ -1113,6 +1113,14 @@ describe("SAPAILanguageModel", () => {
         modelId: "gpt-4o",
         type: "response-metadata",
       });
+      // Verify response-metadata has an id field (client-generated UUID)
+      if (responseMetadata?.type === "response-metadata") {
+        expect(responseMetadata.id).toBeDefined();
+        expect(typeof responseMetadata.id).toBe("string");
+        expect(responseMetadata.id).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        );
+      }
       expect(parts.some((p) => p.type === "text-delta")).toBe(true);
       expect(parts.some((p) => p.type === "finish")).toBe(true);
 
@@ -1124,6 +1132,13 @@ describe("SAPAILanguageModel", () => {
           raw: "stop",
           unified: "stop",
         });
+        // Verify providerMetadata contains responseId
+        expect(finishPart.providerMetadata?.["sap-ai"]).toBeDefined();
+        expect(finishPart.providerMetadata?.["sap-ai"]?.responseId).toBeDefined();
+        expect(typeof finishPart.providerMetadata?.["sap-ai"]?.responseId).toBe("string");
+        expect(finishPart.providerMetadata?.["sap-ai"]?.responseId).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        );
       }
     });
 

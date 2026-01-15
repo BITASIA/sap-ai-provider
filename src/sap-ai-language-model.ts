@@ -72,18 +72,24 @@ type SAPToolParameters = Record<string, unknown> & {
 };
 
 /**
- * Generates unique IDs for stream elements.
- *
- * Uses native `crypto.randomUUID()` to generate RFC 4122-compliant UUIDs,
- * providing cryptographically strong random identifiers with guaranteed uniqueness.
+ * Generates unique RFC 4122-compliant UUIDs for streaming responses.
  *
  * @internal
  */
 class StreamIdGenerator {
   /**
+   * Generates a unique ID for a response stream.
+   *
+   * @returns RFC 4122-compliant UUID
+   */
+  generateResponseId(): string {
+    return crypto.randomUUID();
+  }
+
+  /**
    * Generates a unique ID for a text block.
    *
-   * @returns RFC 4122-compliant UUID string
+   * @returns RFC 4122-compliant UUID
    */
   generateTextBlockId(): string {
     return crypto.randomUUID();
@@ -443,35 +449,28 @@ export class SAPAILanguageModel implements LanguageModelV3 {
   /**
    * Generates a streaming completion.
    *
-   * This method implements the `LanguageModelV3.doStream` interface,
-   * sending a streaming request to SAP AI Core and returning a stream of response parts.
+   * Implements `LanguageModelV3.doStream`, sending a streaming request to SAP AI Core
+   * and returning a stream of response parts.
    *
    * **Stream Events:**
-   * - `stream-start` - Stream initialization with warnings
-   * - `response-metadata` - Response metadata (model, timestamp)
+   * - `stream-start` - Initialization with warnings
+   * - `response-metadata` - Model, timestamp, response ID
    * - `text-start` - Text block begins (with unique ID)
-   * - `text-delta` - Incremental text chunks (with block ID)
-   * - `text-end` - Text block completes (with accumulated text)
-   * - `tool-input-start` - Tool input begins
-   * - `tool-input-delta` - Tool input chunk
-   * - `tool-input-end` - Tool input completes
+   * - `text-delta` - Incremental text chunks
+   * - `text-end` - Text block completes
+   * - `tool-input-start/delta/end` - Tool input lifecycle
    * - `tool-call` - Complete tool call
    * - `finish` - Stream completes with usage and finish reason
    * - `error` - Error occurred
    *
-   * **Stream Structure:**
-   * - Text blocks have explicit lifecycle with unique IDs
-   * - Finish reason format: `{ unified: string, raw?: string }`
-   * - Usage format: `{ inputTokens: { total, ... }, outputTokens: { total, ... } }`
-   * - Warnings only in `stream-start` event
+   * **Response ID:**
+   * Client-generated UUID in `response-metadata.id` and `providerMetadata['sap-ai'].responseId`.
+   * TODO: Use backend's `x-request-id` when `OrchestrationStreamResponse` exposes `rawResponse`.
    *
-   * **Note on Abort Signal:**
-   * The abort signal implementation uses Promise.race to reject the promise when
-   * the signal is aborted. However, this does not cancel the underlying HTTP request
-   * to SAP AI Core - the request continues executing on the server. This is a
-   * limitation of the SAP AI SDK's chatCompletion API.
+   * **Abort Signal:**
+   * AbortSignal rejects the promise but does NOT cancel the HTTP request to SAP AI Core.
+   * See https://github.com/SAP/ai-sdk-js/issues/1429
    *
-   * @see https://github.com/SAP/ai-sdk-js/issues/1429 for tracking true cancellation support
    * @see {@link https://sdk.vercel.ai/docs/ai-sdk-core/streaming Vercel AI SDK Streaming}
    *
    * @param options - Streaming options including prompt, tools, and settings
@@ -488,9 +487,6 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * for await (const part of stream) {
    *   if (part.type === 'text-delta') {
    *     process.stdout.write(part.delta);
-   *   }
-   *   if (part.type === 'text-end') {
-   *     console.log('Block complete:', part.id, part.text);
    *   }
    * }
    * ```
@@ -530,11 +526,16 @@ export class SAPAILanguageModel implements LanguageModelV3 {
         promptTemplating: { include_usage: true },
       });
 
-      // Generate unique ID for text blocks in this stream
       const idGenerator = new StreamIdGenerator();
+
+      // Client-generated UUID for response tracing.
+      // TODO: Use backend's x-request-id when OrchestrationStreamResponse exposes rawResponse.
+      // See: https://github.com/SAP/ai-sdk-js/issues/1433
+      const responseId = idGenerator.generateResponseId();
+
       let textBlockId: null | string = null;
 
-      // Track stream state in one place to keep updates consistent
+      // Stream state tracking
       const streamState = {
         activeText: false,
         finishReason: {
@@ -573,13 +574,11 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
       const warningsSnapshot = [...warnings];
 
-      // Warnings may be discovered while consuming the upstream stream
-      // Expose them on the final result without mutating stream-start
+      // Warnings discovered during streaming are added here
       const warningsOut: SharedV3Warning[] = [...warningsSnapshot];
 
       const transformedStream = new ReadableStream<LanguageModelV3StreamPart>({
         cancel(reason) {
-          // SAP AI SDK stream auto-closes; log cancellation for debugging
           if (reason) {
             console.debug("SAP AI stream cancelled:", reason);
           }
@@ -595,6 +594,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
               if (streamState.isFirstChunk) {
                 streamState.isFirstChunk = false;
                 controller.enqueue({
+                  id: responseId,
                   modelId,
                   timestamp: new Date(),
                   type: "response-metadata",
@@ -603,7 +603,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
               const deltaToolCalls = chunk.getDeltaToolCalls();
               if (Array.isArray(deltaToolCalls) && deltaToolCalls.length > 0) {
-                // Once tool call deltas appear, stop emitting text deltas
+                // Stop emitting text deltas once tool calls appear
                 streamState.finishReason = {
                   raw: undefined,
                   unified: "tool-calls",
@@ -768,8 +768,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
               controller.enqueue({ id: textBlockId, type: "text-end" });
             }
 
-            // Determine final finish reason
-            // Prefer the server value, otherwise fall back to tool-call detection
+            // Prefer server finish reason, fallback to tool-call detection
             const finalFinishReason = streamResponse.getFinishReason();
             if (finalFinishReason) {
               streamState.finishReason = mapFinishReason(finalFinishReason);
@@ -780,7 +779,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
               };
             }
 
-            // Get final token usage from the SDK aggregate
+            // Aggregate token usage from SDK
             const finalUsage = streamResponse.getTokenUsage();
             if (finalUsage) {
               streamState.usage.inputTokens.total = finalUsage.prompt_tokens;
@@ -791,6 +790,12 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
             controller.enqueue({
               finishReason: streamState.finishReason,
+              providerMetadata: {
+                "sap-ai": {
+                  finishReason: streamState.finishReason.raw,
+                  responseId,
+                },
+              },
               type: "finish",
               usage: streamState.usage,
             });
