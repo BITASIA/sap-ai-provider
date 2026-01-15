@@ -802,12 +802,18 @@ Remaining Tasks: 0
     - ✅ All metadata correct
 
 - [x] **Task 5.4.2**: Update PR #28 with final release info
-  - **Action**: Add comment to PR #28 on upstream
-  - **Effort**: 10 minutes
+  - **Action**: Add comment to PR #28 on upstream + Update PR description
+  - **Effort**: 15 minutes
   - **Dependencies**: Task 5.4.1
   - **Content**: Link to v4.0.0 release, npm package, and highlight it's production-ready
-  - **Completed**: 2026-01-15 19:35 UTC
+  - **Completed**: 2026-01-15 19:35 UTC (comment) + 19:40 UTC (description)
   - **Comment URL**: https://github.com/BITASIA/sap-ai-provider/pull/28#issuecomment-3756542503
+  - **PR URL**: https://github.com/BITASIA/sap-ai-provider/pull/28
+  - **Updates**:
+    - Added release announcement comment with installation instructions
+    - Updated PR description: RC status → Stable release status
+    - Updated links to point to v4.0.0 stable release
+    - Added publication timestamp and npm package link
 
 - [x] **Task 5.4.3**: Update documentation site (if exists)
   - **Files**: Documentation website
