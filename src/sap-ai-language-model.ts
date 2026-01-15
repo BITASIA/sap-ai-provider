@@ -250,6 +250,8 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * to SAP AI Core - the request continues executing on the server. This is a
    * limitation of the SAP AI SDK's chatCompletion API.
    *
+   * @see https://github.com/SAP/ai-sdk-js/issues/1429 for tracking true cancellation support
+   *
    * @param options - Generation options including prompt, tools, and settings
    * @returns Promise resolving to the generation result with content, usage, and metadata
    *
@@ -463,6 +465,13 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * - Usage format: `{ inputTokens: { total, ... }, outputTokens: { total, ... } }`
    * - Warnings only in `stream-start` event
    *
+   * **Note on Abort Signal:**
+   * The abort signal implementation uses Promise.race to reject the promise when
+   * the signal is aborted. However, this does not cancel the underlying HTTP request
+   * to SAP AI Core - the request continues executing on the server. This is a
+   * limitation of the SAP AI SDK's chatCompletion API.
+   *
+   * @see https://github.com/SAP/ai-sdk-js/issues/1429 for tracking true cancellation support
    * @see {@link https://sdk.vercel.ai/docs/ai-sdk-core/streaming Vercel AI SDK Streaming}
    *
    * @param options - Streaming options including prompt, tools, and settings
