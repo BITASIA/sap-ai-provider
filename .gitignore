@@ -52,6 +52,3 @@ coverage/
 
 # Serena
 .serena/
-
-# Documentation and analysis files (temporary)
-scripts/docs/
