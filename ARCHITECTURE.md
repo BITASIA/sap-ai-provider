@@ -39,6 +39,34 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
   - [Response Structure (v2)](#response-structure-v2)
   - [Templating and Tools (v2)](#templating-and-tools-v2)
   - [Data Masking Module (v2)](#data-masking-module-v2)
+  - [Request Cancellation](#request-cancellation)
+    - [Current Limitation](#current-limitation)
+    - [Why This Happens](#why-this-happens)
+    - [Future Enhancement](#future-enhancement)
+    - [Workarounds](#workarounds)
+  - [Tool Calling Flow](#tool-calling-flow)
+  - [Data Masking Flow (SAP DPI Integration)](#data-masking-flow-sap-dpi-integration)
+- [Authentication System](#authentication-system-1)
+  - [OAuth2 Authentication Flow](#oauth2-authentication-flow)
+  - [OAuth2 Flow](#oauth2-flow)
+- [Error Handling](#error-handling)
+  - [Error Conversion Architecture](#error-conversion-architecture)
+  - [Error Classification](#error-classification)
+  - [Retry Mechanism](#retry-mechanism)
+  - [User-Facing Error Handling (v3.0.0+)](#user-facing-error-handling-v300)
+- [Type System](#type-system)
+  - [Model Configuration Types](#model-configuration-types)
+  - [Request/Response Schemas](#requestresponse-schemas)
+- [Integration Patterns](#integration-patterns)
+  - [Provider Pattern](#provider-pattern)
+  - [Adapter Pattern](#adapter-pattern)
+  - [Strategy Pattern](#strategy-pattern)
+- [Performance Considerations](#performance-considerations)
+  - [Request Optimization](#request-optimization)
+  - [Memory Management](#memory-management)
+  - [Monitoring and Observability](#monitoring-and-observability)
+  - [Scalability Patterns](#scalability-patterns)
+- [See Also](#see-also)
 
 ## Overview
 
@@ -583,14 +611,56 @@ modules: {
 3. Masked data sent to LLM
 4. Response passes through output_unmasking (if configured)
 5. Original values restored in final output
-   SAP-->>Provider: Server-Sent Events
-   loop For each SSE chunk
-   Provider->>Provider: parseStreamChunk()
-   Provider-->>SDK: LanguageModelV2StreamPart
-   SDK-->>App: TextStreamPart
-   end
 
-````
+### Request Cancellation
+
+#### Current Limitation
+
+The provider implements AbortSignal handling using `Promise.race()`:
+
+```typescript
+const abortPromise = options.abortSignal
+  ? new Promise<never>((_, reject) => {
+      options.abortSignal?.addEventListener("abort", () => {
+        reject(new Error("Request aborted by user"));
+      });
+    })
+  : null;
+
+const response = abortPromise ? await Promise.race([apiCall, abortPromise]) : await apiCall;
+```
+
+**Behavior:**
+
+- ✅ Client-side: Promise rejects immediately
+- ❌ Server-side: HTTP request continues processing
+- ❌ Resources: Tokens consumed, costs incurred
+
+#### Why This Happens
+
+The SAP AI SDK's `OrchestrationClient.chatCompletion()` method does not currently expose an `AbortSignal` parameter. Without this support, we cannot propagate the cancellation to the underlying HTTP client.
+
+#### Future Enhancement
+
+True request cancellation will be possible when SAP AI SDK adds AbortController support (tracked in https://github.com/SAP/ai-sdk-js/issues/1429). The implementation will be updated to:
+
+```typescript
+// Future implementation
+const response = await client.chatCompletion({
+  messages,
+  model,
+  signal: options.abortSignal, // Pass through to SDK
+});
+```
+
+#### Workarounds
+
+For production applications:
+
+1. Set appropriate `maxTokens` limits
+2. Implement application-level timeouts
+3. Use request tracking to monitor abandoned requests
+4. Consider async patterns for long-running generations
 
 ### Tool Calling Flow
 
@@ -661,7 +731,7 @@ sequenceDiagram
         Provider-->>SDK: {<br/>  content: [{type: "text", text: "..."}],<br/>  finishReason: "stop"<br/>}
         SDK-->>App: {<br/>  text: "5+3=8. Tokyo weather: sunny, 72°F",<br/>  toolCalls: [...],<br/>  toolResults: [...]<br/>}
     end
-````
+```
 
 ### Data Masking Flow (SAP DPI Integration)
 
