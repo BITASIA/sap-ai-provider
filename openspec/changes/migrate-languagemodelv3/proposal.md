@@ -5,11 +5,11 @@
 **Priority**: High  
 **Author**: AI Assistant  
 **Date**: 2026-01-14  
-**Last Updated**: 2026-01-15 19:30 UTC
+**Last Updated**: 2026-01-15 19:45 UTC
 
 ## Current Status
 
-As of 2026-01-15 19:30 UTC:
+As of 2026-01-15 19:45 UTC:
 
 - ✅ **Implementation**: Complete (157 commits on `feature/languagemodelv3`, merged to `main`)
 - ✅ **Tests**: 194/194 passing (100%)
@@ -97,7 +97,7 @@ The alternative—staying on V2—creates technical debt that will become more e
 
 ### Current State
 
-- **Package Version**: 3.0.0 → 4.0.0-rc.1 → 4.0.0-rc.2 (prepared) → 4.0.0 (pending)
+- **Package Version**: 3.0.0 → 4.0.0-rc.1 → 4.0.0-rc.2 → 4.0.0 (released)
 - **Implemented Interface**: `LanguageModelV3` (v3 specification) - Implementation complete
 - **Dependencies**:
   - `@ai-sdk/provider`: ^3.0.2 (provider interface package)
@@ -127,7 +127,7 @@ This dual-repository approach ensures both community contribution (via upstream)
 **Current Status**:
 
 - **Upstream** (`@mymediset/sap-ai-provider`): v2.1.0 - stable release with known issues
-- **Fork** (`@jerome-benoit/sap-ai-provider`): v3.0.0 (stable), v4.0.0-rc.1 (pre-release), v4.0.0 final pending RC feedback
+- **Fork** (`@jerome-benoit/sap-ai-provider`): v3.0.0 (stable), v4.0.0 (stable, released 2026-01-15)
 - **Co-maintenance Request**: Pending response from upstream maintainers
 
 **Future Scenarios**:
@@ -211,7 +211,7 @@ The **Language Model Specification V3** (introduced in `@ai-sdk/provider` 3.0.0,
 - [x] CI/CD pipeline green on feature branch
 - [x] PR opened on upstream for community review
 - [x] Release Candidate published (4.0.0-rc.1 as `@jerome-benoit/sap-ai-provider`)
-- [ ] Major version published (4.0.0 stable as `@jerome-benoit/sap-ai-provider` with `latest` tag)
+- [x] Major version published (4.0.0 stable as `@jerome-benoit/sap-ai-provider` with `latest` tag)
 
 ## Proposed Solution
 
@@ -908,10 +908,9 @@ To ensure successful adoption of v4.0.0, we need a comprehensive communication s
 
 2. **Beta/RC Phase**:
    - ✅ **COMPLETED**: Published v4.0.0-rc.1 on 2026-01-14 (npm tag: `next`)
-   - ⏳ **IN PROGRESS**: Gathering feedback from early adopters (3-7 days)
-   - Installation: `npm install @jerome-benoit/sap-ai-provider@next`
-   - GitHub Pre-Release: https://github.com/jerome-benoit/sap-ai-provider/releases/tag/v4.0.0-rc.1
-   - Next: Iterate based on feedback (v4.0.0-rc.2 if needed, or proceed to v4.0.0 stable)
+   - ✅ **COMPLETED**: Published v4.0.0-rc.2 on 2026-01-15 (npm tag: `next`)
+   - ✅ **COMPLETED**: Gathered feedback from early adopters
+   - ✅ **COMPLETED**: Final v4.0.0 stable published on 2026-01-15 (npm tag: `latest`)
 
 #### Release Day Communication
 
@@ -1040,7 +1039,7 @@ To ensure successful adoption of v4.0.0, we need a comprehensive communication s
 | Phase 2: Core Migration | 2-3 days           | Code changes, type migration, adaptation               | ✅ COMPLETE              |
 | Phase 3: Tests          | 1-2 days           | Unit tests, integration, validation                    | ✅ COMPLETE              |
 | Phase 4: Documentation  | 1 day              | Docs harmonization, validation                         | ✅ COMPLETE              |
-| Phase 5: Release        | 0.5 day            | GitHub release creation (automated npm publish)        | ⏳ AWAITING APPROVAL     |
+| Phase 5: Release        | 0.5 day            | GitHub release creation (automated npm publish)        | ✅ COMPLETE              |
 | Phase 6: Post-Release   | Ongoing (4 weeks)  | Support, monitoring, quick fixes, community engagement | FUTURE                   |
 | **Total (Dev Work)**    | **6-7.5 days**     | Excludes pre/post-release phases                       | **✅ 5.5 days COMPLETE** |
 
@@ -1087,22 +1086,22 @@ To ensure successful adoption of v4.0.0, we need a comprehensive communication s
    - Examples tested and working
    - Decision point: proceed to release
 
-4. **M4: Owner Approval for Origin Release** (Day 8) - ⏳ **PENDING**
-   - **CRITICAL**: Owner must explicitly approve before:
-     - Creating GitHub release on origin (immediate availability)
-     - Triggering automated npm publish from origin
-   - No origin release may proceed without explicit owner approval
-   - Approval confirms: code quality, documentation completeness, timing
+4. **M4: Owner Approval for Origin Release** (Day 8) - ✅ **COMPLETE**
+   - Owner explicitly approved the release
+   - Approval confirmed: code quality, documentation completeness, timing
+   - Date: 2026-01-15
    - **Note**: Upstream PR review continues independently and is NOT a blocker
    - **Note**: Upstream merge will happen later based on upstream maintainer decision
 
-5. **M5: Version 4.0.0 Published on Origin** (Day 8.5) - **AWAITING M4**
-   - **ONLY AFTER OWNER APPROVAL**
-   - Pull Request remains open on **upstream** repository (`BITASIA/sap-ai-provider`) for community review
+5. **M5: Version 4.0.0 Published on Origin** (Day 8.5) - ✅ **COMPLETE**
+   - Owner approval received and acted upon
    - GitHub release created on **origin** repository (`jerome-benoit/sap-ai-provider`)
    - npm package automatically published via GitHub Actions workflow from origin
-   - Community announcements sent (noting both upstream PR and origin availability)
-   - Documentation live
+   - Published: 2026-01-15 19:33 UTC
+   - Package: `@jerome-benoit/sap-ai-provider@4.0.0` (tag: `latest`)
+   - GitHub Release: https://github.com/jerome-benoit/sap-ai-provider/releases/tag/v4.0.0
+   - PR #28 updated on **upstream** repository with release information
+   - Documentation live and accessible
 
 6. **M6: Stable Adoption** (Day 8.5 + 4 weeks) - **FUTURE**
    - No critical issues reported
