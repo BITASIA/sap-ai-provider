@@ -43,13 +43,9 @@ export class SAPAILanguageModel implements LanguageModelV2 {
 export class SAPAILanguageModel implements LanguageModelV3 {
   readonly specificationVersion = "v3";
 
-  async doGenerate(
-    options: LanguageModelV3CallOptions,
-  ): Promise<LanguageModelV3GenerateResult>;
+  async doGenerate(options: LanguageModelV3CallOptions): Promise<LanguageModelV3GenerateResult>;
 
-  async doStream(
-    options: LanguageModelV3CallOptions,
-  ): Promise<LanguageModelV3StreamResult>;
+  async doStream(options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult>;
 }
 ```
 
@@ -59,30 +55,10 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
 ```typescript
 // REMOVE V2 imports
-import {
-  LanguageModelV2,
-  LanguageModelV2CallOptions,
-  LanguageModelV2CallWarning,
-  LanguageModelV2Content,
-  LanguageModelV2FinishReason,
-  LanguageModelV2FunctionTool,
-  LanguageModelV2StreamPart,
-  LanguageModelV2Usage,
-} from "@ai-sdk/provider";
+import { LanguageModelV2, LanguageModelV2CallOptions, LanguageModelV2CallWarning, LanguageModelV2Content, LanguageModelV2FinishReason, LanguageModelV2FunctionTool, LanguageModelV2StreamPart, LanguageModelV2Usage } from "@ai-sdk/provider";
 
 // ADD V3 imports
-import {
-  LanguageModelV3,
-  LanguageModelV3CallOptions,
-  LanguageModelV3CallWarning,
-  LanguageModelV3Content,
-  LanguageModelV3FinishReason,
-  LanguageModelV3FunctionTool,
-  LanguageModelV3GenerateResult,
-  LanguageModelV3StreamPart,
-  LanguageModelV3StreamResult,
-  LanguageModelV3Usage,
-} from "@ai-sdk/provider";
+import { LanguageModelV3, LanguageModelV3CallOptions, LanguageModelV3CallWarning, LanguageModelV3Content, LanguageModelV3FinishReason, LanguageModelV3FunctionTool, LanguageModelV3GenerateResult, LanguageModelV3StreamPart, LanguageModelV3StreamResult, LanguageModelV3Usage } from "@ai-sdk/provider";
 ```
 
 ### 2. Content Type System
@@ -116,29 +92,21 @@ Current structure processes V2 content. We need to:
 
 ```typescript
 // V2 (current)
-export function convertToSAPMessages(
-  messages: LanguageModelV2Message[],
-): ChatMessage[];
+export function convertToSAPMessages(messages: LanguageModelV2Message[]): ChatMessage[];
 
 // V3 (target)
-export function convertToSAPMessages(
-  messages: LanguageModelV3Message[],
-): ChatMessage[];
+export function convertToSAPMessages(messages: LanguageModelV3Message[]): ChatMessage[];
 ```
 
 2. **Add file content validation**:
 
 ```typescript
-function validateAndConvertContent(
-  content: LanguageModelV3ContentPart,
-  warnings: LanguageModelV3CallWarning[],
-): SAPContentPart | null {
+function validateAndConvertContent(content: LanguageModelV3ContentPart, warnings: LanguageModelV3CallWarning[]): SAPContentPart | null {
   if (content.type === "file") {
     warnings.push({
       type: "unsupported-content",
       content,
-      message:
-        "SAP AI Core does not support file content type. This content will be skipped.",
+      message: "SAP AI Core does not support file content type. This content will be skipped.",
     });
     return null;
   }
@@ -491,11 +459,7 @@ if (sapResponse.usage_details) {
 V3 maintains the same warning types as V2:
 
 ```typescript
-type LanguageModelV3CallWarning =
-  | { type: "unsupported-setting"; setting: string; details?: string }
-  | { type: "unsupported-tool"; tool: LanguageModelV3FunctionTool }
-  | { type: "unsupported-content"; content: LanguageModelV3ContentPart }
-  | { type: "other"; message: string };
+type LanguageModelV3CallWarning = { type: "unsupported-setting"; setting: string; details?: string } | { type: "unsupported-tool"; tool: LanguageModelV3FunctionTool } | { type: "unsupported-content"; content: LanguageModelV3ContentPart } | { type: "other"; message: string };
 ```
 
 **No changes needed** - warning system is compatible between V2 and V3.
@@ -742,9 +706,7 @@ it("should emit text-start, text-delta, text-end for streaming", async () => {
     type: "stream-start",
     warnings: expect.any(Array),
   });
-  expect(chunks).toContainEqual(
-    expect.objectContaining({ type: "text-start", id: expect.any(String) }),
-  );
+  expect(chunks).toContainEqual(expect.objectContaining({ type: "text-start", id: expect.any(String) }));
   expect(chunks).toContainEqual(
     expect.objectContaining({
       type: "text-delta",
@@ -803,9 +765,7 @@ describe("V3 Content Types", () => {
 describe("V3 Streaming", () => {
   it("should generate unique IDs for text blocks", async () => {
     const { stream } = await model.doStream({
-      prompt: [
-        { role: "user", content: [{ type: "text", text: "Count to 3" }] },
-      ],
+      prompt: [{ role: "user", content: [{ type: "text", text: "Count to 3" }] }],
     });
 
     const textBlockIds = new Set<string>();

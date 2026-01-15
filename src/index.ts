@@ -15,11 +15,7 @@ export type { OrchestrationErrorResponse } from "./sap-ai-error";
  */
 export { createSAPAIProvider, sapai } from "./sap-ai-provider";
 
-export type {
-  DeploymentConfig,
-  SAPAIProvider,
-  SAPAIProviderSettings,
-} from "./sap-ai-provider";
+export type { DeploymentConfig, SAPAIProvider, SAPAIProviderSettings } from "./sap-ai-provider";
 
 /**
  * Model settings and identifiers.

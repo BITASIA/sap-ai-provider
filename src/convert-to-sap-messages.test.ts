@@ -315,27 +315,22 @@ describe("convertToSAPMessages", () => {
     { description: "audio", mediaType: "audio/mp3" },
     { description: "pdf", mediaType: "application/pdf" },
     { description: "video", mediaType: "video/mp4" },
-  ])(
-    "should throw error for unsupported file type: $description",
-    ({ mediaType }) => {
-      const prompt: LanguageModelV3Prompt = [
-        {
-          content: [
-            {
-              data: "base64data",
-              mediaType,
-              type: "file",
-            },
-          ],
-          role: "user",
-        },
-      ];
+  ])("should throw error for unsupported file type: $description", ({ mediaType }) => {
+    const prompt: LanguageModelV3Prompt = [
+      {
+        content: [
+          {
+            data: "base64data",
+            mediaType,
+            type: "file",
+          },
+        ],
+        role: "user",
+      },
+    ];
 
-      expect(() => convertToSAPMessages(prompt)).toThrow(
-        "Only image files are supported",
-      );
-    },
-  );
+    expect(() => convertToSAPMessages(prompt)).toThrow("Only image files are supported");
+  });
 
   it("should convert multiple tool calls in single assistant message", () => {
     const prompt: LanguageModelV3Prompt = [
@@ -691,9 +686,7 @@ describe("convertToSAPMessages", () => {
       },
     ] as LanguageModelV3Prompt;
 
-    expect(() => convertToSAPMessages(prompt)).toThrow(
-      "Content type unknown_type",
-    );
+    expect(() => convertToSAPMessages(prompt)).toThrow("Content type unknown_type");
   });
 
   describe("Image data conversion edge cases", () => {
@@ -723,9 +716,7 @@ describe("convertToSAPMessages", () => {
       expect(userMessage.content).toHaveLength(2);
       const imageContent = userMessage.content[1];
       expect(imageContent.type).toBe("image_url");
-      expect(imageContent.image_url?.url).toMatch(
-        /^data:image\/png;base64,iVBORw==/,
-      ); // Base64 of PNG header
+      expect(imageContent.image_url?.url).toMatch(/^data:image\/png;base64,iVBORw==/); // Base64 of PNG header
     });
 
     it("should convert Buffer image data to base64", () => {
@@ -754,9 +745,7 @@ describe("convertToSAPMessages", () => {
       expect(userMessage.content).toHaveLength(2);
       const imageContent = userMessage.content[1];
       expect(imageContent.type).toBe("image_url");
-      expect(imageContent.image_url?.url).toMatch(
-        /^data:image\/png;base64,iVBORw==/,
-      );
+      expect(imageContent.image_url?.url).toMatch(/^data:image\/png;base64,iVBORw==/);
     });
 
     it("should convert buffer-like object with toString to base64", () => {
@@ -790,9 +779,7 @@ describe("convertToSAPMessages", () => {
         content: { image_url?: { url: string }; type: string }[];
         role: string;
       };
-      expect(userMessage.content[0].image_url?.url).toBe(
-        "data:image/png;base64,aGVsbG8=",
-      );
+      expect(userMessage.content[0].image_url?.url).toBe("data:image/png;base64,aGVsbG8=");
     });
 
     it("should throw UnsupportedFunctionalityError for unsupported image data type", () => {
@@ -811,9 +798,7 @@ describe("convertToSAPMessages", () => {
         },
       ];
 
-      expect(() => convertToSAPMessages(prompt)).toThrow(
-        "Unsupported file data type for image",
-      );
+      expect(() => convertToSAPMessages(prompt)).toThrow("Unsupported file data type for image");
     });
   });
 
@@ -826,8 +811,6 @@ describe("convertToSAPMessages", () => {
       },
     ] as unknown as LanguageModelV3Prompt;
 
-    expect(() => convertToSAPMessages(prompt)).toThrow(
-      "Unsupported role: unsupported_role",
-    );
+    expect(() => convertToSAPMessages(prompt)).toThrow("Unsupported role: unsupported_role");
   });
 });

@@ -1,7 +1,4 @@
-import type {
-  DeploymentIdConfig,
-  ResourceGroupConfig,
-} from "@sap-ai-sdk/ai-api/internal.js";
+import type { DeploymentIdConfig, ResourceGroupConfig } from "@sap-ai-sdk/ai-api/internal.js";
 import type { LlmModelParams } from "@sap-ai-sdk/orchestration";
 import type { Template } from "@sap-ai-sdk/orchestration/dist/client/api/schema/template.js";
 import type { HttpDestinationOrFetchOptions } from "@sap-cloud-sdk/connectivity";
@@ -228,11 +225,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * @internal This constructor is not meant to be called directly.
    * Use the provider function instead.
    */
-  constructor(
-    modelId: SAPAIModelId,
-    settings: SAPAISettings,
-    config: SAPAIConfig,
-  ) {
+  constructor(modelId: SAPAIModelId, settings: SAPAISettings, config: SAPAIConfig) {
     this.settings = settings;
     this.config = config;
     this.modelId = modelId;
@@ -272,28 +265,22 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * console.log(result.usage);   // Token usage
    * ```
    */
-  async doGenerate(
-    options: LanguageModelV3CallOptions,
-  ): Promise<LanguageModelV3GenerateResult> {
+  async doGenerate(options: LanguageModelV3CallOptions): Promise<LanguageModelV3GenerateResult> {
     try {
-      const { messages, orchestrationConfig, warnings } =
-        this.buildOrchestrationConfig(options);
+      const { messages, orchestrationConfig, warnings } = this.buildOrchestrationConfig(options);
 
       const client = this.createClient(orchestrationConfig);
 
-      const promptTemplating =
-        orchestrationConfig.promptTemplating as unknown as {
-          prompt: { response_format?: unknown; tools?: unknown };
-        };
+      const promptTemplating = orchestrationConfig.promptTemplating as unknown as {
+        prompt: { response_format?: unknown; tools?: unknown };
+      };
 
       const requestBody = {
         messages,
         model: {
           ...orchestrationConfig.promptTemplating.model,
         },
-        ...(promptTemplating.prompt.tools
-          ? { tools: promptTemplating.prompt.tools }
-          : {}),
+        ...(promptTemplating.prompt.tools ? { tools: promptTemplating.prompt.tools } : {}),
         ...(promptTemplating.prompt.response_format
           ? { response_format: promptTemplating.prompt.response_format }
           : {}),
@@ -303,21 +290,15 @@ export class SAPAILanguageModel implements LanguageModelV3 {
         })(),
         ...(() => {
           const filtering = orchestrationConfig.filtering;
-          return filtering && Object.keys(filtering).length > 0
-            ? { filtering }
-            : {};
+          return filtering && Object.keys(filtering).length > 0 ? { filtering } : {};
         })(),
         ...(() => {
           const grounding = orchestrationConfig.grounding;
-          return grounding && Object.keys(grounding).length > 0
-            ? { grounding }
-            : {};
+          return grounding && Object.keys(grounding).length > 0 ? { grounding } : {};
         })(),
         ...(() => {
           const translation = orchestrationConfig.translation;
-          return translation && Object.keys(translation).length > 0
-            ? { translation }
-            : {};
+          return translation && Object.keys(translation).length > 0 ? { translation } : {};
         })(),
       };
 
@@ -507,28 +488,22 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    *
    * @since 4.0.0
    */
-  async doStream(
-    options: LanguageModelV3CallOptions,
-  ): Promise<LanguageModelV3StreamResult> {
+  async doStream(options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult> {
     try {
-      const { messages, orchestrationConfig, warnings } =
-        this.buildOrchestrationConfig(options);
+      const { messages, orchestrationConfig, warnings } = this.buildOrchestrationConfig(options);
 
       const client = this.createClient(orchestrationConfig);
 
-      const promptTemplating =
-        orchestrationConfig.promptTemplating as unknown as {
-          prompt: { response_format?: unknown; tools?: unknown };
-        };
+      const promptTemplating = orchestrationConfig.promptTemplating as unknown as {
+        prompt: { response_format?: unknown; tools?: unknown };
+      };
 
       const requestBody = {
         messages,
         model: {
           ...orchestrationConfig.promptTemplating.model,
         },
-        ...(promptTemplating.prompt.tools
-          ? { tools: promptTemplating.prompt.tools }
-          : {}),
+        ...(promptTemplating.prompt.tools ? { tools: promptTemplating.prompt.tools } : {}),
         ...(promptTemplating.prompt.response_format
           ? { response_format: promptTemplating.prompt.response_format }
           : {}),
@@ -538,17 +513,13 @@ export class SAPAILanguageModel implements LanguageModelV3 {
         })(),
         ...(() => {
           const filtering = orchestrationConfig.filtering;
-          return filtering && Object.keys(filtering).length > 0
-            ? { filtering }
-            : {};
+          return filtering && Object.keys(filtering).length > 0 ? { filtering } : {};
         })(),
       };
 
-      const streamResponse = await client.stream(
-        requestBody,
-        options.abortSignal,
-        { promptTemplating: { include_usage: true } },
-      );
+      const streamResponse = await client.stream(requestBody, options.abortSignal, {
+        promptTemplating: { include_usage: true },
+      });
 
       // Generate unique ID for text blocks in this stream
       const idGenerator = new StreamIdGenerator();
@@ -675,10 +646,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
                   }
 
                   const nextToolName = toolCallChunk.function?.name;
-                  if (
-                    typeof nextToolName === "string" &&
-                    nextToolName.length > 0
-                  ) {
+                  if (typeof nextToolName === "string" && nextToolName.length > 0) {
                     tc.toolName = nextToolName;
                   }
 
@@ -692,10 +660,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
                   }
 
                   const argumentsDelta = toolCallChunk.function?.arguments;
-                  if (
-                    typeof argumentsDelta === "string" &&
-                    argumentsDelta.length > 0
-                  ) {
+                  if (typeof argumentsDelta === "string" && argumentsDelta.length > 0) {
                     tc.arguments += argumentsDelta;
 
                     if (tc.didEmitInputStart) {
@@ -811,10 +776,8 @@ export class SAPAILanguageModel implements LanguageModelV3 {
             if (finalUsage) {
               streamState.usage.inputTokens.total = finalUsage.prompt_tokens;
               streamState.usage.inputTokens.noCache = finalUsage.prompt_tokens;
-              streamState.usage.outputTokens.total =
-                finalUsage.completion_tokens;
-              streamState.usage.outputTokens.text =
-                finalUsage.completion_tokens;
+              streamState.usage.outputTokens.total = finalUsage.completion_tokens;
+              streamState.usage.outputTokens.text = finalUsage.completion_tokens;
             }
 
             controller.enqueue({
@@ -831,8 +794,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
               url: "sap-ai:orchestration",
             });
             controller.enqueue({
-              error:
-                aiError instanceof Error ? aiError : new Error(String(aiError)),
+              error: aiError instanceof Error ? aiError : new Error(String(aiError)),
               type: "error",
             });
             controller.close();
@@ -883,15 +845,11 @@ export class SAPAILanguageModel implements LanguageModelV3 {
     warnings: SharedV3Warning[];
   } {
     const providerOptions =
-      (options.providerOptions as undefined | { sap?: Partial<SAPAISettings> })
-        ?.sap ?? {};
+      (options.providerOptions as undefined | { sap?: Partial<SAPAISettings> })?.sap ?? {};
     const warnings: SharedV3Warning[] = [];
 
     const messages = convertToSAPMessages(options.prompt, {
-      includeReasoning:
-        providerOptions.includeReasoning ??
-        this.settings.includeReasoning ??
-        false,
+      includeReasoning: providerOptions.includeReasoning ?? this.settings.includeReasoning ?? false,
     });
 
     // AI SDK convention: options.tools override provider/model defaults
@@ -901,18 +859,11 @@ export class SAPAILanguageModel implements LanguageModelV3 {
     const optionsTools = options.tools;
 
     const shouldUseSettingsTools =
-      settingsTools &&
-      settingsTools.length > 0 &&
-      (!optionsTools || optionsTools.length === 0);
+      settingsTools && settingsTools.length > 0 && (!optionsTools || optionsTools.length === 0);
 
     const shouldUseOptionsTools = !!(optionsTools && optionsTools.length > 0);
 
-    if (
-      settingsTools &&
-      settingsTools.length > 0 &&
-      optionsTools &&
-      optionsTools.length > 0
-    ) {
+    if (settingsTools && settingsTools.length > 0 && optionsTools && optionsTools.length > 0) {
       warnings.push({
         message:
           "Both settings.tools and call options.tools were provided; preferring call options.tools.",
@@ -928,26 +879,18 @@ export class SAPAILanguageModel implements LanguageModelV3 {
       tools = availableTools
         ?.map((tool): ChatCompletionTool | null => {
           if (tool.type === "function") {
-            const inputSchema = tool.inputSchema as
-              | Record<string, unknown>
-              | undefined;
+            const inputSchema = tool.inputSchema as Record<string, unknown> | undefined;
 
             // AI SDK may pass Zod schemas in 'parameters' field (internal detail)
             const toolWithParams = tool as FunctionToolWithParameters;
 
             let parameters: SAPToolParameters;
 
-            if (
-              toolWithParams.parameters &&
-              isZodSchema(toolWithParams.parameters)
-            ) {
+            if (toolWithParams.parameters && isZodSchema(toolWithParams.parameters)) {
               try {
-                const jsonSchema = zodToJsonSchema(
-                  toolWithParams.parameters as never,
-                  {
-                    $refStrategy: "none",
-                  },
-                );
+                const jsonSchema = zodToJsonSchema(toolWithParams.parameters as never, {
+                  $refStrategy: "none",
+                });
                 const schemaRecord = jsonSchema as Record<string, unknown>;
                 delete schemaRecord.$schema;
                 parameters = buildSAPToolParameters(schemaRecord);
@@ -997,8 +940,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
     // Amazon Bedrock and Anthropic models don't support the 'n' parameter
     // Only set n when explicitly provided to avoid overriding API defaults
     const supportsN =
-      !this.modelId.startsWith("amazon--") &&
-      !this.modelId.startsWith("anthropic--");
+      !this.modelId.startsWith("amazon--") && !this.modelId.startsWith("anthropic--");
 
     const modelParams: SAPModelParams = {};
 
@@ -1015,9 +957,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
     if (temperature !== undefined) modelParams.temperature = temperature;
 
     const topP =
-      options.topP ??
-      providerOptions.modelParams?.topP ??
-      this.settings.modelParams?.topP;
+      options.topP ?? providerOptions.modelParams?.topP ?? this.settings.modelParams?.topP;
     if (topP !== undefined) modelParams.top_p = topP;
 
     if (options.topK !== undefined) modelParams.top_k = options.topK;
@@ -1039,8 +979,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
     }
 
     if (supportsN) {
-      const nValue =
-        providerOptions.modelParams?.n ?? this.settings.modelParams?.n;
+      const nValue = providerOptions.modelParams?.n ?? this.settings.modelParams?.n;
       if (nValue !== undefined) {
         modelParams.n = nValue;
       }
@@ -1100,10 +1039,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
               json_schema: {
                 description: options.responseFormat.description,
                 name: options.responseFormat.name ?? "response",
-                schema: options.responseFormat.schema as Record<
-                  string,
-                  unknown
-                >,
+                schema: options.responseFormat.schema as Record<string, unknown>,
                 strict: null,
               },
               type: "json_schema" as const,
@@ -1116,10 +1052,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
         model: {
           name: this.modelId,
           params: modelParams,
-          version:
-            providerOptions.modelVersion ??
-            this.settings.modelVersion ??
-            "latest",
+          version: providerOptions.modelVersion ?? this.settings.modelVersion ?? "latest",
         },
         prompt: {
           template: [],
@@ -1133,22 +1066,15 @@ export class SAPAILanguageModel implements LanguageModelV3 {
       })(),
       ...(() => {
         const filtering = providerOptions.filtering ?? this.settings.filtering;
-        return filtering && Object.keys(filtering).length > 0
-          ? { filtering }
-          : {};
+        return filtering && Object.keys(filtering).length > 0 ? { filtering } : {};
       })(),
       ...(() => {
         const grounding = providerOptions.grounding ?? this.settings.grounding;
-        return grounding && Object.keys(grounding).length > 0
-          ? { grounding }
-          : {};
+        return grounding && Object.keys(grounding).length > 0 ? { grounding } : {};
       })(),
       ...(() => {
-        const translation =
-          providerOptions.translation ?? this.settings.translation;
-        return translation && Object.keys(translation).length > 0
-          ? { translation }
-          : {};
+        const translation = providerOptions.translation ?? this.settings.translation;
+        return translation && Object.keys(translation).length > 0 ? { translation } : {};
       })(),
     };
 
@@ -1163,11 +1089,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * @internal
    */
   private createClient(config: OrchestrationModuleConfig): OrchestrationClient {
-    return new OrchestrationClient(
-      config,
-      this.config.deploymentConfig,
-      this.config.destination,
-    );
+    return new OrchestrationClient(config, this.config.deploymentConfig, this.config.destination);
   }
 }
 
@@ -1179,9 +1101,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
  * @returns SAPToolParameters with type: "object"
  * @internal
  */
-function buildSAPToolParameters(
-  schema: Record<string, unknown>,
-): SAPToolParameters {
+function buildSAPToolParameters(schema: Record<string, unknown>): SAPToolParameters {
   const schemaType = schema.type;
 
   if (schemaType !== undefined && schemaType !== "object") {
@@ -1198,8 +1118,7 @@ function buildSAPToolParameters(
       : {};
 
   const required =
-    Array.isArray(schema.required) &&
-    schema.required.every((item) => typeof item === "string")
+    Array.isArray(schema.required) && schema.required.every((item) => typeof item === "string")
       ? schema.required
       : [];
 
@@ -1238,9 +1157,7 @@ function createAISDKRequestBodySummary(options: LanguageModelV3CallOptions): {
     hasImageParts: options.prompt.some(
       (message) =>
         message.role === "user" &&
-        message.content.some(
-          (part) => part.type === "file" && part.mediaType.startsWith("image/"),
-        ),
+        message.content.some((part) => part.type === "file" && part.mediaType.startsWith("image/")),
     ),
     maxOutputTokens: options.maxOutputTokens,
     promptMessages: options.prompt.length,
@@ -1291,9 +1208,7 @@ function isZodSchema(obj: unknown): obj is ZodType {
  * @returns Finish reason object with unified and raw values
  * @internal
  */
-function mapFinishReason(
-  reason: string | undefined,
-): LanguageModelV3FinishReason {
+function mapFinishReason(reason: string | undefined): LanguageModelV3FinishReason {
   const raw = reason;
 
   if (!reason) return { raw, unified: "other" };
@@ -1341,10 +1256,7 @@ function validateModelParameters(
   warnings: SharedV3Warning[],
 ): void {
   // Heuristic range checks (provider/model-specific constraints may differ).
-  if (
-    params.temperature !== undefined &&
-    (params.temperature < 0 || params.temperature > 2)
-  ) {
+  if (params.temperature !== undefined && (params.temperature < 0 || params.temperature > 2)) {
     warnings.push({
       message: `temperature=${String(params.temperature)} is outside typical range [0, 2]. The API may reject this value.`,
       type: "other",

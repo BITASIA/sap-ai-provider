@@ -258,13 +258,9 @@ export class SAPAILanguageModel implements LanguageModelV3 {
   readonly modelId: string;
   readonly supportedUrls: Record<string, RegExp[]>;
 
-  doGenerate(
-    options: LanguageModelV3CallOptions,
-  ): PromiseLike<LanguageModelV3GenerateResult>;
+  doGenerate(options: LanguageModelV3CallOptions): PromiseLike<LanguageModelV3GenerateResult>;
 
-  doStream(
-    options: LanguageModelV3CallOptions,
-  ): PromiseLike<LanguageModelV3StreamResult>;
+  doStream(options: LanguageModelV3CallOptions): PromiseLike<LanguageModelV3StreamResult>;
 }
 ```
 
@@ -273,10 +269,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 **V2 Content Types**:
 
 ```typescript
-type LanguageModelV2Content =
-  | LanguageModelV2Text
-  | LanguageModelV2ToolCall
-  | LanguageModelV2ToolResult;
+type LanguageModelV2Content = LanguageModelV2Text | LanguageModelV2ToolCall | LanguageModelV2ToolResult;
 ```
 
 **V3 Content Types** (richer):

@@ -905,9 +905,7 @@ async doStream(
 
 ```typescript
 const { stream } = await model.doStream({
-  prompt: [
-    { role: "user", content: [{ type: "text", text: "Write a story" }] },
-  ],
+  prompt: [{ role: "user", content: [{ type: "text", text: "Write a story" }] }],
 });
 ```
 
@@ -1091,9 +1089,7 @@ Creates a DPI (Data Privacy Integration) masking provider configuration for anon
 **Signature:**
 
 ```typescript
-function buildDpiMaskingProvider(
-  config: DpiMaskingConfig,
-): DpiMaskingProviderConfig;
+function buildDpiMaskingProvider(config: DpiMaskingConfig): DpiMaskingProviderConfig;
 ```
 
 **Parameters:**
@@ -1140,10 +1136,7 @@ Creates an Azure Content Safety filter configuration for input or output content
 **Signature:**
 
 ```typescript
-function buildAzureContentSafetyFilter(
-  type: "input" | "output",
-  config?: AzureContentSafetyFilterParameters,
-): AzureContentSafetyFilterReturnType;
+function buildAzureContentSafetyFilter(type: "input" | "output", config?: AzureContentSafetyFilterParameters): AzureContentSafetyFilterReturnType;
 ```
 
 **Parameters:**
@@ -1189,10 +1182,7 @@ Creates a Llama Guard 3 8B filter configuration for content safety filtering.
 **Signature:**
 
 ```typescript
-function buildLlamaGuard38BFilter(
-  type: "input" | "output",
-  categories: [LlamaGuard38BCategory, ...LlamaGuard38BCategory[]],
-): LlamaGuard38BFilterReturnType;
+function buildLlamaGuard38BFilter(type: "input" | "output", categories: [LlamaGuard38BCategory, ...LlamaGuard38BCategory[]]): LlamaGuard38BFilterReturnType;
 ```
 
 **Parameters:**
@@ -1225,9 +1215,7 @@ Creates a document grounding configuration for retrieval-augmented generation (R
 **Signature:**
 
 ```typescript
-function buildDocumentGroundingConfig(
-  config: DocumentGroundingServiceConfig,
-): GroundingModule;
+function buildDocumentGroundingConfig(config: DocumentGroundingServiceConfig): GroundingModule;
 ```
 
 **Parameters:**
@@ -1278,10 +1266,7 @@ Creates a translation configuration for input/output translation using SAP Docum
 **Signature:**
 
 ```typescript
-function buildTranslationConfig(
-  type: "input" | "output",
-  config: TranslationConfigParams,
-): TranslationReturnType;
+function buildTranslationConfig(type: "input" | "output", config: TranslationConfigParams): TranslationReturnType;
 ```
 
 **Parameters:**

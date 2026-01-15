@@ -290,10 +290,7 @@ usage: {
 
 ```typescript
 // Lines 1027-1036: Stateful tool call tracking
-const toolCallAccumulator = new Map<
-  string,
-  { id: string; toolName: string; argumentsJson: string }
->();
+const toolCallAccumulator = new Map<string, { id: string; toolName: string; argumentsJson: string }>();
 ```
 
 **Performance Note**: The `Map` structure efficiently handles parallel tool calls without memory overhead.
@@ -357,17 +354,9 @@ if (!part.mediaType.startsWith("image/")) {
     functionality: "Only image files are supported",
   });
 }
-const supportedFormats = [
-  "image/png",
-  "image/jpeg",
-  "image/jpg",
-  "image/gif",
-  "image/webp",
-];
+const supportedFormats = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
 if (!supportedFormats.includes(part.mediaType.toLowerCase())) {
-  console.warn(
-    `Image format ${part.mediaType} may not be supported by all models.`,
-  );
+  console.warn(`Image format ${part.mediaType} may not be supported by all models.`);
 }
 ```
 
@@ -495,21 +484,13 @@ if (options.abortSignal) {
     completionPromise,
     new Promise<never>((_, reject) => {
       if (options.abortSignal?.aborted) {
-        reject(
-          new Error(
-            `Request aborted: ${String(options.abortSignal.reason ?? "unknown reason")}`,
-          ),
-        );
+        reject(new Error(`Request aborted: ${String(options.abortSignal.reason ?? "unknown reason")}`));
         return;
       }
       options.abortSignal?.addEventListener(
         "abort",
         () => {
-          reject(
-            new Error(
-              `Request aborted: ${String(options.abortSignal?.reason ?? "unknown reason")}`,
-            ),
-          );
+          reject(new Error(`Request aborted: ${String(options.abortSignal?.reason ?? "unknown reason")}`));
         },
         { once: true },
       );
@@ -568,10 +549,7 @@ function isZodSchema(obj: unknown): obj is ZodType {
 ```typescript
 // Lines 42-104: Early warning system
 function validateModelParameters(params, warnings): void {
-  if (
-    params.temperature !== undefined &&
-    (params.temperature < 0 || params.temperature > 2)
-  ) {
+  if (params.temperature !== undefined && (params.temperature < 0 || params.temperature > 2)) {
     warnings.push({
       type: "other",
       message: `temperature=${String(params.temperature)} is outside typical range [0, 2]. The API may reject this value.`,

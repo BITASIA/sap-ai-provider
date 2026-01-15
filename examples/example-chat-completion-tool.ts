@@ -124,12 +124,8 @@ async function simpleToolExample() {
 
   // Verify AICORE_SERVICE_KEY is set for local development
   if (!process.env.AICORE_SERVICE_KEY && !process.env.VCAP_SERVICES) {
-    console.warn(
-      "⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.",
-    );
-    console.warn(
-      "   Set it in your .env file or environment for local development.\n",
-    );
+    console.warn("⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.");
+    console.warn("   Set it in your .env file or environment for local development.\n");
   }
 
   const provider = createSAPAIProvider();

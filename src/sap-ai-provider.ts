@@ -1,7 +1,4 @@
-import type {
-  DeploymentIdConfig,
-  ResourceGroupConfig,
-} from "@sap-ai-sdk/ai-api/internal.js";
+import type { DeploymentIdConfig, ResourceGroupConfig } from "@sap-ai-sdk/ai-api/internal.js";
 import type { HttpDestinationOrFetchOptions } from "@sap-cloud-sdk/connectivity";
 
 import { ProviderV3 } from "@ai-sdk/provider";
@@ -213,9 +210,7 @@ export interface SAPAIProviderSettings {
  * });
  * ```
  */
-export function createSAPAIProvider(
-  options: SAPAIProviderSettings = {},
-): SAPAIProvider {
+export function createSAPAIProvider(options: SAPAIProviderSettings = {}): SAPAIProvider {
   const resourceGroup = options.resourceGroup ?? "default";
 
   const warnOnAmbiguousConfig = options.warnOnAmbiguousConfig ?? true;
@@ -319,9 +314,7 @@ export function createSAPAIProvider(
   const provider = function (modelId: SAPAIModelId, settings?: SAPAISettings) {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (new.target) {
-      throw new Error(
-        "The SAP AI provider function cannot be called with the new keyword.",
-      );
+      throw new Error("The SAP AI provider function cannot be called with the new keyword.");
     }
 
     return createModel(modelId, settings);

@@ -30,12 +30,8 @@ async function dataMaskingExample() {
 
   // Verify AICORE_SERVICE_KEY is set for local development
   if (!process.env.AICORE_SERVICE_KEY && !process.env.VCAP_SERVICES) {
-    console.warn(
-      "⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.",
-    );
-    console.warn(
-      "   Set it in your .env file or environment for local development.\n",
-    );
+    console.warn("⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.");
+    console.warn("   Set it in your .env file or environment for local development.\n");
   }
 
   try {
@@ -82,9 +78,7 @@ async function dataMaskingExample() {
     });
 
     console.log("🤖 Response:", text);
-    console.log(
-      "\n📌 Note: Personal data like names, emails, and phone numbers should be",
-    );
+    console.log("\n📌 Note: Personal data like names, emails, and phone numbers should be");
     console.log("   masked by DPI before reaching the model.");
 
     // Test without masking for comparison
@@ -113,8 +107,7 @@ async function dataMaskingExample() {
     console.log("📎 Verbatim echo test (shows what model receives)");
     console.log("================================\n");
 
-    const original =
-      "My name is John Smith, email: john.smith@company.com, phone: 555-987-6543";
+    const original = "My name is John Smith, email: john.smith@company.com, phone: 555-987-6543";
 
     const { text: echoMasked } = await generateText({
       messages: [
@@ -152,15 +145,12 @@ async function dataMaskingExample() {
         console.error("   SAP Error Code:", sapError.error.code);
       }
     } else {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("❌ Example failed:", errorMessage);
     }
 
     console.error("\n💡 Troubleshooting tips:");
-    console.error(
-      "   - Ensure AICORE_SERVICE_KEY is set with valid credentials",
-    );
+    console.error("   - Ensure AICORE_SERVICE_KEY is set with valid credentials");
     console.error("   - Check that your SAP AI Core instance is accessible");
     console.error("   - Verify the model is available in your deployment");
   }

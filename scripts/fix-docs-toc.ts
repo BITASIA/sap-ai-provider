@@ -32,11 +32,7 @@ function detectToc(content: string): {
   startLine: number;
 } {
   const lines = content.split("\n");
-  const tocPatterns = [
-    /^##\s+Table of Contents$/i,
-    /^##\s+Contents$/i,
-    /^##\s+ToC$/i,
-  ];
+  const tocPatterns = [/^##\s+Table of Contents$/i, /^##\s+Contents$/i, /^##\s+ToC$/i];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -140,9 +136,7 @@ function fixTocInFile(filePath: string): boolean {
     return false;
   }
 
-  console.log(
-    `  📍 Found ToC at lines ${String(startLine + 1)}-${String(endLine + 1)}`,
-  );
+  console.log(`  📍 Found ToC at lines ${String(startLine + 1)}-${String(endLine + 1)}`);
 
   // Extract headers
   const headers = extractHeaders(lines, startLine);
@@ -156,9 +150,7 @@ function fixTocInFile(filePath: string): boolean {
   // Infer depth
   const tocDepth = inferTocDepthFromHeaders(headers);
   const filteredHeaders = headers.filter((h) => h.level <= tocDepth);
-  console.log(
-    `  📊 ToC depth: ${String(tocDepth)} (${String(filteredHeaders.length)} entries)`,
-  );
+  console.log(`  📊 ToC depth: ${String(tocDepth)} (${String(filteredHeaders.length)} entries)`);
 
   // Generate new ToC
   const newTocContent = generateTocMarkdown(headers, tocDepth);
@@ -167,13 +159,7 @@ function fixTocInFile(filePath: string): boolean {
   const beforeToc = lines.slice(0, startLine + 1);
   const afterToc = lines.slice(endLine);
 
-  const newLines = [
-    ...beforeToc,
-    "",
-    ...newTocContent.split("\n"),
-    "",
-    ...afterToc,
-  ];
+  const newLines = [...beforeToc, "", ...newTocContent.split("\n"), "", ...afterToc];
 
   const newContent = newLines.join("\n");
 

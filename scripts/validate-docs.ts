@@ -243,11 +243,7 @@ function detectToc(content: string): {
   const lines = content.split("\n");
 
   // Look for common ToC patterns
-  const tocPatterns = [
-    /^##\s+Table of Contents$/i,
-    /^##\s+Contents$/i,
-    /^##\s+ToC$/i,
-  ];
+  const tocPatterns = [/^##\s+Table of Contents$/i, /^##\s+Contents$/i, /^##\s+ToC$/i];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -295,9 +291,7 @@ function detectToc(content: string): {
 function extractCoverage(output: string): null | number {
   // Look for the "All files" row in the coverage table
   const allFilesMatch =
-    /All files\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)/.exec(
-      output,
-    );
+    /All files\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)\s+\|\s+([\d.]+)/.exec(output);
   if (allFilesMatch) {
     return Number.parseFloat(allFilesMatch[1]);
   }
@@ -393,11 +387,7 @@ function extractTestCount(output: string): null | number {
  * @param endLine - ToC end line
  * @returns Array of ToC entries
  */
-function extractTocEntries(
-  lines: string[],
-  startLine: number,
-  endLine: number,
-): TocEntry[] {
+function extractTocEntries(lines: string[], startLine: number, endLine: number): TocEntry[] {
   const entries: TocEntry[] = [];
 
   // Pattern: - [Text](#anchor) or * [Text](#anchor)
@@ -522,10 +512,7 @@ function extractTypeScriptComments(filePath: string): {
  * @param exclude - Patterns to exclude from search
  * @returns Array of relative file paths
  */
-function findMarkdownFiles(
-  dir: string,
-  exclude: readonly string[] = [],
-): string[] {
+function findMarkdownFiles(dir: string, exclude: readonly string[] = []): string[] {
   const files: string[] = [];
 
   function walk(currentDir: string): void {
@@ -788,15 +775,11 @@ function validateCodeMetrics(): CodeMetricsResult {
   };
 
   // Read OpenSpec files
-  const auditFile =
-    "openspec/changes/migrate-languagemodelv3/IMPLEMENTATION_AUDIT.md";
-  const releaseNotesFile =
-    "openspec/changes/migrate-languagemodelv3/RELEASE_NOTES.md";
+  const auditFile = "openspec/changes/migrate-languagemodelv3/IMPLEMENTATION_AUDIT.md";
+  const releaseNotesFile = "openspec/changes/migrate-languagemodelv3/RELEASE_NOTES.md";
 
   if (!existsSync(auditFile) || !existsSync(releaseNotesFile)) {
-    result.warnings.push(
-      "OpenSpec files not found, skipping code metrics validation",
-    );
+    result.warnings.push("OpenSpec files not found, skipping code metrics validation");
     console.log("  ⚠️  OpenSpec files not found, skipping");
     return result;
   }
@@ -808,26 +791,16 @@ function validateCodeMetrics(): CodeMetricsResult {
   const auditTestMatch = /(\d+)\/(\d+) tests passing/.exec(auditContent);
   const releaseTestMatch = /(\d+) tests/.exec(releaseNotesContent);
 
-  const claimedTestsAudit = auditTestMatch
-    ? Number.parseInt(auditTestMatch[2], 10)
-    : null;
-  const claimedTestsRelease = releaseTestMatch
-    ? Number.parseInt(releaseTestMatch[1], 10)
-    : null;
+  const claimedTestsAudit = auditTestMatch ? Number.parseInt(auditTestMatch[2], 10) : null;
+  const claimedTestsRelease = releaseTestMatch ? Number.parseInt(releaseTestMatch[1], 10) : null;
 
   // Extract claimed coverage from OpenSpec
-  const coverageMatch = /Coverage[:\s]+(\d+\.?\d*)%\s+overall/.exec(
-    auditContent,
-  );
-  const claimedCoverage = coverageMatch
-    ? Number.parseFloat(coverageMatch[1])
-    : null;
+  const coverageMatch = /Coverage[:\s]+(\d+\.?\d*)%\s+overall/.exec(auditContent);
+  const claimedCoverage = coverageMatch ? Number.parseFloat(coverageMatch[1]) : null;
 
   console.log("\n  📝 OpenSpec Claims:");
   if (claimedTestsAudit !== null) {
-    console.log(
-      `    • IMPLEMENTATION_AUDIT.md: ${String(claimedTestsAudit)} tests`,
-    );
+    console.log(`    • IMPLEMENTATION_AUDIT.md: ${String(claimedTestsAudit)} tests`);
   }
   if (claimedTestsRelease !== null) {
     console.log(`    • RELEASE_NOTES.md: ${String(claimedTestsRelease)} tests`);
@@ -856,19 +829,13 @@ function validateCodeMetrics(): CodeMetricsResult {
   console.log(`    • All tests passed: ${testMetrics.passed ? "YES" : "NO"}`);
 
   // Validate test count consistency
-  if (
-    claimedTestsAudit !== null &&
-    claimedTestsAudit !== testMetrics.totalTests
-  ) {
+  if (claimedTestsAudit !== null && claimedTestsAudit !== testMetrics.totalTests) {
     result.errors.push(
       `IMPLEMENTATION_AUDIT.md claims ${String(claimedTestsAudit)} tests, but actual count is ${String(testMetrics.totalTests)}`,
     );
   }
 
-  if (
-    claimedTestsRelease !== null &&
-    claimedTestsRelease !== testMetrics.totalTests
-  ) {
+  if (claimedTestsRelease !== null && claimedTestsRelease !== testMetrics.totalTests) {
     result.errors.push(
       `RELEASE_NOTES.md claims ${String(claimedTestsRelease)} tests, but actual count is ${String(testMetrics.totalTests)}`,
     );
@@ -886,9 +853,7 @@ function validateCodeMetrics(): CodeMetricsResult {
 
   // Validate all tests pass
   if (!testMetrics.passed) {
-    result.errors.push(
-      "Test suite has failing tests, but OpenSpec claims all tests passing",
-    );
+    result.errors.push("Test suite has failing tests, but OpenSpec claims all tests passing");
   }
 
   // Check version consistency between package.json and OpenSpec
@@ -968,9 +933,7 @@ function validateDotenvImports(): void {
   }
 
   if (issuesFound > 0) {
-    console.log(
-      `  ⚠️  ${String(issuesFound)} files with potential dotenv import issues`,
-    );
+    console.log(`  ⚠️  ${String(issuesFound)} files with potential dotenv import issues`);
   } else {
     console.log("  ✅ All code examples have proper environment setup");
   }
@@ -1006,8 +969,7 @@ function validateInternalLinks(): void {
       }
 
       // Match only internal relative links (not http/https URLs)
-      const linkPattern =
-        /\[([^\]]+)\]\(((?!https?:\/\/)(?:\.\/)?([^)#]+\.md))(#[^)]+)?\)/g;
+      const linkPattern = /\[([^\]]+)\]\(((?!https?:\/\/)(?:\.\/)?([^)#]+\.md))(#[^)]+)?\)/g;
       const matches = Array.from(line.matchAll(linkPattern));
 
       for (const match of matches) {
@@ -1020,15 +982,11 @@ function validateInternalLinks(): void {
         }
 
         // Resolve target path relative to the source file's directory
-        const sourceDir = file.includes("/")
-          ? file.substring(0, file.lastIndexOf("/"))
-          : ".";
+        const sourceDir = file.includes("/") ? file.substring(0, file.lastIndexOf("/")) : ".";
         const resolvedPath = join(sourceDir, fullPath);
 
         if (!existsSync(resolvedPath)) {
-          results.errors.push(
-            `${file}:${String(i + 1)} - Broken link to ${targetFile}`,
-          );
+          results.errors.push(`${file}:${String(i + 1)} - Broken link to ${targetFile}`);
           results.passed = false;
           brokenCount++;
         }
@@ -1065,8 +1023,7 @@ function validateLinkFormat(): void {
       }
 
       // Match links like [text](FILE.md) but not [text](./FILE.md) or [text](http://...)
-      const badLinkPattern =
-        /\[([^\]]+)\]\((?!\.\/|https?:\/\/|#)([^)]+\.md[^)]*)\)/g;
+      const badLinkPattern = /\[([^\]]+)\]\((?!\.\/|https?:\/\/|#)([^)]+\.md[^)]*)\)/g;
       const matches = Array.from(line.matchAll(badLinkPattern));
 
       for (const match of matches) {
@@ -1079,9 +1036,7 @@ function validateLinkFormat(): void {
   }
 
   if (badLinksCount > 0) {
-    console.log(
-      `  ⚠️  ${String(badLinksCount)} links without ./ prefix (should be: ./FILE.md)`,
-    );
+    console.log(`  ⚠️  ${String(badLinksCount)} links without ./ prefix (should be: ./FILE.md)`);
   } else {
     console.log("  ✅ All links use correct format");
   }
@@ -1125,9 +1080,7 @@ function validateModelIdFormats(): void {
         if (!rule.incorrectPattern) continue;
 
         const { correctFormat, pattern } = rule.incorrectPattern;
-        const matches = line.matchAll(
-          new RegExp(pattern.source, pattern.flags),
-        );
+        const matches = line.matchAll(new RegExp(pattern.source, pattern.flags));
 
         for (const match of matches) {
           const incorrect = match[1];
@@ -1177,13 +1130,9 @@ function validateModelLists(): void {
         `${file}: ${String(modelMentions)} model IDs (threshold: ${String(threshold)}). ` +
           `Consider using representative examples instead of exhaustive lists.`,
       );
-      console.log(
-        `  ⚠️  ${file}: ${String(modelMentions)} model mentions (may be excessive)`,
-      );
+      console.log(`  ⚠️  ${file}: ${String(modelMentions)} model mentions (may be excessive)`);
     } else {
-      console.log(
-        `  ✅ ${file}: ${String(modelMentions)} model mentions (within threshold)`,
-      );
+      console.log(`  ✅ ${file}: ${String(modelMentions)} model mentions (within threshold)`);
     }
   }
 }
@@ -1212,18 +1161,14 @@ function validatePublicExportsDocumented(): void {
 
   // Direct exports: export const/function/class/type/interface NAME
   const directExports = Array.from(
-    indexContent.matchAll(
-      /export\s+(?:const|function|class|type|interface)\s+(\w+)/g,
-    ),
+    indexContent.matchAll(/export\s+(?:const|function|class|type|interface)\s+(\w+)/g),
   );
   for (const match of directExports) {
     exports.add(match[1]);
   }
 
   // Re-exports: export { NAME1, NAME2, ... }
-  const reExportMatches = Array.from(
-    indexContent.matchAll(/export\s*\{\s*([^}]+)\s*\}/g),
-  );
+  const reExportMatches = Array.from(indexContent.matchAll(/export\s*\{\s*([^}]+)\s*\}/g));
   for (const match of reExportMatches) {
     const names = match[1]
       .split(",")
@@ -1242,9 +1187,7 @@ function validatePublicExportsDocumented(): void {
   let undocumented = 0;
   for (const exportName of CRITICAL_EXPORTS) {
     if (!exports.has(exportName)) {
-      results.warnings.push(
-        `Critical export '${exportName}' not found in src/index.ts`,
-      );
+      results.warnings.push(`Critical export '${exportName}' not found in src/index.ts`);
       continue;
     }
 
@@ -1258,9 +1201,7 @@ function validatePublicExportsDocumented(): void {
     const isDocumented = patterns.some((p) => p.test(apiRefContent));
 
     if (!isDocumented) {
-      results.warnings.push(
-        `Export '${exportName}' not documented in API_REFERENCE.md`,
-      );
+      results.warnings.push(`Export '${exportName}' not documented in API_REFERENCE.md`);
       undocumented++;
     }
   }
@@ -1270,9 +1211,7 @@ function validatePublicExportsDocumented(): void {
       `  ⚠️  ${String(undocumented)}/${String(CRITICAL_EXPORTS.length)} critical exports not documented`,
     );
   } else {
-    console.log(
-      `  ✅ All ${String(CRITICAL_EXPORTS.length)} critical exports documented`,
-    );
+    console.log(`  ✅ All ${String(CRITICAL_EXPORTS.length)} critical exports documented`);
   }
 }
 
@@ -1295,9 +1234,7 @@ function validateRequiredFiles(): void {
   if (missingCount > 0) {
     console.log(`  ❌ ${String(missingCount)} required files missing`);
   } else {
-    console.log(
-      `  ✅ All ${String(REQUIRED_FILES.length)} required files present`,
-    );
+    console.log(`  ✅ All ${String(REQUIRED_FILES.length)} required files present`);
   }
 }
 
@@ -1336,8 +1273,7 @@ function validateSourceCodeComments(): void {
 
         // Check 1: Validate markdown links in JSDoc
         // Match: [text](path), {@link path}, {@see path}
-        const mdLinkPattern =
-          /\[([^\]]+)\]\(((?!https?:\/\/)([^)#]+))(#[^)]+)?\)/g;
+        const mdLinkPattern = /\[([^\]]+)\]\(((?!https?:\/\/)([^)#]+))(#[^)]+)?\)/g;
         const jsdocLinkPattern = /\{@(?:link|see)\s+([^}]+)\}/g;
 
         const mdMatches = Array.from(line.matchAll(mdLinkPattern));
@@ -1387,9 +1323,7 @@ function validateSourceCodeComments(): void {
           if (!rule.incorrectPattern) continue;
 
           const { correctFormat, pattern } = rule.incorrectPattern;
-          const matches = line.matchAll(
-            new RegExp(pattern.source, pattern.flags),
-          );
+          const matches = line.matchAll(new RegExp(pattern.source, pattern.flags));
 
           for (const match of matches) {
             // Skip if inside code fence or @example block (allowed in examples)
@@ -1418,17 +1352,13 @@ function validateSourceCodeComments(): void {
   console.log(`  📝 Checked ${String(linksChecked)} links in source comments`);
 
   if (brokenLinksCount > 0) {
-    console.log(
-      `  ⚠️  ${String(brokenLinksCount)} broken links in source comments`,
-    );
+    console.log(`  ⚠️  ${String(brokenLinksCount)} broken links in source comments`);
   } else {
     console.log("  ✅ No broken links in source comments");
   }
 
   if (modelIdIssues > 0) {
-    console.log(
-      `  ⚠️  ${String(modelIdIssues)} model ID format issues in comments`,
-    );
+    console.log(`  ⚠️  ${String(modelIdIssues)} model ID format issues in comments`);
   } else {
     console.log("  ✅ Model IDs in comments use correct format");
   }
@@ -1461,9 +1391,7 @@ function validateTableOfContents(): void {
     const tocEntries = extractTocEntries(lines, startLine, endLine);
 
     if (tocEntries.length === 0) {
-      results.warnings.push(
-        `${file}: ToC section found but no entries detected`,
-      );
+      results.warnings.push(`${file}: ToC section found but no entries detected`);
       issuesFound++;
       continue;
     }
@@ -1521,13 +1449,9 @@ function validateTableOfContents(): void {
   if (filesWithToc === 0) {
     console.log("  ℹ️  No files with Table of Contents found");
   } else if (issuesFound === 0) {
-    console.log(
-      `  ✅ All ${String(filesWithToc)} Table of Contents are consistent`,
-    );
+    console.log(`  ✅ All ${String(filesWithToc)} Table of Contents are consistent`);
   } else {
-    console.log(
-      `  ❌ ${String(issuesFound)} ToC issues found in ${String(filesWithToc)} files`,
-    );
+    console.log(`  ❌ ${String(issuesFound)} ToC issues found in ${String(filesWithToc)} files`);
   }
 }
 
@@ -1639,9 +1563,7 @@ function validateVersionConsistency(): void {
   }
 
   if (mentionedCount === 0) {
-    results.warnings.push(
-      `Version ${version} not mentioned in key documentation files`,
-    );
+    results.warnings.push(`Version ${version} not mentioned in key documentation files`);
     console.log(`  ⚠️  Version not mentioned in docs (may need update)`);
   } else {
     console.log(

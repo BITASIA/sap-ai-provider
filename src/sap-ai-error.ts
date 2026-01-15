@@ -131,13 +131,11 @@ export function convertToAISDKError(
   if (isOrchestrationErrorResponse(error)) {
     return convertSAPErrorToAPICallError(error, {
       ...context,
-      responseHeaders:
-        context?.responseHeaders ?? getAxiosResponseHeaders(error),
+      responseHeaders: context?.responseHeaders ?? getAxiosResponseHeaders(error),
     });
   }
 
-  const responseHeaders =
-    context?.responseHeaders ?? getAxiosResponseHeaders(error);
+  const responseHeaders = context?.responseHeaders ?? getAxiosResponseHeaders(error);
 
   if (error instanceof Error) {
     const errorMsg = error.message.toLowerCase();
@@ -202,9 +200,7 @@ export function convertToAISDKError(
  * @returns Response headers or undefined
  * @internal
  */
-function getAxiosResponseHeaders(
-  error: unknown,
-): Record<string, string> | undefined {
+function getAxiosResponseHeaders(error: unknown): Record<string, string> | undefined {
   if (!(error instanceof Error)) return undefined;
 
   const rootCause = isErrorWithCause(error) ? error.rootCause : error;
@@ -253,9 +249,7 @@ function getStatusCodeFromSAPError(code?: number): number {
  * @returns True if error is OrchestrationErrorResponse
  * @internal
  */
-function isOrchestrationErrorResponse(
-  error: unknown,
-): error is OrchestrationErrorResponse {
+function isOrchestrationErrorResponse(error: unknown): error is OrchestrationErrorResponse {
   if (error === null || typeof error !== "object" || !("error" in error)) {
     return false;
   }
@@ -302,9 +296,7 @@ function isRetryable(statusCode: number): boolean {
  * @returns Normalized headers or undefined
  * @internal
  */
-function normalizeHeaders(
-  headers: unknown,
-): Record<string, string> | undefined {
+function normalizeHeaders(headers: unknown): Record<string, string> | undefined {
   if (!headers || typeof headers !== "object") return undefined;
 
   const record = headers as Record<string, unknown>;
@@ -313,9 +305,7 @@ function normalizeHeaders(
     if (Array.isArray(value)) {
       // Use semicolon separator to avoid ambiguity with commas in header values
       // Example: "Accept: text/html, application/json" contains commas
-      const strings = value
-        .filter((item): item is string => typeof item === "string")
-        .join("; ");
+      const strings = value.filter((item): item is string => typeof item === "string").join("; ");
       return strings.length > 0 ? [[key, strings]] : [];
     }
     if (typeof value === "number" || typeof value === "boolean") {

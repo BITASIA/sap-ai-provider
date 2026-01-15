@@ -41,12 +41,8 @@ async function translationExample() {
 
   // Verify AICORE_SERVICE_KEY is set for local development
   if (!process.env.AICORE_SERVICE_KEY && !process.env.VCAP_SERVICES) {
-    console.warn(
-      "⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.",
-    );
-    console.warn(
-      "   Set it in your .env file or environment for local development.\n",
-    );
+    console.warn("⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.");
+    console.warn("   Set it in your .env file or environment for local development.\n");
   }
 
   try {
@@ -85,9 +81,7 @@ async function translationExample() {
     });
 
     console.log("🤖 Response (in English):", inputTranslatedText);
-    console.log(
-      "\n📌 Note: The query was automatically translated from German to English",
-    );
+    console.log("\n📌 Note: The query was automatically translated from German to English");
     console.log("   before being sent to the LLM.");
 
     // Example 2: Output Translation Only
@@ -124,9 +118,7 @@ async function translationExample() {
     });
 
     console.log("🤖 Response (in German):", outputTranslatedText);
-    console.log(
-      "\n📌 Note: The LLM processed the query in English and the response",
-    );
+    console.log("\n📌 Note: The LLM processed the query in English and the response");
     console.log("   was automatically translated to German.");
 
     // Example 3: Bidirectional Translation
@@ -221,21 +213,11 @@ async function translationExample() {
     console.log("\n✅ Translation example completed!");
 
     console.log("\n💡 Key Takeaways:");
-    console.log(
-      "   - Input translation: Translate user queries to LLM's language",
-    );
-    console.log(
-      "   - Output translation: Translate responses to user's language",
-    );
-    console.log(
-      "   - Bidirectional: Combine both for seamless multilingual UX",
-    );
-    console.log(
-      "   - Supported languages: Use ISO 639-1 codes (en, de, fr, es, etc.)",
-    );
-    console.log(
-      "   - No source language needed for output translation (auto-detected)",
-    );
+    console.log("   - Input translation: Translate user queries to LLM's language");
+    console.log("   - Output translation: Translate responses to user's language");
+    console.log("   - Bidirectional: Combine both for seamless multilingual UX");
+    console.log("   - Supported languages: Use ISO 639-1 codes (en, de, fr, es, etc.)");
+    console.log("   - No source language needed for output translation (auto-detected)");
   } catch (error: unknown) {
     if (error instanceof APICallError) {
       console.error("❌ API Call Error:", error.statusCode, error.message);
@@ -252,31 +234,20 @@ async function translationExample() {
 
       // Common errors
       if (error.statusCode === 400) {
-        console.error(
-          "\n💡 Invalid language code or translation configuration.",
-        );
-        console.error(
-          "   Use ISO 639-1 language codes (e.g., en, de, fr, es).",
-        );
+        console.error("\n💡 Invalid language code or translation configuration.");
+        console.error("   Use ISO 639-1 language codes (e.g., en, de, fr, es).");
       }
     } else {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("❌ Example failed:", errorMessage);
     }
 
     console.error("\n💡 Troubleshooting tips:");
-    console.error(
-      "   - Ensure AICORE_SERVICE_KEY is set with valid credentials",
-    );
+    console.error("   - Ensure AICORE_SERVICE_KEY is set with valid credentials");
     console.error("   - Check that your SAP AI Core instance is accessible");
     console.error("   - Verify the model supports the translation feature");
-    console.error(
-      "   - Use valid ISO 639-1 language codes (2-letter codes like 'en', 'de')",
-    );
-    console.error(
-      "   - Check SAP AI Core documentation for supported languages",
-    );
+    console.error("   - Use valid ISO 639-1 language codes (2-letter codes like 'en', 'de')");
+    console.error("   - Check SAP AI Core documentation for supported languages");
   }
 }
 

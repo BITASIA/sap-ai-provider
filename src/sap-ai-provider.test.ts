@@ -96,9 +96,7 @@ describe("createSAPAIProvider", () => {
   });
 
   it("should accept both deploymentId and resourceGroup", () => {
-    const warnSpy = vi
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const provider = createSAPAIProvider({
       deploymentId: "d65d81e7c077e583",
@@ -112,9 +110,7 @@ describe("createSAPAIProvider", () => {
   });
 
   it("should allow disabling ambiguous config warnings", () => {
-    const warnSpy = vi
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const provider = createSAPAIProvider({
       deploymentId: "d65d81e7c077e583",

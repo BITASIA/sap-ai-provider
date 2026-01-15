@@ -31,12 +31,8 @@ async function streamingChatExample() {
   try {
     // Verify AICORE_SERVICE_KEY is set for local development
     if (!process.env.AICORE_SERVICE_KEY && !process.env.VCAP_SERVICES) {
-      console.warn(
-        "⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.",
-      );
-      console.warn(
-        "   Set it in your .env file or environment for local development.\n",
-      );
+      console.warn("⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.");
+      console.warn("   Set it in your .env file or environment for local development.\n");
     }
 
     console.log("🔄 Creating SAP AI provider...");
@@ -79,15 +75,12 @@ async function streamingChatExample() {
         console.error("   SAP Error Code:", sapError.error.code);
       }
     } else {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("❌ Streaming example failed:", errorMessage);
     }
 
     console.error("\n💡 Troubleshooting tips:");
-    console.error(
-      "   - Ensure AICORE_SERVICE_KEY is set with valid credentials",
-    );
+    console.error("   - Ensure AICORE_SERVICE_KEY is set with valid credentials");
     console.error("   - Check that your SAP AI Core instance is accessible");
     console.error("   - Verify the model is available in your deployment");
   }

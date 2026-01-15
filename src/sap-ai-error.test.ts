@@ -10,10 +10,7 @@ import type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
 import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
 import { describe, expect, it } from "vitest";
 
-import {
-  convertSAPErrorToAPICallError,
-  convertToAISDKError,
-} from "./sap-ai-error";
+import { convertSAPErrorToAPICallError, convertToAISDKError } from "./sap-ai-error";
 
 describe("convertSAPErrorToAPICallError", () => {
   it("should convert SAP error with single error object", () => {
@@ -67,24 +64,21 @@ describe("convertSAPErrorToAPICallError", () => {
       message: "Server error 503",
     },
     { code: 504, description: "Gateway Timeout", message: "Server error 504" },
-  ])(
-    "should mark $code ($description) errors as retryable",
-    ({ code, message }) => {
-      const errorResponse: OrchestrationErrorResponse = {
-        error: {
-          code,
-          location: "Gateway",
-          message,
-          request_id: `error-${String(code)}`,
-        },
-      };
+  ])("should mark $code ($description) errors as retryable", ({ code, message }) => {
+    const errorResponse: OrchestrationErrorResponse = {
+      error: {
+        code,
+        location: "Gateway",
+        message,
+        request_id: `error-${String(code)}`,
+      },
+    };
 
-      const result = convertSAPErrorToAPICallError(errorResponse);
+    const result = convertSAPErrorToAPICallError(errorResponse);
 
-      expect(result.statusCode).toBe(code);
-      expect(result.isRetryable).toBe(true);
-    },
-  );
+    expect(result.statusCode).toBe(code);
+    expect(result.isRetryable).toBe(true);
+  });
 
   it.each([
     {
@@ -291,18 +285,15 @@ describe("convertToAISDKError", () => {
       expectsUnknown: false,
       testName: "error array with non-string message",
     },
-  ])(
-    "should not treat $testName as orchestration errors",
-    ({ errorObject, expectsUnknown }) => {
-      const result = convertToAISDKError(errorObject);
+  ])("should not treat $testName as orchestration errors", ({ errorObject, expectsUnknown }) => {
+    const result = convertToAISDKError(errorObject);
 
-      expect(result).toBeInstanceOf(APICallError);
-      expect((result as APICallError).statusCode).toBe(500);
-      if (expectsUnknown) {
-        expect(result.message).toContain("Unknown error occurred");
-      }
-    },
-  );
+    expect(result).toBeInstanceOf(APICallError);
+    expect((result as APICallError).statusCode).toBe(500);
+    if (expectsUnknown) {
+      expect(result.message).toContain("Unknown error occurred");
+    }
+  });
 
   it("should convert authentication errors to LoadAPIKeyError", () => {
     const authError = new Error("Authentication failed for AICORE_SERVICE_KEY");
