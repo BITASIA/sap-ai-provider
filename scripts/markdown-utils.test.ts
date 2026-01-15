@@ -60,7 +60,28 @@ describe("textToAnchor", () => {
   });
 
   it("should remove code blocks", () => {
-    expect(textToAnchor("Use `createProvider()` function")).toBe("use-function");
+    expect(textToAnchor("Use `createProvider()` function")).toBe("use-createprovider-function");
+  });
+
+  it("should extract content from single backtick code", () => {
+    expect(textToAnchor("`createSAPAIProvider(options?)`")).toBe("createsapaiprovideroptions");
+  });
+
+  it("should extract content from multiple backtick segments", () => {
+    expect(textToAnchor("API: `createProvider()` and `configure()`")).toBe(
+      "api-createprovider-and-configure",
+    );
+  });
+
+  it("should handle nested backticks correctly", () => {
+    expect(textToAnchor("`provider(modelId, settings?)`")).toBe("providermodelid-settings");
+  });
+
+  it("should handle method signatures with backticks", () => {
+    expect(textToAnchor("`doGenerate(options)`")).toBe("dogenerateoptions");
+    expect(textToAnchor("`provider.chat(modelId, settings?)`")).toBe(
+      "providerchatmodelid-settings",
+    );
   });
 
   it("should handle emojis", () => {
@@ -81,6 +102,19 @@ describe("textToAnchor", () => {
 
   it("should handle empty result", () => {
     expect(textToAnchor("🚀🔥💯")).toBe("");
+  });
+
+  it("should handle complex real-world examples", () => {
+    expect(textToAnchor("### `SAPAIProvider`")).toBe("sapaiprovider");
+    expect(textToAnchor("#### `provider(modelId, settings?)`")).toBe("providermodelid-settings");
+    expect(textToAnchor("### `convertToSAPMessages(prompt)`")).toBe("converttosapmessagesprompt");
+  });
+
+  it("should handle parentheses and special chars inside backticks", () => {
+    expect(textToAnchor("`buildDpiMaskingProvider(config)`")).toBe("builddpimaskingproviderconfig");
+    expect(textToAnchor("`buildAzureContentSafetyFilter(type, config?)`")).toBe(
+      "buildazurecontentsafetyfiltertype-config",
+    );
   });
 });
 
@@ -156,11 +190,11 @@ describe("extractHeaders", () => {
     expect(headers[2].anchor).toBe("test-2");
   });
 
-  it("should store 0-based line index", () => {
+  it("should store 1-based line number", () => {
     const lines = ["text", "## Header", "text"];
     const headers = extractHeaders(lines, -1);
     expect(headers).toHaveLength(1);
-    expect(headers[0].line).toBe(1); // 0-based index of the header line
+    expect(headers[0].lineNumber).toBe(2); // 1-based line number
   });
 });
 
@@ -175,16 +209,16 @@ describe("inferTocDepth", () => {
     // Level 3: 30% ✓
     // Level 4: 20% ✓
     const headers = [
-      { anchor: "a", level: 2, line: 0, text: "A" },
-      { anchor: "b", level: 2, line: 1, text: "B" },
-      { anchor: "c", level: 2, line: 2, text: "C" },
-      { anchor: "d", level: 2, line: 3, text: "D" },
-      { anchor: "e", level: 2, line: 4, text: "E" },
-      { anchor: "f", level: 3, line: 5, text: "F" },
-      { anchor: "g", level: 3, line: 6, text: "G" },
-      { anchor: "h", level: 3, line: 7, text: "H" },
-      { anchor: "i", level: 4, line: 8, text: "I" },
-      { anchor: "j", level: 4, line: 9, text: "J" },
+      { anchor: "a", level: 2, lineNumber: 1, text: "A" },
+      { anchor: "b", level: 2, lineNumber: 2, text: "B" },
+      { anchor: "c", level: 2, lineNumber: 3, text: "C" },
+      { anchor: "d", level: 2, lineNumber: 4, text: "D" },
+      { anchor: "e", level: 2, lineNumber: 5, text: "E" },
+      { anchor: "f", level: 3, lineNumber: 6, text: "F" },
+      { anchor: "g", level: 3, lineNumber: 7, text: "G" },
+      { anchor: "h", level: 3, lineNumber: 8, text: "H" },
+      { anchor: "i", level: 4, lineNumber: 9, text: "I" },
+      { anchor: "j", level: 4, lineNumber: 10, text: "J" },
     ];
     expect(inferTocDepth(headers)).toBe(4);
   });
@@ -194,17 +228,17 @@ describe("inferTocDepth", () => {
     const headers = Array.from({ length: 18 }, (_, i) => ({
       anchor: `h${String(i)}`,
       level: 2,
-      line: i,
+      lineNumber: i + 1,
       text: `Header ${String(i)}`,
     }));
-    headers.push({ anchor: "x", level: 3, line: 18, text: "X" });
-    headers.push({ anchor: "y", level: 3, line: 19, text: "Y" });
+    headers.push({ anchor: "x", level: 3, lineNumber: 19, text: "X" });
+    headers.push({ anchor: "y", level: 3, lineNumber: 20, text: "Y" });
 
     expect(inferTocDepth(headers)).toBe(3); // Level 3 is exactly 10%, included with >=
   });
 
   it("should return at least 2", () => {
-    const headers = [{ anchor: "a", level: 2, line: 0, text: "A" }];
+    const headers = [{ anchor: "a", level: 2, lineNumber: 1, text: "A" }];
     expect(inferTocDepth(headers)).toBe(2);
   });
 
@@ -212,7 +246,7 @@ describe("inferTocDepth", () => {
     const headers = Array.from({ length: 5 }, (_, i) => ({
       anchor: `h${String(i)}`,
       level: 3,
-      line: i,
+      lineNumber: i + 1,
       text: `Header ${String(i)}`,
     }));
     expect(inferTocDepth(headers)).toBe(3);

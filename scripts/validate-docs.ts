@@ -8,6 +8,16 @@ import { execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
+import type { HeaderEntry, TocEntry } from "./markdown-utils.js";
+
+import {
+  detectToc,
+  extractHeaders,
+  extractTocEntries,
+  inferTocDepth,
+  trackCodeBlocks,
+} from "./markdown-utils.js";
+
 // ============================================================================
 // Types and Interfaces
 // ============================================================================
@@ -20,35 +30,11 @@ interface FileThreshold {
   threshold: number;
 }
 
-/** Markdown header (internal, uses lineNumber). */
-interface HeaderEntry {
-  /** GitHub-style anchor. */
-  anchor: string;
-  /** Header level (2-6). */
-  level: number;
-  /** 1-based line number. */
-  lineNumber: number;
-  /** Header text. */
-  text: string;
-}
-
 /** package.json structure. */
 interface PackageJson {
   [key: string]: unknown;
   /** Package version. */
   version: string;
-}
-
-/** ToC entry (internal, uses lineNumber). */
-interface TocEntry {
-  /** GitHub-style anchor. */
-  anchor: string;
-  /** Header level (2-6). */
-  level: number;
-  /** 1-based line number. */
-  lineNumber: number;
-  /** Header text. */
-  text: string;
 }
 
 /** ToC validation comparison result. */
@@ -124,7 +110,6 @@ const DEFAULT_EXCLUDED_DIRS = ["node_modules", ".git"] as const;
 const EXCLUDED_DIRS: string[] = [...DEFAULT_EXCLUDED_DIRS];
 
 const COVERAGE_TOLERANCE_PERCENT = 0.5;
-const TOC_DEPTH_INFERENCE_THRESHOLD = 0.1;
 
 const REGEX_PATTERNS = {
   // eslint-disable-next-line no-control-regex
@@ -213,56 +198,6 @@ function aggregateResults(results: ValidationResult[]): ValidationResult {
 }
 
 /**
- * Detects ToC section in markdown (internal copy of markdown-utils function).
- *
- * @param content - Markdown content
- * @returns Detection result with 0-based indices
- */
-function detectToc(content: string): {
-  endLine: number;
-  hasToc: boolean;
-  startLine: number;
-} {
-  const lines = content.split("\n");
-  const tocPatterns = [/^##\s+Table of Contents$/i, /^##\s+Contents$/i, /^##\s+ToC$/i];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-
-    for (const pattern of tocPatterns) {
-      if (pattern.test(line)) {
-        let endLine = i + 1;
-        let emptyLines = 0;
-
-        for (let j = i + 1; j < lines.length; j++) {
-          const nextLine = lines[j].trim();
-
-          if (/^##\s+/.test(nextLine)) {
-            endLine = j;
-            break;
-          }
-
-          if (nextLine === "") {
-            emptyLines++;
-          } else {
-            emptyLines = 0;
-          }
-
-          if (emptyLines >= 2) {
-            endLine = j - 1;
-            break;
-          }
-        }
-
-        return { endLine, hasToc: true, startLine: i };
-      }
-    }
-  }
-
-  return { endLine: -1, hasToc: false, startLine: -1 };
-}
-
-/**
  * Extracts coverage % from test output.
  *
  * @param output - npm test output
@@ -275,51 +210,6 @@ function extractCoverage(output: string): null | number {
     return Number.parseFloat(allFilesMatch[1]);
   }
   return null;
-}
-
-/**
- * Extracts headers (## to ######), internal copy with 1-based lineNumber.
- *
- * @param lines - Markdown lines
- * @param tocStartLine - 0-based ToC index to skip
- * @returns Headers with 1-based lineNumber
- */
-function extractHeaders(lines: string[], tocStartLine: number): HeaderEntry[] {
-  const headers: HeaderEntry[] = [];
-  const inCodeBlock = trackCodeBlocks(lines);
-  const anchorCounts = new Map<string, number>();
-
-  for (let i = 0; i < lines.length; i++) {
-    if (inCodeBlock[i] || i === tocStartLine) {
-      continue;
-    }
-
-    const line = lines[i];
-    const headerMatch = /^(#{2,6})\s+(.+)$/.exec(line);
-    if (headerMatch) {
-      const level = headerMatch[1].length;
-      const text = headerMatch[2].trim();
-      let anchor = textToAnchor(text);
-
-      const baseAnchor = anchor;
-      const count = anchorCounts.get(baseAnchor) ?? 0;
-
-      if (count > 0) {
-        anchor = `${baseAnchor}-${String(count)}`;
-      }
-
-      anchorCounts.set(baseAnchor, count + 1);
-
-      headers.push({
-        anchor,
-        level,
-        lineNumber: i + 1,
-        text,
-      });
-    }
-  }
-
-  return headers;
 }
 
 /**
@@ -342,40 +232,6 @@ function extractTestCount(output: string): null | number {
   }
 
   return null;
-}
-
-/**
- * Extracts ToC entries from markdown list.
- *
- * @param lines - File lines
- * @param startLine - 0-based ToC start
- * @param endLine - 0-based ToC end
- * @returns ToC entries with 1-based lineNumber
- */
-function extractTocEntries(lines: string[], startLine: number, endLine: number): TocEntry[] {
-  const entries: TocEntry[] = [];
-  const tocPattern = /^(\s*)[-*]\s+\[([^\]]+)\]\(#([^)]+)\)/;
-
-  for (let i = startLine + 1; i < endLine; i++) {
-    const line = lines[i];
-    const match = tocPattern.exec(line);
-
-    if (match) {
-      const indent = match[1].length;
-      const text = match[2];
-      const anchor = match[3];
-      const level = Math.floor(indent / 2) + 2;
-
-      entries.push({
-        anchor,
-        level,
-        lineNumber: i + 1,
-        text,
-      });
-    }
-  }
-
-  return entries;
 }
 
 /**
@@ -510,36 +366,6 @@ function hasInlineCodeExample(line: string): boolean {
 }
 
 /**
- * Infers ToC depth from entry distribution (≥10% threshold).
- *
- * @param tocEntries - ToC entries
- * @returns Max depth (minimum 2)
- */
-function inferTocDepth(tocEntries: TocEntry[]): number {
-  if (tocEntries.length === 0) return 2;
-
-  const levelCounts = new Map<number, number>();
-  for (const entry of tocEntries) {
-    levelCounts.set(entry.level, (levelCounts.get(entry.level) ?? 0) + 1);
-  }
-
-  const levels = Array.from(levelCounts.keys()).sort((a, b) => a - b);
-  const totalEntries = tocEntries.length;
-
-  let maxDepth = 2;
-  for (const level of levels) {
-    const count = levelCounts.get(level) ?? 0;
-    const percentage = count / totalEntries;
-
-    if (percentage > TOC_DEPTH_INFERENCE_THRESHOLD) {
-      maxDepth = Math.max(maxDepth, level);
-    }
-  }
-
-  return maxDepth;
-}
-
-/**
  * Checks if line is inside code block.
  *
  * @param lines - All file lines
@@ -558,7 +384,10 @@ function isLineInCodeBlock(lines: string[], lineIndex: number): boolean {
   return inCodeBlock;
 }
 
-/** CLI entry point. Runs all 14 validation checks and reports results. */
+/**
+ * CLI entry point.
+ * Runs all 14 validation checks and reports results with exit codes.
+ */
 function main(): void {
   console.log("📚 SAP AI Provider - Documentation Validation");
   console.log("=".repeat(60));
@@ -723,60 +552,10 @@ function runCoverageCheck(): null | TestMetrics {
 }
 
 /**
- * Converts header text to GitHub-compatible anchor.
- *
- * @param text - Header text
- * @returns Lowercase, hyphenated anchor
- * @example
- * textToAnchor("🚀 Getting Started") // "getting-started"
- * textToAnchor("日本語セクション") // "日本語セクション"
- * textToAnchor("API: `createProvider()`") // "api-createprovider"
- */
-function textToAnchor(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/`/g, "")
-    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
-    .replace(/\s+/g, " ")
-    .replace(/\s/g, "-")
-    .replace(/[-_]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-/**
- * Tracks which lines are in code blocks.
- * Matches opening/closing backtick counts (3+).
- *
- * @param lines - File lines
- * @returns Boolean array (true = in code block)
- */
-function trackCodeBlocks(lines: string[]): boolean[] {
-  const inCodeBlock: boolean[] = new Array<boolean>(lines.length).fill(false);
-  let isInBlock = false;
-  let openingBackticks = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const match = /^(`{3,})/.exec(lines[i]);
-
-    if (match && !isInBlock) {
-      isInBlock = true;
-      openingBackticks = match[1].length;
-      inCodeBlock[i] = true;
-    } else if (match && isInBlock && match[1].length === openingBackticks) {
-      inCodeBlock[i] = true;
-      isInBlock = false;
-      openingBackticks = 0;
-    } else if (isInBlock) {
-      inCodeBlock[i] = true;
-    }
-  }
-
-  return inCodeBlock;
-}
-
-/**
  * Check 13: Validates code block syntax.
+ * Ensures markdown code blocks use correct fence syntax and language identifiers.
+ *
+ * @returns Validation result with errors for unclosed blocks and warnings for syntax issues
  */
 function validateCodeBlockSyntax(): ValidationResult {
   const errors: string[] = [];
@@ -872,6 +651,9 @@ function validateCodeBlockSyntax(): ValidationResult {
 
 /**
  * Check 10: Validates test metrics match OpenSpec claims.
+ * Runs test suite and compares actual metrics with documented claims.
+ *
+ * @returns Validation result with errors for mismatched metrics
  */
 function validateCodeMetrics(): ValidationResult {
   console.log("\n🔟 Checking code metrics against OpenSpec documents...");
@@ -984,7 +766,12 @@ function validateCodeMetrics(): ValidationResult {
 // Validation Checks
 // ============================================================================
 
-/** Check 5: Validates dotenv imports in code examples. */
+/**
+ * Check 5: Validates dotenv imports in code examples.
+ * Ensures code examples with createSAPAIProvider include proper environment setup.
+ *
+ * @returns Validation result with warnings for missing dotenv imports
+ */
 function validateDotenvImports(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -1042,6 +829,9 @@ function validateDotenvImports(): ValidationResult {
 
 /**
  * Check 12: Validates heading hierarchy (no level skipping).
+ * Ensures headers don't skip levels (e.g., H2 -> H4 without H3).
+ *
+ * @returns Validation result with errors for invalid hierarchy jumps
  */
 function validateHeadingHierarchySmart(): ValidationResult {
   const errors: string[] = [];
@@ -1098,6 +888,9 @@ function validateHeadingHierarchySmart(): ValidationResult {
 
 /**
  * Check 2: Detects broken internal markdown links.
+ * Validates all internal .md file references exist.
+ *
+ * @returns Validation result with errors for broken links
  */
 function validateInternalLinks(): ValidationResult {
   const errors: string[] = [];
@@ -1169,6 +962,9 @@ function validateInternalLinks(): ValidationResult {
 
 /**
  * Check 6: Validates link format (requires ./ prefix).
+ * Ensures internal links use ./ prefix for consistency.
+ *
+ * @returns Validation result with warnings for incorrect format
  */
 function validateLinkFormat(): ValidationResult {
   const errors: string[] = [];
@@ -1214,6 +1010,9 @@ function validateLinkFormat(): ValidationResult {
 
 /**
  * Check 4: Validates model ID vendor prefixes.
+ * Ensures model IDs use correct format with vendor prefixes.
+ *
+ * @returns Validation result with errors for incorrect formats
  */
 function validateModelIdFormats(): ValidationResult {
   const errors: string[] = [];
@@ -1275,6 +1074,9 @@ function validateModelIdFormats(): ValidationResult {
 
 /**
  * Check 3: Detects excessive hardcoded model lists.
+ * Warns when documentation contains too many hardcoded model IDs instead of using representative examples.
+ *
+ * @returns Validation result with warnings for files exceeding model mention thresholds
  */
 function validateModelLists(): ValidationResult {
   const errors: string[] = [];
@@ -1318,6 +1120,9 @@ function validateModelLists(): ValidationResult {
 
 /**
  * Check 14: Detects empty sections without content.
+ * Identifies heading sections that have no text or code blocks before the next heading.
+ *
+ * @returns Validation result with warnings for orphan sections
  */
 function validateOrphanSections(): ValidationResult {
   const errors: string[] = [];
@@ -1396,6 +1201,9 @@ function validateOrphanSections(): ValidationResult {
 
 /**
  * Check 1: Verifies critical exports are documented.
+ * Ensures all critical public exports from src/index.ts appear in API_REFERENCE.md.
+ *
+ * @returns Validation result with warnings for undocumented exports
  */
 function validatePublicExportsDocumented(): ValidationResult {
   const errors: string[] = [];
@@ -1476,6 +1284,9 @@ function validatePublicExportsDocumented(): ValidationResult {
 
 /**
  * Check 7: Verifies required files exist.
+ * Ensures all required documentation and configuration files are present in the repository.
+ *
+ * @returns Validation result with errors for missing required files
  */
 function validateRequiredFiles(): ValidationResult {
   const errors: string[] = [];
@@ -1506,6 +1317,9 @@ function validateRequiredFiles(): ValidationResult {
 
 /**
  * Check 11: Validates links in TypeScript comments.
+ * Checks JSDoc comments and inline comments for broken links and incorrect model ID formats.
+ *
+ * @returns Validation result with warnings for broken links and model format issues
  */
 function validateSourceCodeComments(): ValidationResult {
   const errors: string[] = [];
@@ -1630,6 +1444,9 @@ function validateSourceCodeComments(): ValidationResult {
 
 /**
  * Check 8: Validates ToC accuracy.
+ * Compares Table of Contents entries against actual document headers for consistency.
+ *
+ * @returns Validation result with errors for missing/mismatched entries and warnings for extras
  */
 function validateTableOfContents(): ValidationResult {
   const errors: string[] = [];
@@ -1777,6 +1594,9 @@ function validateTocEntries(
 
 /**
  * Check 9: Validates package.json version appears in docs.
+ * Ensures the current version from package.json is mentioned in key documentation files.
+ *
+ * @returns Validation result with warnings if version is not mentioned in docs
  */
 function validateVersionConsistency(): ValidationResult {
   const errors: string[] = [];
