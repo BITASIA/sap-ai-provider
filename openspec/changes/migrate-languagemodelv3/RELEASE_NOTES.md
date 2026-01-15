@@ -1,7 +1,7 @@
 # Release Notes: v4.0.0 (TEMPLATE FOR FINAL RELEASE)
 
 > **Note**: This document serves as the template for the final v4.0.0 stable release.  
-> **Current Status**: v4.0.0-rc.1 published (2026-01-14) - gathering feedback  
+> **Current Status**: v4.0.0-rc.2 planned (2026-01-15) - improved test coverage  
 > **Release Date**: TBD (pending RC feedback period completion)
 
 **Type**: Major Version - Breaking Changes  
@@ -13,9 +13,9 @@
 
 Version 4.0.0 migrates from `LanguageModelV2` to `LanguageModelV3` specification, ensuring compatibility with AI SDK 6+ and unlocking access to modern AI capabilities (agents, reasoning, enhanced streaming).
 
-**Quality**: 184/184 tests passing | Implementation audit: 9.5/10
+**Quality**: 194/194 tests passing | Coverage: 92.87% | Implementation audit: 9.5/10
 
-**Pre-Release**: v4.0.0-rc.1 available now for testing (`npm install @jerome-benoit/sap-ai-provider@next`)
+**Pre-Release**: v4.0.0-rc.2 coming soon for testing (`npm install @jerome-benoit/sap-ai-provider@next`)
 
 ---
 
@@ -139,12 +139,12 @@ if (chunk.type === "text-delta") {
 - `convert-to-sap-messages.ts` - V3 message conversion
 - `sap-ai-provider.ts` - V3 interface
 
-**Tests** (184 tests, all passing):
+**Tests** (194 tests, all passing):
 
-- 85 tests for V3 language model
-- 29 tests for message conversion
+- 91 tests for V3 language model
+- 34 tests for message conversion (5 new edge cases)
 - 55 tests for error handling
-- 15 tests for provider interface
+- 14 tests for provider interface
 
 **Documentation** (Complete):
 
@@ -159,7 +159,8 @@ if (chunk.type === "text-delta") {
 
 - ✅ TypeScript strict mode: 0 errors
 - ✅ ESLint: 0 errors, 0 warnings
-- ✅ Tests: 183/183 passing (100%)
+- ✅ Tests: 194/194 passing (100%)
+- ✅ Test coverage: 92.87% overall
 - ✅ Build: ESM + CJS + DTS verified
 - ✅ Implementation audit: 9.5/10
 
