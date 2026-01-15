@@ -1,8 +1,8 @@
 # Release Notes: v4.0.0 (TEMPLATE FOR FINAL RELEASE)
 
 > **Note**: This document serves as the template for the final v4.0.0 stable release.  
-> **Current Status**: v4.0.0-rc.2 planned (2026-01-15) - improved test coverage  
-> **Release Date**: TBD (pending RC feedback period completion)
+> **Current Status**: v4.0.0-rc.2 published (2026-01-15 11:32 UTC) - gathering feedback  
+> **Release Date**: TBD (pending RC2 feedback period completion, 3-7 days)
 
 **Type**: Major Version - Breaking Changes  
 **Specification**: LanguageModelV3 (AI SDK 6.0+)

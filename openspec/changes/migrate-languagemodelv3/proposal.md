@@ -1,15 +1,15 @@
 # Migration to LanguageModelV3 Specification
 
-**Status**: RC2 Prepared - Ready for Release  
+**Status**: RC2 Published - Gathering Feedback  
 **Type**: Migration / Breaking Change  
 **Priority**: High  
 **Author**: AI Assistant  
 **Date**: 2026-01-14  
-**Last Updated**: 2026-01-15 14:30 UTC
+**Last Updated**: 2026-01-15 15:45 UTC
 
 ## Current Status
 
-As of 2026-01-15 14:30 UTC:
+As of 2026-01-15 15:45 UTC:
 
 - ✅ **Implementation**: Complete (157 commits on `feature/languagemodelv3`, merged to `main`)
 - ✅ **Tests**: 194/194 passing (100%)
@@ -24,18 +24,20 @@ As of 2026-01-15 14:30 UTC:
   - 📦 **npm Package**: `@jerome-benoit/sap-ai-provider@4.0.0-rc.1` (tag: `next`)
   - 🔗 **GitHub Pre-Release**: https://github.com/jerome-benoit/sap-ai-provider/releases/tag/v4.0.0-rc.1
 - ✅ **RC1 Feedback**: Gathered, improvements identified
-- ✅ **Release Candidate 2**: v4.0.0-rc.2 prepared (commits 003a030, 63f1323)
+- ✅ **Release Candidate 2**: v4.0.0-rc.2 published (commits 003a030, 63f1323, bdc244f)
   - 🏷️ **Git Tag**: v4.0.0-rc.2 created and pushed
-  - 📦 **npm Package**: Ready for publish under `next` tag
+  - 📦 **npm Package**: `@jerome-benoit/sap-ai-provider@4.0.0-rc.2` (tag: `next`, published 2026-01-15 11:32 UTC)
+  - 🔗 **GitHub Pre-Release**: https://github.com/jerome-benoit/sap-ai-provider/releases/tag/v4.0.0-rc.2
   - 🎯 **Improvements**: Enhanced validator (+478 lines), improved test coverage (92.87%), 4 bugs fixed
-- ⏳ **RC2 Release**: Ready to publish
-- ⏳ **Final Release**: v4.0.0 pending RC2 feedback completion
-- 📊 **Task Progress**: 87/102 tasks complete (85.3%)
+- ⏳ **RC2 Feedback**: Currently gathering (3-7 day monitoring period, until ~2026-01-22)
+  - ✅ **Initial Status**: No issues reported in first 4 hours
+- ⏳ **Final Release**: v4.0.0 pending RC2 feedback completion + owner approval
+- 📊 **Task Progress**: 87/103 tasks complete (84.5%)
   - Phases 1-4: 68/68 (100%)
   - Phase 5.1: 6/6 (100%)
   - Phase 5.1a (RC1): 7/7 (100%)
-  - Phase 5.1b (RC2): 3/3 (100%) - Documentation harmonized
-  - Phase 5.2-5.4: 0/18 (0%) - Pending RC2 feedback
+  - Phase 5.1b (RC2): 3/4 (75%) - Released, gathering feedback (Task 5.1b.4 in progress)
+  - Phase 5.2-5.4: 0/16 (0%) - Pending RC2 feedback completion
 
 ### Automated Quality Checks
 
