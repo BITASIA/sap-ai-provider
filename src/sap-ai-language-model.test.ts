@@ -8,45 +8,62 @@
  * - Message conversion and formatting
  */
 
-import { describe, it, expect, vi } from "vitest";
-import { SAPAILanguageModel } from "./sap-ai-language-model";
 import type {
-  LanguageModelV3Prompt,
   LanguageModelV3FunctionTool,
+  LanguageModelV3Prompt,
   LanguageModelV3ProviderTool,
   LanguageModelV3StreamPart,
 } from "@ai-sdk/provider";
 
+import { describe, expect, it, vi } from "vitest";
+
+import { SAPAILanguageModel } from "./sap-ai-language-model";
+
 // Mock the OrchestrationClient
 vi.mock("@sap-ai-sdk/orchestration", () => {
   class MockOrchestrationClient {
-    static lastChatCompletionRequest: unknown;
     static chatCompletionError: Error | undefined;
     static chatCompletionResponse:
+      | undefined
       | {
-          rawResponse?: { headers?: Record<string, unknown> };
-          getContent: () => string | null;
-          getToolCalls: () =>
-            | { id: string; function: { name: string; arguments: string } }[]
-            | undefined;
+          getContent: () => null | string;
+          getFinishReason: () => string;
           getTokenUsage: () => {
-            prompt_tokens: number;
             completion_tokens: number;
+            prompt_tokens: number;
             total_tokens: number;
           };
-          getFinishReason: () => string;
-        }
-      | undefined;
+          getToolCalls: () =>
+            | undefined
+            | { function: { arguments: string; name: string; }; id: string; }[];
+          rawResponse?: { headers?: Record<string, unknown> };
+        };
+    static lastChatCompletionRequest: unknown;
 
-    static setChatCompletionError(error: Error) {
-      MockOrchestrationClient.chatCompletionError = error;
-    }
+    static streamChunks:
+      | undefined
+      | {
+          getDeltaContent: () => null | string;
+          getDeltaToolCalls: () =>
+            | undefined
+            | {
+                function?: { arguments?: string; name?: string; };
+                id?: string;
+                index: number;
+              }[];
+          getFinishReason: () => null | string | undefined;
+          getTokenUsage: () =>
+            | undefined
+            | {
+                completion_tokens: number;
+                prompt_tokens: number;
+                total_tokens: number;
+              };
+        }[];
 
-    static setChatCompletionResponse(
-      response: typeof MockOrchestrationClient.chatCompletionResponse,
-    ) {
-      MockOrchestrationClient.chatCompletionResponse = response;
-    }
+    static streamError: Error | undefined;
+
+    static streamSetupError: Error | undefined;
 
     chatCompletion = vi.fn().mockImplementation((request) => {
       MockOrchestrationClient.lastChatCompletionRequest = request;
@@ -79,78 +96,21 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
       }
 
       return Promise.resolve({
+        getContent: () => "Hello!",
+        getFinishReason: () => "stop",
+        getTokenUsage: () => ({
+          completion_tokens: 5,
+          prompt_tokens: 10,
+          total_tokens: 15,
+        }),
+        getToolCalls: () => undefined,
         rawResponse: {
           headers: {
             "x-request-id": "test-request-id",
           },
         },
-        getContent: () => "Hello!",
-        getToolCalls: () => undefined,
-        getTokenUsage: () => ({
-          prompt_tokens: 10,
-          completion_tokens: 5,
-          total_tokens: 15,
-        }),
-        getFinishReason: () => "stop",
       });
     });
-
-    static streamChunks:
-      | {
-          getDeltaContent: () => string | null;
-          getDeltaToolCalls: () =>
-            | {
-                index: number;
-                id?: string;
-                function?: { name?: string; arguments?: string };
-              }[]
-            | undefined;
-          getFinishReason: () => string | null | undefined;
-          getTokenUsage: () =>
-            | {
-                prompt_tokens: number;
-                completion_tokens: number;
-                total_tokens: number;
-              }
-            | undefined;
-        }[]
-      | undefined;
-
-    static streamError: Error | undefined;
-
-    static setStreamChunks(
-      chunks: {
-        getDeltaContent: () => string | null;
-        getDeltaToolCalls: () =>
-          | {
-              index: number;
-              id?: string;
-              function?: { name?: string; arguments?: string };
-            }[]
-          | undefined;
-        getFinishReason: () => string | null | undefined;
-        getTokenUsage: () =>
-          | {
-              prompt_tokens: number;
-              completion_tokens: number;
-              total_tokens: number;
-            }
-          | undefined;
-      }[],
-    ) {
-      MockOrchestrationClient.streamChunks = chunks;
-      MockOrchestrationClient.streamError = undefined;
-    }
-
-    static setStreamError(error: Error) {
-      MockOrchestrationClient.streamError = error;
-    }
-
-    static streamSetupError: Error | undefined;
-
-    static setStreamSetupError(error: Error) {
-      MockOrchestrationClient.streamSetupError = error;
-    }
 
     stream = vi.fn().mockImplementation(() => {
       // Throw synchronously if setup error is set (tests outer catch in doStream)
@@ -174,22 +134,22 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
             getDeltaToolCalls: () => undefined,
             getFinishReason: () => "stop",
             getTokenUsage: () => ({
-              prompt_tokens: 10,
               completion_tokens: 5,
+              prompt_tokens: 10,
               total_tokens: 15,
             }),
           },
         ] as const);
 
       // Find the last non-null finish reason from chunks
-      let lastFinishReason: string | null | undefined;
+      let lastFinishReason: null | string | undefined;
       let lastTokenUsage:
+        | undefined
         | {
-            prompt_tokens: number;
             completion_tokens: number;
+            prompt_tokens: number;
             total_tokens: number;
-          }
-        | undefined;
+          };
 
       for (const chunk of chunks) {
         const fr = chunk.getFinishReason();
@@ -205,6 +165,13 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
       const errorToThrow = MockOrchestrationClient.streamError;
 
       return {
+        getFinishReason: () => lastFinishReason,
+        getTokenUsage: () =>
+          lastTokenUsage ?? {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
         stream: {
           *[Symbol.asyncIterator]() {
             for (const chunk of chunks) {
@@ -216,15 +183,50 @@ vi.mock("@sap-ai-sdk/orchestration", () => {
             }
           },
         },
-        getTokenUsage: () =>
-          lastTokenUsage ?? {
-            prompt_tokens: 10,
-            completion_tokens: 5,
-            total_tokens: 15,
-          },
-        getFinishReason: () => lastFinishReason,
       };
     });
+
+    static setChatCompletionError(error: Error) {
+      MockOrchestrationClient.chatCompletionError = error;
+    }
+
+    static setChatCompletionResponse(
+      response: typeof MockOrchestrationClient.chatCompletionResponse,
+    ) {
+      MockOrchestrationClient.chatCompletionResponse = response;
+    }
+
+    static setStreamChunks(
+      chunks: {
+        getDeltaContent: () => null | string;
+        getDeltaToolCalls: () =>
+          | undefined
+          | {
+              function?: { arguments?: string; name?: string; };
+              id?: string;
+              index: number;
+            }[];
+        getFinishReason: () => null | string | undefined;
+        getTokenUsage: () =>
+          | undefined
+          | {
+              completion_tokens: number;
+              prompt_tokens: number;
+              total_tokens: number;
+            };
+      }[],
+    ) {
+      MockOrchestrationClient.streamChunks = chunks;
+      MockOrchestrationClient.streamError = undefined;
+    }
+
+    static setStreamError(error: Error) {
+      MockOrchestrationClient.streamError = error;
+    }
+
+    static setStreamSetupError(error: Error) {
+      MockOrchestrationClient.streamSetupError = error;
+    }
   }
 
   return {
@@ -238,14 +240,14 @@ describe("SAPAILanguageModel", () => {
       modelId,
       settings as ConstructorParameters<typeof SAPAILanguageModel>[1],
       {
-        provider: "sap-ai",
         deploymentConfig: { resourceGroup: "default" },
+        provider: "sap-ai",
       },
     );
   };
 
   const createPrompt = (text: string): LanguageModelV3Prompt => [
-    { role: "user", content: [{ type: "text", text }] },
+    { content: [{ text, type: "text" }], role: "user" },
   ];
 
   const expectRequestBodyHasMessages = (result: {
@@ -278,24 +280,24 @@ describe("SAPAILanguageModel", () => {
     const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
     return OrchestrationClient as unknown as {
       lastChatCompletionRequest: unknown;
-      setStreamChunks?: (chunks: unknown[]) => void;
       setChatCompletionError?: (error: Error) => void;
       setChatCompletionResponse?: (response: unknown) => void;
+      setStreamChunks?: (chunks: unknown[]) => void;
       setStreamError?: (error: Error) => void;
       setStreamSetupError?: (error: Error) => void;
     };
   };
 
-  type OrchestrationChatCompletionRequest = {
+  type OrchestrationChatCompletionRequest = Record<string, unknown> & {
     messages?: unknown;
     model?: {
       name?: string;
-      version?: string;
       params?: Record<string, unknown>;
+      version?: string;
     };
-    tools?: unknown;
     response_format?: unknown;
-  } & Record<string, unknown>;
+    tools?: unknown;
+  };
 
   const getLastChatCompletionRequest = async () => {
     const MockClient = await getMockClient();
@@ -311,7 +313,7 @@ describe("SAPAILanguageModel", () => {
   };
 
   const expectWarningMessageContains = (
-    warnings: { type: string; message?: string }[],
+    warnings: { message?: string; type: string; }[],
     substring: string,
   ) => {
     expect(
@@ -377,11 +379,11 @@ describe("SAPAILanguageModel", () => {
         // All capabilities default to true - no model list maintenance needed
         expect(model).toMatchObject({
           supportsImageUrls: true,
-          supportsStructuredOutputs: true,
-          supportsToolCalls: true,
-          supportsStreaming: true,
           supportsMultipleCompletions: true,
           supportsParallelToolCalls: true,
+          supportsStreaming: true,
+          supportsStructuredOutputs: true,
+          supportsToolCalls: true,
         });
       });
 
@@ -397,11 +399,11 @@ describe("SAPAILanguageModel", () => {
         const model = createModel(modelId);
         expect(model).toMatchObject({
           supportsImageUrls: true,
-          supportsStructuredOutputs: true,
-          supportsToolCalls: true,
-          supportsStreaming: true,
           supportsMultipleCompletions: true,
           supportsParallelToolCalls: true,
+          supportsStreaming: true,
+          supportsStructuredOutputs: true,
+          supportsToolCalls: true,
         });
       });
     });
@@ -415,16 +417,16 @@ describe("SAPAILanguageModel", () => {
       const result = await model.doGenerate({ prompt });
 
       expect(result.content).toHaveLength(1);
-      expect(result.content[0]).toEqual({ type: "text", text: "Hello!" });
-      expect(result.finishReason).toEqual({ unified: "stop", raw: "stop" });
+      expect(result.content[0]).toEqual({ text: "Hello!", type: "text" });
+      expect(result.finishReason).toEqual({ raw: "stop", unified: "stop" });
       expect(result.usage).toEqual({
         inputTokens: {
-          total: 10,
-          noCache: 10,
           cacheRead: undefined,
           cacheWrite: undefined,
+          noCache: 10,
+          total: 10,
         },
-        outputTokens: { total: 5, text: 5, reasoning: undefined },
+        outputTokens: { reasoning: undefined, text: 5, total: 5 },
       });
       expect(result.response?.headers).toBeDefined();
       expect(result.response?.headers).toMatchObject({
@@ -432,7 +434,7 @@ describe("SAPAILanguageModel", () => {
       });
       expect(result.providerMetadata?.["sap-ai"]).toMatchObject({
         finishReason: "stop",
-        finishReasonMapped: { unified: "stop", raw: "stop" },
+        finishReasonMapped: { raw: "stop", unified: "stop" },
         requestId: "test-request-id",
       });
     });
@@ -472,14 +474,14 @@ describe("SAPAILanguageModel", () => {
 
         const prompt: LanguageModelV3Prompt = [
           {
-            role: "user",
             content: [
               {
-                type: "file",
-                mediaType: "image/png",
                 data: "BASE64_IMAGE_DATA",
+                mediaType: "image/png",
+                type: "file",
               },
             ],
+            role: "user",
           },
         ];
 
@@ -499,8 +501,8 @@ describe("SAPAILanguageModel", () => {
           expect.stringContaining("APICallError"),
         );
         expect(caughtError.requestBodyValues).toMatchObject({
-          promptMessages: 1,
           hasImageParts: true,
+          promptMessages: 1,
         });
       });
     });
@@ -511,16 +513,16 @@ describe("SAPAILanguageModel", () => {
 
       const tools: LanguageModelV3FunctionTool[] = [
         {
-          type: "function",
-          name: "calculate",
           description: "Perform calculation",
           inputSchema: {
-            type: "object",
             properties: {
               expression: { type: "string" },
             },
             required: ["expression"],
+            type: "object",
           },
+          name: "calculate",
+          type: "function",
         },
       ];
 
@@ -545,11 +547,11 @@ describe("SAPAILanguageModel", () => {
 
     it("should apply providerOptions.sap overrides", async () => {
       const model = createModel("gpt-4o", {
-        modelVersion: "settings-version",
         includeReasoning: false,
         modelParams: {
           temperature: 0.1,
         },
+        modelVersion: "settings-version",
       });
 
       const prompt = createPrompt("Hi");
@@ -558,11 +560,11 @@ describe("SAPAILanguageModel", () => {
         prompt,
         providerOptions: {
           sap: {
-            modelVersion: "provider-options-version",
             includeReasoning: true,
             modelParams: {
               temperature: 0.9,
             },
+            modelVersion: "provider-options-version",
           },
         },
       });
@@ -593,21 +595,21 @@ describe("SAPAILanguageModel", () => {
       const prompt = createPrompt("Return JSON");
 
       const schema = {
-        type: "object" as const,
+        additionalProperties: false,
         properties: {
           answer: { type: "string" as const },
         },
         required: ["answer"],
-        additionalProperties: false,
+        type: "object" as const,
       };
 
       const result = await model.doGenerate({
         prompt,
         responseFormat: {
-          type: "json",
-          schema,
-          name: "response",
           description: "A structured response",
+          name: "response",
+          schema,
+          type: "json",
         },
       });
 
@@ -616,13 +618,13 @@ describe("SAPAILanguageModel", () => {
       const request = await getLastChatCompletionRequest();
 
       expect(request.response_format).toEqual({
-        type: "json_schema",
         json_schema: {
-          name: "response",
           description: "A structured response",
+          name: "response",
           schema,
           strict: null,
         },
+        type: "json_schema",
       });
     });
 
@@ -632,9 +634,9 @@ describe("SAPAILanguageModel", () => {
 
       const tools = [
         {
-          type: "provider-defined" as const,
-          id: "custom-tool",
           args: {},
+          id: "custom-tool",
+          type: "provider-defined" as const,
         },
       ];
 
@@ -651,16 +653,16 @@ describe("SAPAILanguageModel", () => {
       const model = createModel("gpt-4o", {
         tools: [
           {
-            type: "function",
             function: {
-              name: "settings_tool",
               description: "From settings",
+              name: "settings_tool",
               parameters: {
-                type: "object",
                 properties: {},
                 required: [],
+                type: "object",
               },
             },
+            type: "function",
           },
         ],
       });
@@ -669,14 +671,14 @@ describe("SAPAILanguageModel", () => {
 
       const tools: LanguageModelV3FunctionTool[] = [
         {
-          type: "function",
-          name: "call_tool",
           description: "From call options",
           inputSchema: {
-            type: "object",
             properties: {},
             required: [],
+            type: "object",
           },
+          name: "call_tool",
+          type: "function",
         },
       ];
 
@@ -732,11 +734,11 @@ describe("SAPAILanguageModel", () => {
 
       const tools: LanguageModelV3FunctionTool[] = [
         {
-          type: "function",
-          name: "badTool",
           description: "Tool with failing Zod schema conversion",
           inputSchema: {},
+          name: "badTool",
           parameters: zodLikeThatThrows,
+          type: "function",
         } as unknown as LanguageModelV3FunctionTool,
       ];
 
@@ -752,25 +754,25 @@ describe("SAPAILanguageModel", () => {
       }
 
       MockClient.setChatCompletionResponse({
+        getContent: () => null,
+        getFinishReason: () => "tool_calls",
+        getTokenUsage: () => ({
+          completion_tokens: 5,
+          prompt_tokens: 10,
+          total_tokens: 15,
+        }),
+        getToolCalls: () => [
+          {
+            function: {
+              arguments: '{"location":"Paris"}',
+              name: "get_weather",
+            },
+            id: "call_123",
+          },
+        ],
         rawResponse: {
           headers: { "x-request-id": "tool-call-test" },
         },
-        getContent: () => null,
-        getToolCalls: () => [
-          {
-            id: "call_123",
-            function: {
-              name: "get_weather",
-              arguments: '{"location":"Paris"}',
-            },
-          },
-        ],
-        getTokenUsage: () => ({
-          prompt_tokens: 10,
-          completion_tokens: 5,
-          total_tokens: 15,
-        }),
-        getFinishReason: () => "tool_calls",
       });
 
       const model = createModel();
@@ -779,87 +781,87 @@ describe("SAPAILanguageModel", () => {
       const result = await model.doGenerate({ prompt });
 
       expect(result.content).toContainEqual({
-        type: "tool-call",
+        input: '{"location":"Paris"}',
         toolCallId: "call_123",
         toolName: "get_weather",
-        input: '{"location":"Paris"}',
+        type: "tool-call",
       });
       expect(result.finishReason).toEqual({
-        unified: "tool-calls",
         raw: "tool_calls",
+        unified: "tool-calls",
       });
     });
 
     it.each([
       {
         description: "normalize array header values",
-        headers: {
-          "x-request-id": "array-header-test",
-          "x-multi-value": ["value1", "value2"],
-        },
         expected: {
-          "x-request-id": "array-header-test",
           "x-multi-value": "value1; value2",
+          "x-request-id": "array-header-test",
+        },
+        headers: {
+          "x-multi-value": ["value1", "value2"],
+          "x-request-id": "array-header-test",
         },
       },
       {
         description: "convert numeric header values to strings",
-        headers: {
-          "content-length": 1024,
-          "x-retry-after": 30,
-        },
         expected: {
           "content-length": "1024",
           "x-retry-after": "30",
         },
+        headers: {
+          "content-length": 1024,
+          "x-retry-after": 30,
+        },
       },
       {
         description: "skip unsupported header value types",
-        headers: {
-          "x-valid": "keep-this",
-          "x-object": { nested: "object" },
-        },
         expected: {
+          "x-valid": "keep-this",
+        },
+        headers: {
+          "x-object": { nested: "object" },
           "x-valid": "keep-this",
         },
       },
       {
         description: "filter non-string values from array headers",
-        headers: {
-          "x-mixed": ["valid", 123, null, "also-valid"],
-        },
         expected: {
           "x-mixed": "valid; also-valid",
+        },
+        headers: {
+          "x-mixed": ["valid", 123, null, "also-valid"],
         },
       },
       {
         description: "exclude array headers with only non-string items",
-        headers: {
-          "x-valid": "keep-this",
-          "x-invalid-array": [123, null, undefined],
-        },
         expected: {
+          "x-valid": "keep-this",
+        },
+        headers: {
+          "x-invalid-array": [123, null, undefined],
           "x-valid": "keep-this",
         },
       },
     ])(
       "should $description in doGenerate response",
-      async ({ headers, expected }) => {
+      async ({ expected, headers }) => {
         const MockClient = await getMockClient();
         if (!MockClient.setChatCompletionResponse) {
           throw new Error("mock missing setChatCompletionResponse");
         }
 
         MockClient.setChatCompletionResponse({
-          rawResponse: { headers },
           getContent: () => "Response",
-          getToolCalls: () => undefined,
+          getFinishReason: () => "stop",
           getTokenUsage: () => ({
-            prompt_tokens: 10,
             completion_tokens: 5,
+            prompt_tokens: 10,
             total_tokens: 15,
           }),
-          getFinishReason: () => "stop",
+          getToolCalls: () => undefined,
+          rawResponse: { headers },
         });
 
         const model = createModel();
@@ -916,17 +918,17 @@ describe("SAPAILanguageModel", () => {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
             {
-              index: 0,
-              id: "toolcall-0",
               function: {
                 arguments: '{"x":1}',
               },
+              id: "toolcall-0",
+              index: 0,
             },
           ],
           getFinishReason: () => "tool_calls",
           getTokenUsage: () => ({
-            prompt_tokens: 1,
             completion_tokens: 1,
+            prompt_tokens: 1,
             total_tokens: 2,
           }),
         },
@@ -975,9 +977,9 @@ describe("SAPAILanguageModel", () => {
           getDeltaContent: () => " SHOULD_NOT_APPEAR",
           getDeltaToolCalls: () => [
             {
-              index: 0,
+              function: { arguments: '{"x":', name: "calc" },
               id: "call_0",
-              function: { name: "calc", arguments: '{"x":' },
+              index: 0,
             },
           ],
           getFinishReason: () => null,
@@ -987,15 +989,15 @@ describe("SAPAILanguageModel", () => {
           getDeltaContent: () => " ALSO_SHOULD_NOT_APPEAR",
           getDeltaToolCalls: () => [
             {
-              index: 0,
-              id: "call_0",
               function: { arguments: "1}" },
+              id: "call_0",
+              index: 0,
             },
           ],
           getFinishReason: () => "tool_calls",
           getTokenUsage: () => ({
-            prompt_tokens: 10,
             completion_tokens: 5,
+            prompt_tokens: 10,
             total_tokens: 15,
           }),
         },
@@ -1025,8 +1027,8 @@ describe("SAPAILanguageModel", () => {
           getDeltaToolCalls: () => undefined,
           getFinishReason: () => "stop",
           getTokenUsage: () => ({
-            prompt_tokens: 10,
             completion_tokens: 5,
+            prompt_tokens: 10,
             total_tokens: 15,
           }),
         },
@@ -1046,8 +1048,8 @@ describe("SAPAILanguageModel", () => {
       );
       expect(responseMetadata).toBeDefined();
       expect(responseMetadata).toMatchObject({
-        type: "response-metadata",
         modelId: "gpt-4o",
+        type: "response-metadata",
       });
       expect(parts.some((p) => p.type === "text-delta")).toBe(true);
       expect(parts.some((p) => p.type === "finish")).toBe(true);
@@ -1057,8 +1059,8 @@ describe("SAPAILanguageModel", () => {
       expect(finishPart).toBeDefined();
       if (finishPart?.type === "finish") {
         expect(finishPart.finishReason).toEqual({
-          unified: "stop",
           raw: "stop",
+          unified: "stop",
         });
       }
     });
@@ -1069,9 +1071,9 @@ describe("SAPAILanguageModel", () => {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
             {
-              index: 0,
+              function: { arguments: '{"city":', name: "get_weather" },
               id: "call_0",
-              function: { name: "get_weather", arguments: '{"city":' },
+              index: 0,
             },
           ],
           getFinishReason: () => null,
@@ -1083,15 +1085,15 @@ describe("SAPAILanguageModel", () => {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
             {
-              index: 0,
-              id: "call_0",
               function: { arguments: '"Paris"}' },
+              id: "call_0",
+              index: 0,
             },
           ],
           getFinishReason: () => "tool_calls",
           getTokenUsage: () => ({
-            prompt_tokens: 10,
             completion_tokens: 5,
+            prompt_tokens: 10,
             total_tokens: 15,
           }),
         },
@@ -1120,8 +1122,8 @@ describe("SAPAILanguageModel", () => {
       const finishPart = parts[finishIndex];
       if (finishPart.type === "finish") {
         expect(finishPart.finishReason).toEqual({
-          unified: "tool-calls",
           raw: "tool_calls",
+          unified: "tool-calls",
         });
       }
 
@@ -1143,14 +1145,14 @@ describe("SAPAILanguageModel", () => {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
             {
-              index: 0,
+              function: { arguments: '{"a":', name: "first" },
               id: "call_0",
-              function: { name: "first", arguments: '{"a":' },
+              index: 0,
             },
             {
-              index: 1,
+              function: { arguments: '{"b":', name: "second" },
               id: "call_1",
-              function: { name: "second", arguments: '{"b":' },
+              index: 1,
             },
           ],
           getFinishReason: () => null,
@@ -1160,20 +1162,20 @@ describe("SAPAILanguageModel", () => {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
             {
-              index: 0,
-              id: "call_0",
               function: { arguments: "1}" },
+              id: "call_0",
+              index: 0,
             },
             {
-              index: 1,
-              id: "call_1",
               function: { arguments: "2}" },
+              id: "call_1",
+              index: 1,
             },
           ],
           getFinishReason: () => "tool_calls",
           getTokenUsage: () => ({
-            prompt_tokens: 10,
             completion_tokens: 5,
+            prompt_tokens: 10,
             total_tokens: 15,
           }),
         },
@@ -1190,16 +1192,16 @@ describe("SAPAILanguageModel", () => {
 
       const firstCall = toolCalls.find((call) => call.toolName === "first");
       expect(firstCall).toMatchObject({
-        type: "tool-call",
-        toolName: "first",
         input: '{"a":1}',
+        toolName: "first",
+        type: "tool-call",
       });
 
       const secondCall = toolCalls.find((call) => call.toolName === "second");
       expect(secondCall).toMatchObject({
-        type: "tool-call",
-        toolName: "second",
         input: '{"b":2}',
+        toolName: "second",
+        type: "tool-call",
       });
     });
 
@@ -1209,9 +1211,9 @@ describe("SAPAILanguageModel", () => {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
             {
-              index: 0,
+              function: { arguments: "{", name: "calc" },
               id: "call_old",
-              function: { name: "calc", arguments: "{" },
+              index: 0,
             },
           ],
           getFinishReason: () => null,
@@ -1221,15 +1223,15 @@ describe("SAPAILanguageModel", () => {
           getDeltaContent: () => null,
           getDeltaToolCalls: () => [
             {
-              index: 0,
-              id: "call_new",
               function: { arguments: '"x":1}' },
+              id: "call_new",
+              index: 0,
             },
           ],
           getFinishReason: () => "tool_calls",
           getTokenUsage: () => ({
-            prompt_tokens: 10,
             completion_tokens: 5,
+            prompt_tokens: 10,
             total_tokens: 15,
           }),
         },
@@ -1249,76 +1251,76 @@ describe("SAPAILanguageModel", () => {
       const toolCall = parts.find((p) => p.type === "tool-call");
       expect(toolCall).toBeDefined();
       expect(toolCall).toMatchObject({
-        type: "tool-call",
+        input: '{"x":1}',
         toolCallId: "call_new",
         toolName: "calc",
-        input: '{"x":1}',
+        type: "tool-call",
       });
 
       const toolInputEnd = parts.find((p) => p.type === "tool-input-end");
       expect(toolInputEnd).toBeDefined();
       expect(toolInputEnd).toMatchObject({
-        type: "tool-input-end",
         id: "call_new",
+        type: "tool-input-end",
       });
     });
 
     it.each([
       {
-        input: "max_tokens_reached",
-        expected: "length",
         description: "max_tokens_reached as length",
-      },
-      { input: "length", expected: "length", description: "length" },
-      { input: "eos", expected: "stop", description: "eos as stop" },
-      {
-        input: "stop_sequence",
-        expected: "stop",
-        description: "stop_sequence as stop",
-      },
-      { input: "end_turn", expected: "stop", description: "end_turn as stop" },
-      {
-        input: "content_filter",
-        expected: "content-filter",
-        description: "content_filter",
-      },
-      { input: "error", expected: "error", description: "error" },
-      {
-        input: "max_tokens",
         expected: "length",
+        input: "max_tokens_reached",
+      },
+      { description: "length", expected: "length", input: "length" },
+      { description: "eos as stop", expected: "stop", input: "eos" },
+      {
+        description: "stop_sequence as stop",
+        expected: "stop",
+        input: "stop_sequence",
+      },
+      { description: "end_turn as stop", expected: "stop", input: "end_turn" },
+      {
+        description: "content_filter",
+        expected: "content-filter",
+        input: "content_filter",
+      },
+      { description: "error", expected: "error", input: "error" },
+      {
         description: "max_tokens as length",
+        expected: "length",
+        input: "max_tokens",
       },
       {
-        input: "tool_call",
-        expected: "tool-calls",
         description: "tool_call as tool-calls",
-      },
-      {
-        input: "function_call",
         expected: "tool-calls",
+        input: "tool_call",
+      },
+      {
         description: "function_call as tool-calls",
+        expected: "tool-calls",
+        input: "function_call",
       },
       {
-        input: "some_new_unknown_reason",
-        expected: "other",
         description: "unknown reason as other",
+        expected: "other",
+        input: "some_new_unknown_reason",
       },
       {
-        input: undefined,
-        expected: "other",
         description: "undefined as other",
+        expected: "other",
+        input: undefined,
       },
     ])(
       "should handle stream with finish reason: $description",
-      async ({ input, expected }) => {
+      async ({ expected, input }) => {
         await setStreamChunks([
           {
             getDeltaContent: () => "test content",
             getDeltaToolCalls: () => undefined,
             getFinishReason: () => input,
             getTokenUsage: () => ({
-              prompt_tokens: 1,
               completion_tokens: 2,
+              prompt_tokens: 1,
               total_tokens: 3,
             }),
           },
@@ -1369,8 +1371,8 @@ describe("SAPAILanguageModel", () => {
           getDeltaToolCalls: () => undefined,
           getFinishReason: () => "stop",
           getTokenUsage: () => ({
-            prompt_tokens: 10,
             completion_tokens: 1,
+            prompt_tokens: 10,
             total_tokens: 11,
           }),
         },
@@ -1404,8 +1406,8 @@ describe("SAPAILanguageModel", () => {
           getDeltaToolCalls: () => undefined,
           getFinishReason: () => "stop",
           getTokenUsage: () => ({
-            prompt_tokens: 10,
             completion_tokens: 1,
+            prompt_tokens: 10,
             total_tokens: 11,
           }),
         },
@@ -1431,16 +1433,16 @@ describe("SAPAILanguageModel", () => {
             getDeltaContent: () => null,
             getDeltaToolCalls: () => [
               {
-                index: 0,
-                id: "call_nameless",
                 function: { arguments: '{"x":1}' },
+                id: "call_nameless",
+                index: 0,
                 // Note: No "name" property
               },
             ],
             getFinishReason: () => "tool_calls",
             getTokenUsage: () => ({
-              prompt_tokens: 10,
               completion_tokens: 5,
+              prompt_tokens: 10,
               total_tokens: 15,
             }),
           },
@@ -1465,9 +1467,9 @@ describe("SAPAILanguageModel", () => {
         const toolCall = parts.find((p) => p.type === "tool-call");
         expect(toolCall).toBeDefined();
         expect(toolCall).toMatchObject({
-          type: "tool-call",
-          toolName: "",
           input: '{"x":1}',
+          toolName: "",
+          type: "tool-call",
         });
 
         // Warnings are emitted at stream-start time
@@ -1566,8 +1568,8 @@ describe("SAPAILanguageModel", () => {
             getDeltaToolCalls: () => undefined,
             getFinishReason: () => "stop",
             getTokenUsage: () => ({
-              prompt_tokens: 10,
               completion_tokens: 5,
+              prompt_tokens: 10,
               total_tokens: 15,
             }),
           },
@@ -1580,9 +1582,9 @@ describe("SAPAILanguageModel", () => {
             getDeltaContent: () => "Hello",
             getDeltaToolCalls: () => [
               {
-                index: NaN, // Invalid index
+                function: { arguments: "{}", name: "test_tool" },
                 id: "call_invalid",
-                function: { name: "test_tool", arguments: "{}" },
+                index: NaN, // Invalid index
               },
             ],
             getFinishReason: () => null,
@@ -1592,15 +1594,15 @@ describe("SAPAILanguageModel", () => {
             getDeltaContent: () => null,
             getDeltaToolCalls: () => [
               {
-                index: undefined as unknown as number, // Also invalid
+                function: { arguments: "{}", name: "other_tool" },
                 id: "call_undefined",
-                function: { name: "other_tool", arguments: "{}" },
+                index: undefined as unknown as number, // Also invalid
               },
             ],
             getFinishReason: () => "stop",
             getTokenUsage: () => ({
-              prompt_tokens: 10,
               completion_tokens: 5,
+              prompt_tokens: 10,
               total_tokens: 15,
             }),
           },
@@ -1641,8 +1643,8 @@ describe("SAPAILanguageModel", () => {
             getDeltaToolCalls: () => undefined,
             getFinishReason: () => "stop",
             getTokenUsage: () => ({
-              prompt_tokens: 10,
               completion_tokens: 5,
+              prompt_tokens: 10,
               total_tokens: 15,
             }),
           },
@@ -1733,9 +1735,9 @@ describe("SAPAILanguageModel", () => {
             getDeltaContent: () => null,
             getDeltaToolCalls: () => [
               {
-                index: 0,
+                function: { arguments: '{"q":"test"}', name: "get_info" },
                 id: "call_unflushed",
-                function: { name: "get_info", arguments: '{"q":"test"}' },
+                index: 0,
               },
             ],
             getFinishReason: () => null,
@@ -1747,8 +1749,8 @@ describe("SAPAILanguageModel", () => {
             getDeltaToolCalls: () => undefined,
             getFinishReason: () => "stop",
             getTokenUsage: () => ({
-              prompt_tokens: 10,
               completion_tokens: 5,
+              prompt_tokens: 10,
               total_tokens: 15,
             }),
           },
@@ -1772,9 +1774,9 @@ describe("SAPAILanguageModel", () => {
         const toolCall = parts.find((p) => p.type === "tool-call");
         expect(toolCall).toBeDefined();
         expect(toolCall).toMatchObject({
-          type: "tool-call",
           toolCallId: "call_unflushed",
           toolName: "get_info",
+          type: "tool-call",
         });
 
         // Finish reason should be "stop" from server (we respect server's decision)
@@ -1782,7 +1784,7 @@ describe("SAPAILanguageModel", () => {
           (p): p is Extract<LanguageModelV3StreamPart, { type: "finish" }> =>
             p.type === "finish",
         );
-        expect(finish?.finishReason).toEqual({ unified: "stop", raw: "stop" });
+        expect(finish?.finishReason).toEqual({ raw: "stop", unified: "stop" });
       });
 
       it("should handle undefined finish reason from stream", async () => {
@@ -1798,8 +1800,8 @@ describe("SAPAILanguageModel", () => {
             getDeltaToolCalls: () => undefined,
             getFinishReason: () => undefined as unknown as string,
             getTokenUsage: () => ({
-              prompt_tokens: 10,
               completion_tokens: 5,
+              prompt_tokens: 10,
               total_tokens: 15,
             }),
           },
@@ -1825,8 +1827,8 @@ describe("SAPAILanguageModel", () => {
         );
         // Undefined finish reason maps to "other"
         expect(finish?.finishReason).toEqual({
-          unified: "other",
           raw: undefined,
+          unified: "other",
         });
       });
 
@@ -1836,10 +1838,10 @@ describe("SAPAILanguageModel", () => {
             getDeltaContent: () => null,
             getDeltaToolCalls: () => [
               {
-                index: 0,
-                id: "call_no_start",
                 // No name in first chunk - so didEmitInputStart stays false
                 function: { arguments: '{"partial":' },
+                id: "call_no_start",
+                index: 0,
               },
             ],
             getFinishReason: () => null,
@@ -1849,15 +1851,15 @@ describe("SAPAILanguageModel", () => {
             getDeltaContent: () => null,
             getDeltaToolCalls: () => [
               {
-                index: 0,
                 // Name comes later but input-start was never emitted
-                function: { name: "delayed_name", arguments: '"value"}' },
+                function: { arguments: '"value"}', name: "delayed_name" },
+                index: 0,
               },
             ],
             getFinishReason: () => "tool_calls",
             getTokenUsage: () => ({
-              prompt_tokens: 10,
               completion_tokens: 5,
+              prompt_tokens: 10,
               total_tokens: 15,
             }),
           },
@@ -1881,9 +1883,9 @@ describe("SAPAILanguageModel", () => {
         const toolCall = parts.find((p) => p.type === "tool-call");
         expect(toolCall).toBeDefined();
         expect(toolCall).toMatchObject({
-          type: "tool-call",
-          toolName: "delayed_name",
           input: '{"partial":"value"}',
+          toolName: "delayed_name",
+          type: "tool-call",
         });
       });
 
@@ -1931,9 +1933,9 @@ describe("SAPAILanguageModel", () => {
         const masking = {
           masking_providers: [
             {
-              type: "sap_data_privacy_integration",
-              method: "anonymization",
               entities: [{ type: "profile-email" }, { type: "profile-phone" }],
+              method: "anonymization",
+              type: "sap_data_privacy_integration",
             },
           ],
         };
@@ -1958,13 +1960,13 @@ describe("SAPAILanguageModel", () => {
           input: {
             filters: [
               {
-                type: "azure_content_safety",
                 config: {
                   Hate: 0,
-                  Violence: 0,
                   SelfHarm: 0,
                   Sexual: 0,
+                  Violence: 0,
                 },
+                type: "azure_content_safety",
               },
             ],
           },
@@ -1989,9 +1991,9 @@ describe("SAPAILanguageModel", () => {
         const masking = {
           masking_providers: [
             {
-              type: "sap_data_privacy_integration",
-              method: "pseudonymization",
               entities: [{ type: "profile-person" }],
+              method: "pseudonymization",
+              type: "sap_data_privacy_integration",
             },
           ],
         };
@@ -2000,21 +2002,21 @@ describe("SAPAILanguageModel", () => {
           output: {
             filters: [
               {
-                type: "azure_content_safety",
                 config: {
                   Hate: 2,
-                  Violence: 2,
                   SelfHarm: 2,
                   Sexual: 2,
+                  Violence: 2,
                 },
+                type: "azure_content_safety",
               },
             ],
           },
         };
 
         const model = createModel("gpt-4o", {
-          masking,
           filtering,
+          masking,
         });
 
         const prompt = createPrompt("Hello");
@@ -2032,22 +2034,22 @@ describe("SAPAILanguageModel", () => {
 
       it("should include grounding module in orchestration config", async () => {
         const grounding = {
-          type: "document_grounding_service",
           config: {
             filters: [
               {
-                id: "vector-store-1",
+                chunk_ids: [],
                 data_repositories: ["*"],
                 document_names: ["product-docs"],
-                chunk_ids: [],
+                id: "vector-store-1",
               },
             ],
+            metadata_params: ["file_name"],
             placeholders: {
               input: ["?question"],
               output: "groundingOutput",
             },
-            metadata_params: ["file_name"],
           },
+          type: "document_grounding_service",
         };
 
         const model = createModel("gpt-4o", {
@@ -2112,14 +2114,13 @@ describe("SAPAILanguageModel", () => {
 
       it("should include grounding, translation, masking and filtering together", async () => {
         const grounding = {
-          type: "document_grounding_service",
           config: {
             filters: [
               {
-                id: "vector-store-1",
+                chunk_ids: [],
                 data_repositories: ["*"],
                 document_names: [],
-                chunk_ids: [],
+                id: "vector-store-1",
               },
             ],
             placeholders: {
@@ -2127,6 +2128,7 @@ describe("SAPAILanguageModel", () => {
               output: "groundingOutput",
             },
           },
+          type: "document_grounding_service",
         };
 
         const translation = {
@@ -2139,9 +2141,9 @@ describe("SAPAILanguageModel", () => {
         const masking = {
           masking_providers: [
             {
-              type: "sap_data_privacy_integration",
-              method: "anonymization",
               entities: [{ type: "profile-email" }],
+              method: "anonymization",
+              type: "sap_data_privacy_integration",
             },
           ],
         };
@@ -2150,23 +2152,23 @@ describe("SAPAILanguageModel", () => {
           input: {
             filters: [
               {
-                type: "azure_content_safety",
                 config: {
                   Hate: 0,
-                  Violence: 0,
                   SelfHarm: 0,
                   Sexual: 0,
+                  Violence: 0,
                 },
+                type: "azure_content_safety",
               },
             ],
           },
         };
 
         const model = createModel("gpt-4o", {
-          grounding,
-          translation,
-          masking,
           filtering,
+          grounding,
+          masking,
+          translation,
         });
 
         const prompt = createPrompt("Quelle est SAP AI Core?");
@@ -2222,32 +2224,32 @@ describe("SAPAILanguageModel", () => {
     describe("model parameters", () => {
       it.each([
         {
-          testName: "temperature",
-          settingsKey: "temperature",
-          settingsValue: 0.5,
-          optionKey: "temperature",
-          optionValue: 0.9,
           expectedKey: "temperature",
           expectedValue: 0.9,
+          optionKey: "temperature",
+          optionValue: 0.9,
+          settingsKey: "temperature",
+          settingsValue: 0.5,
+          testName: "temperature",
         },
         {
-          testName: "maxOutputTokens",
-          settingsKey: "maxTokens",
-          settingsValue: 500,
-          optionKey: "maxOutputTokens",
-          optionValue: 1000,
           expectedKey: "max_tokens",
           expectedValue: 1000,
+          optionKey: "maxOutputTokens",
+          optionValue: 1000,
+          settingsKey: "maxTokens",
+          settingsValue: 500,
+          testName: "maxOutputTokens",
         },
       ])(
         "should prefer options.$testName over settings.modelParams.$settingsKey",
         async ({
-          settingsKey,
-          settingsValue,
-          optionKey,
-          optionValue,
           expectedKey,
           expectedValue,
+          optionKey,
+          optionValue,
+          settingsKey,
+          settingsValue,
         }) => {
           const model = createModel("gpt-4o", {
             modelParams: {
@@ -2258,8 +2260,8 @@ describe("SAPAILanguageModel", () => {
           const prompt = createPrompt("Hello");
 
           const result = await model.doGenerate({
-            prompt,
             [optionKey]: optionValue,
+            prompt,
           });
 
           expectRequestBodyHasMessages(result);
@@ -2272,50 +2274,50 @@ describe("SAPAILanguageModel", () => {
 
       it.each([
         {
-          paramName: "topP",
-          paramValue: 0.9,
           expectedKey: "top_p",
           expectedValue: 0.9,
+          paramName: "topP",
+          paramValue: 0.9,
         },
         {
-          paramName: "topK",
-          paramValue: 40,
           expectedKey: "top_k",
           expectedValue: 40,
+          paramName: "topK",
+          paramValue: 40,
         },
         {
-          paramName: "frequencyPenalty",
-          paramValue: 0.5,
           expectedKey: "frequency_penalty",
           expectedValue: 0.5,
+          paramName: "frequencyPenalty",
+          paramValue: 0.5,
         },
         {
-          paramName: "presencePenalty",
-          paramValue: 0.3,
           expectedKey: "presence_penalty",
           expectedValue: 0.3,
+          paramName: "presencePenalty",
+          paramValue: 0.3,
         },
         {
-          paramName: "stopSequences",
-          paramValue: ["END", "STOP"],
           expectedKey: "stop",
           expectedValue: ["END", "STOP"],
+          paramName: "stopSequences",
+          paramValue: ["END", "STOP"],
         },
         {
-          paramName: "seed",
-          paramValue: 42,
           expectedKey: "seed",
           expectedValue: 42,
+          paramName: "seed",
+          paramValue: 42,
         },
       ])(
         "should pass $paramName from options to model params",
-        async ({ paramName, paramValue, expectedKey, expectedValue }) => {
+        async ({ expectedKey, expectedValue, paramName, paramValue }) => {
           const model = createModel();
           const prompt = createPrompt("Hello");
 
           const result = await model.doGenerate({
-            prompt,
             [paramName]: paramValue,
+            prompt,
           });
 
           expectRequestBodyHasMessages(result);
@@ -2356,23 +2358,23 @@ describe("SAPAILanguageModel", () => {
 
         const tools: LanguageModelV3FunctionTool[] = [
           {
-            type: "function",
-            name: "test_tool",
             description: "A test tool",
-            inputSchema: { type: "object", properties: {}, required: [] },
+            inputSchema: { properties: {}, required: [], type: "object" },
+            name: "test_tool",
+            type: "function",
           },
         ];
 
         const result = await model.doGenerate({
           prompt,
-          tools,
           toolChoice: { type: "required" },
+          tools,
         });
 
         expect(result.warnings).toContainEqual(
           expect.objectContaining({
-            type: "unsupported",
             feature: "toolChoice",
+            type: "unsupported",
           }),
         );
       });
@@ -2383,17 +2385,17 @@ describe("SAPAILanguageModel", () => {
 
         const tools: LanguageModelV3FunctionTool[] = [
           {
-            type: "function",
-            name: "test_tool",
             description: "A test tool",
-            inputSchema: { type: "object", properties: {}, required: [] },
+            inputSchema: { properties: {}, required: [], type: "object" },
+            name: "test_tool",
+            type: "function",
           },
         ];
 
         const result = await model.doGenerate({
           prompt,
-          tools,
           toolChoice: { type: "auto" },
+          tools,
         });
 
         const toolChoiceWarnings = result.warnings.filter(
@@ -2423,18 +2425,18 @@ describe("SAPAILanguageModel", () => {
         const model = createModel("gpt-4o", {
           tools: [
             {
-              type: "function",
               function: {
-                name: "custom_tool",
                 description: "A custom tool from settings",
+                name: "custom_tool",
                 parameters: {
-                  type: "object",
                   properties: {
                     input: { type: "string" },
                   },
                   required: ["input"],
+                  type: "object",
                 },
               },
+              type: "function",
             },
           ],
         });
@@ -2462,7 +2464,7 @@ describe("SAPAILanguageModel", () => {
           );
 
           const customTool = tools.find(
-            (tool): tool is { type?: string; function?: { name?: string } } =>
+            (tool): tool is { function?: { name?: string }; type?: string; } =>
               typeof tool === "object" &&
               tool !== null &&
               (tool as { type?: unknown }).type === "function" &&
@@ -2478,39 +2480,39 @@ describe("SAPAILanguageModel", () => {
 
       it.each([
         {
+          description: "Tool with array schema",
+          inputSchema: { items: { type: "string" }, type: "array" },
           testName: "coerce non-object schema type to object (array)",
           toolName: "array_tool",
-          description: "Tool with array schema",
-          inputSchema: { type: "array", items: { type: "string" } },
         },
         {
-          testName: "handle tool with string type schema",
-          toolName: "string_tool",
           description: "Tool with string schema",
           inputSchema: { type: "string" },
+          testName: "handle tool with string type schema",
+          toolName: "string_tool",
         },
         {
+          description: "Tool with empty properties",
+          inputSchema: { properties: {}, type: "object" },
           testName: "handle tool with schema that has no properties",
           toolName: "empty_props_tool",
-          description: "Tool with empty properties",
-          inputSchema: { type: "object", properties: {} },
         },
         {
-          testName: "handle tool with undefined inputSchema",
-          toolName: "no_schema_tool",
           description: "Tool without schema",
           inputSchema: undefined as unknown as Record<string, unknown>,
+          testName: "handle tool with undefined inputSchema",
+          toolName: "no_schema_tool",
         },
-      ])("should $testName", async ({ toolName, description, inputSchema }) => {
+      ])("should $testName", async ({ description, inputSchema, toolName }) => {
         const model = createModel();
         const prompt = createPrompt("Use tool");
 
         const tools: LanguageModelV3FunctionTool[] = [
           {
-            type: "function",
-            name: toolName,
             description,
             inputSchema,
+            name: toolName,
+            type: "function",
           },
         ];
 

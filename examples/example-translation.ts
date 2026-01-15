@@ -24,18 +24,17 @@
 
 // Load environment variables
 import "dotenv/config";
+import { APICallError } from "@ai-sdk/provider";
 import { generateText } from "ai";
+// In YOUR production project, use the published package instead:
+// import { createSAPAIProvider, buildTranslationConfig } from "@mymediset/sap-ai-provider";
+// ============================================================================
 
 // ============================================================================
 // NOTE: Import Path for Development vs Production
 // ============================================================================
 // This example uses relative imports for local development within this repo:
-import { createSAPAIProvider, buildTranslationConfig } from "../src/index";
-// In YOUR production project, use the published package instead:
-// import { createSAPAIProvider, buildTranslationConfig } from "@mymediset/sap-ai-provider";
-// ============================================================================
-
-import { APICallError } from "@ai-sdk/provider";
+import { buildTranslationConfig, createSAPAIProvider } from "../src/index";
 
 async function translationExample() {
   console.log("🌐 SAP AI Translation Example\n");
@@ -76,13 +75,13 @@ async function translationExample() {
     console.log(`🇩🇪 German Query: ${germanQuery}\n`);
 
     const { text: inputTranslatedText } = await generateText({
-      model: modelInputTranslation,
       messages: [
         {
-          role: "user",
           content: germanQuery,
+          role: "user",
         },
       ],
+      model: modelInputTranslation,
     });
 
     console.log("🤖 Response (in English):", inputTranslatedText);
@@ -115,13 +114,13 @@ async function translationExample() {
     console.log(`🇬🇧 English Query: ${englishQuery}\n`);
 
     const { text: outputTranslatedText } = await generateText({
-      model: modelOutputTranslation,
       messages: [
         {
-          role: "user",
           content: englishQuery,
+          role: "user",
         },
       ],
+      model: modelOutputTranslation,
     });
 
     console.log("🤖 Response (in German):", outputTranslatedText);
@@ -158,13 +157,13 @@ async function translationExample() {
     console.log(`🇫🇷 French Query: ${frenchQuery}\n`);
 
     const { text: bidirectionalText } = await generateText({
-      model: modelBidirectional,
       messages: [
         {
-          role: "user",
           content: frenchQuery,
+          role: "user",
         },
       ],
+      model: modelBidirectional,
     });
 
     console.log("🤖 Response (in French):", bidirectionalText);
@@ -207,13 +206,13 @@ async function translationExample() {
       const langModel = langProvider("gpt-4o");
 
       const { text: langText } = await generateText({
-        model: langModel,
         messages: [
           {
-            role: "user",
             content: lang.query,
+            role: "user",
           },
         ],
+        model: langModel,
       });
 
       console.log(`   Response: ${langText}`);
@@ -243,7 +242,7 @@ async function translationExample() {
 
       // Parse SAP-specific metadata
       const sapError = JSON.parse(error.responseBody ?? "{}") as {
-        error?: { request_id?: string; code?: string; message?: string };
+        error?: { code?: string; message?: string; request_id?: string; };
       };
       if (sapError.error?.request_id) {
         console.error("   SAP Request ID:", sapError.error.request_id);

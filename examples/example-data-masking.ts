@@ -13,18 +13,17 @@
 
 // Load environment variables
 import "dotenv/config";
+import { APICallError } from "@ai-sdk/provider";
 import { generateText } from "ai";
+// In YOUR production project, use the published package instead:
+// import { createSAPAIProvider, buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
+// ============================================================================
 
 // ============================================================================
 // NOTE: Import Path for Development vs Production
 // ============================================================================
 // This example uses relative imports for local development within this repo:
-import { createSAPAIProvider, buildDpiMaskingProvider } from "../src/index";
-// In YOUR production project, use the published package instead:
-// import { createSAPAIProvider, buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
-// ============================================================================
-
-import { APICallError } from "@ai-sdk/provider";
+import { buildDpiMaskingProvider, createSAPAIProvider } from "../src/index";
 
 async function dataMaskingExample() {
   console.log("🔒 SAP AI Data Masking Example (DPI)\n");
@@ -42,20 +41,20 @@ async function dataMaskingExample() {
   try {
     // Build DPI masking configuration using the SDK helper
     const dpiMaskingConfig = buildDpiMaskingProvider({
-      method: "anonymization",
       entities: [
         // Standard entities
         "profile-email",
         "profile-person",
         // Custom entity with replacement strategy
         {
-          type: "profile-phone",
           replacement_strategy: {
             method: "constant",
             value: "PHONE_REDACTED",
           },
+          type: "profile-phone",
         },
       ],
+      method: "anonymization",
     });
 
     // Provider with masking enabled by default
@@ -72,14 +71,14 @@ async function dataMaskingExample() {
     console.log("📝 Testing with data masking enabled...\n");
 
     const { text } = await generateText({
-      model,
       messages: [
         {
-          role: "user",
           content:
             "Please email Jane Doe (jane.doe@example.com) at +1-555-123-4567 about the meeting.",
+          role: "user",
         },
       ],
+      model,
     });
 
     console.log("🤖 Response:", text);
@@ -97,14 +96,14 @@ async function dataMaskingExample() {
     const modelNoMask = providerNoMask("gpt-4o");
 
     const { text: textNoMask } = await generateText({
-      model: modelNoMask,
       messages: [
         {
-          role: "user",
           content:
             "Please email Jane Doe (jane.doe@example.com) at +1-555-123-4567 about the meeting.",
+          role: "user",
         },
       ],
+      model: modelNoMask,
     });
 
     console.log("🤖 Response (no masking):", textNoMask);
@@ -118,24 +117,24 @@ async function dataMaskingExample() {
       "My name is John Smith, email: john.smith@company.com, phone: 555-987-6543";
 
     const { text: echoMasked } = await generateText({
-      model,
       messages: [
         {
-          role: "user",
           content: `Repeat this exactly: ${original}`,
+          role: "user",
         },
       ],
+      model,
     });
     console.log("🔒 Echo with masking:", echoMasked);
 
     const { text: echoNoMask } = await generateText({
-      model: modelNoMask,
       messages: [
         {
-          role: "user",
           content: `Repeat this exactly: ${original}`,
+          role: "user",
         },
       ],
+      model: modelNoMask,
     });
     console.log("🔓 Echo without masking:", echoNoMask);
 
@@ -146,7 +145,7 @@ async function dataMaskingExample() {
 
       // Parse SAP-specific metadata
       const sapError = JSON.parse(error.responseBody ?? "{}") as {
-        error?: { request_id?: string; code?: string };
+        error?: { code?: string; request_id?: string; };
       };
       if (sapError.error?.request_id) {
         console.error("   SAP Request ID:", sapError.error.request_id);

@@ -22,21 +22,20 @@
 
 // Load environment variables
 import "dotenv/config";
+import { APICallError } from "@ai-sdk/provider";
 import { generateText } from "ai";
+// In YOUR production project, use the published package instead:
+// import { createSAPAIProvider, buildDocumentGroundingConfig } from "@mymediset/sap-ai-provider";
+// ============================================================================
 
 // ============================================================================
 // NOTE: Import Path for Development vs Production
 // ============================================================================
 // This example uses relative imports for local development within this repo:
 import {
-  createSAPAIProvider,
   buildDocumentGroundingConfig,
+  createSAPAIProvider,
 } from "../src/index";
-// In YOUR production project, use the published package instead:
-// import { createSAPAIProvider, buildDocumentGroundingConfig } from "@mymediset/sap-ai-provider";
-// ============================================================================
-
-import { APICallError } from "@ai-sdk/provider";
 
 async function documentGroundingExample() {
   console.log("📚 SAP AI Document Grounding (RAG) Example\n");
@@ -67,9 +66,9 @@ async function documentGroundingExample() {
     const basicGroundingConfig = buildDocumentGroundingConfig({
       filters: [
         {
-          id: VECTOR_STORE_ID,
           // Search across all repositories
           data_repositories: ["*"],
+          id: VECTOR_STORE_ID,
         },
       ],
       // Required: Define placeholders for input question and output
@@ -90,13 +89,13 @@ async function documentGroundingExample() {
     console.log("📝 Query: What are the key features of SAP AI Core?\n");
 
     const { text } = await generateText({
-      model,
       messages: [
         {
-          role: "user",
           content: "What are the key features of SAP AI Core?",
+          role: "user",
         },
       ],
+      model,
     });
 
     console.log("🤖 Grounded Response:", text);
@@ -112,16 +111,16 @@ async function documentGroundingExample() {
     const advancedGroundingConfig = buildDocumentGroundingConfig({
       filters: [
         {
-          id: VECTOR_STORE_ID,
           data_repositories: ["*"],
+          id: VECTOR_STORE_ID,
         },
       ],
+      // Request metadata about the retrieved chunks
+      metadata_params: ["file_name", "document_id", "chunk_id"],
       placeholders: {
         input: ["?question"],
         output: "groundingOutput",
       },
-      // Request metadata about the retrieved chunks
-      metadata_params: ["file_name", "document_id", "chunk_id"],
     });
 
     const providerAdvanced = createSAPAIProvider({
@@ -137,14 +136,14 @@ async function documentGroundingExample() {
     );
 
     const { text: advancedText } = await generateText({
-      model: modelAdvanced,
       messages: [
         {
-          role: "user",
           content:
             "How do I deploy a model in SAP AI Core? Please cite your sources with file names.",
+          role: "user",
         },
       ],
+      model: modelAdvanced,
     });
 
     console.log("🤖 Grounded Response with Metadata:", advancedText);
@@ -162,25 +161,25 @@ async function documentGroundingExample() {
 
     console.log("🌐 Response WITHOUT grounding (general knowledge):");
     const { text: ungroundedText } = await generateText({
-      model: modelNoGrounding,
       messages: [
         {
-          role: "user",
           content: query,
+          role: "user",
         },
       ],
+      model: modelNoGrounding,
     });
     console.log(ungroundedText);
 
     console.log("\n📚 Response WITH grounding (your documents):");
     const { text: groundedText } = await generateText({
-      model,
       messages: [
         {
-          role: "user",
           content: query,
+          role: "user",
         },
       ],
+      model,
     });
     console.log(groundedText);
 
@@ -204,7 +203,7 @@ async function documentGroundingExample() {
 
       // Parse SAP-specific metadata
       const sapError = JSON.parse(error.responseBody ?? "{}") as {
-        error?: { request_id?: string; code?: string; message?: string };
+        error?: { code?: string; message?: string; request_id?: string; };
       };
       if (sapError.error?.request_id) {
         console.error("   SAP Request ID:", sapError.error.request_id);

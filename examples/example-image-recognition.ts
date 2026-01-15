@@ -13,18 +13,17 @@
 
 // Load environment variables
 import "dotenv/config";
+import { APICallError } from "@ai-sdk/provider";
 import { generateText } from "ai";
+// In YOUR production project, use the published package instead:
+// import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+// ============================================================================
 
 // ============================================================================
 // NOTE: Import Path for Development vs Production
 // ============================================================================
 // This example uses relative imports for local development within this repo:
 import { createSAPAIProvider } from "../src/index";
-// In YOUR production project, use the published package instead:
-// import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
-// ============================================================================
-
-import { APICallError } from "@ai-sdk/provider";
 
 async function imageRecognitionExample() {
   console.log("🖼️  SAP AI Image Recognition Example\n");
@@ -47,24 +46,24 @@ async function imageRecognitionExample() {
     console.log("==============================");
 
     const { text: urlResponse } = await generateText({
-      model: provider("gpt-4o"),
       messages: [
         {
-          role: "user",
           content: [
             {
-              type: "text",
               text: "What do you see in this image?",
+              type: "text",
             },
             {
-              type: "image",
               image: new URL(
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png",
               ),
+              type: "image",
             },
           ],
+          role: "user",
         },
       ],
+      model: provider("gpt-4o"),
     });
 
     console.log("🤖 Response:", urlResponse);
@@ -79,22 +78,22 @@ async function imageRecognitionExample() {
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
 
     const { text: base64Response } = await generateText({
-      model: provider("gpt-4o"),
       messages: [
         {
-          role: "user",
           content: [
             {
-              type: "text",
               text: "Describe this image in detail.",
+              type: "text",
             },
             {
-              type: "image",
               image: `data:image/png;base64,${base64Image}`,
+              type: "image",
             },
           ],
+          role: "user",
         },
       ],
+      model: provider("gpt-4o"),
     });
 
     console.log("🤖 Response:", base64Response);
@@ -105,28 +104,28 @@ async function imageRecognitionExample() {
     console.log("=====================================");
 
     const { text: multiResponse } = await generateText({
-      model: provider("gpt-4o"),
       messages: [
         {
-          role: "user",
           content: [
             {
-              type: "text",
               text: "Compare these two images and tell me what you notice:",
+              type: "text",
             },
             {
-              type: "image",
               image: new URL(
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png",
               ),
+              type: "image",
             },
             {
-              type: "image",
               image: `data:image/png;base64,${base64Image}`,
+              type: "image",
             },
           ],
+          role: "user",
         },
       ],
+      model: provider("gpt-4o"),
     });
 
     console.log("🤖 Response:", multiResponse);
@@ -139,7 +138,7 @@ async function imageRecognitionExample() {
 
       // Parse SAP-specific metadata
       const sapError = JSON.parse(error.responseBody ?? "{}") as {
-        error?: { request_id?: string; code?: string };
+        error?: { code?: string; request_id?: string; };
       };
       if (sapError.error?.request_id) {
         console.error("   SAP Request ID:", sapError.error.request_id);

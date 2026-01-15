@@ -13,18 +13,17 @@
 
 // Load environment variables
 import "dotenv/config";
+import { APICallError } from "@ai-sdk/provider";
 import { generateText } from "ai";
+// In YOUR production project, use the published package instead:
+// import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+// ============================================================================
 
 // ============================================================================
 // NOTE: Import Path for Development vs Production
 // ============================================================================
 // This example uses relative imports for local development within this repo:
 import { createSAPAIProvider } from "../src/index";
-// In YOUR production project, use the published package instead:
-// import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
-// ============================================================================
-
-import { APICallError } from "@ai-sdk/provider";
 
 async function generateTextExample() {
   console.log("📝 SAP AI Text Generation Example\n");
@@ -44,14 +43,14 @@ async function generateTextExample() {
 
     // Generate text with GPT-4o
     console.log("🤖 Testing gpt-4o...");
-    const { text, usage, finishReason } = await generateText({
-      model: provider("gpt-4o"),
+    const { finishReason, text, usage } = await generateText({
       messages: [
         {
-          role: "user",
           content: "How to make a delicious mashed potatoes?",
+          role: "user",
         },
       ],
+      model: provider("gpt-4o"),
     });
 
     console.log("📄 Response:", text);
@@ -72,17 +71,17 @@ async function generateTextExample() {
       console.log(`\n🤖 Testing ${modelId}...`);
       try {
         const {
+          finishReason: modelFinish,
           text: modelText,
           usage: modelUsage,
-          finishReason: modelFinish,
         } = await generateText({
-          model: provider(modelId),
           messages: [
             {
-              role: "user",
               content: "What is 2 + 2? Reply with just the number.",
+              role: "user",
             },
           ],
+          model: provider(modelId),
         });
         console.log("📄 Response:", modelText);
         console.log(
@@ -104,7 +103,7 @@ async function generateTextExample() {
 
       // Parse SAP-specific metadata
       const sapError = JSON.parse(error.responseBody ?? "{}") as {
-        error?: { request_id?: string; code?: string };
+        error?: { code?: string; request_id?: string; };
       };
       if (sapError.error?.request_id) {
         console.error("   SAP Request ID:", sapError.error.request_id);

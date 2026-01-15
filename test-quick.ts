@@ -8,8 +8,9 @@
  */
 
 import "dotenv/config";
-import { createSAPAIProvider } from "./src/index";
 import { generateText } from "ai";
+
+import { createSAPAIProvider } from "./src/index";
 
 async function quickTest() {
   console.log("🧪 Quick Test: SAP AI Provider\n");
@@ -32,7 +33,7 @@ async function quickTest() {
     console.log("✅ Provider created (synchronously!)");
 
     console.log("\n📝 Testing gpt-4o...");
-    const { text, usage, finishReason } = await generateText({
+    const { finishReason, text, usage } = await generateText({
       model: provider("gpt-4o"),
       prompt: "Say 'Hello from SAP AI Core!' in exactly those words.",
     });

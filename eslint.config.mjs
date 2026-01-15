@@ -1,5 +1,6 @@
 // @ts-check
 import eslint from "@eslint/js";
+import perfectionist from "eslint-plugin-perfectionist";
 import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 
@@ -10,6 +11,7 @@ export default defineConfig(
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
+  perfectionist.configs["recommended-natural"],
   {
     languageOptions: {
       parserOptions: {
@@ -19,7 +21,7 @@ export default defineConfig(
     },
   },
   {
-    files: ["*.config.{js,mjs}"],
     extends: [tseslint.configs.disableTypeChecked],
+    files: ["*.config.{js,mjs}"],
   },
 );

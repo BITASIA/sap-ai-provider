@@ -5,16 +5,18 @@
  * including system/user/assistant messages, tool calls, multi-modal content, and reasoning parts.
  */
 
-import { describe, it, expect } from "vitest";
-import { convertToSAPMessages } from "./convert-to-sap-messages";
 import type { LanguageModelV3Prompt } from "@ai-sdk/provider";
 
+import { describe, expect, it } from "vitest";
+
+import { convertToSAPMessages } from "./convert-to-sap-messages";
+
 const createUserPrompt = (text: string): LanguageModelV3Prompt => [
-  { role: "user", content: [{ type: "text", text }] },
+  { content: [{ text, type: "text" }], role: "user" },
 ];
 
 const createSystemPrompt = (content: string): LanguageModelV3Prompt => [
-  { role: "system", content },
+  { content, role: "system" },
 ];
 
 describe("convertToSAPMessages", () => {
@@ -25,8 +27,8 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "system",
       content: "You are a helpful assistant.",
+      role: "system",
     });
   });
 
@@ -37,23 +39,23 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "user",
       content: "Hello!",
+      role: "user",
     });
   });
 
   it("should convert user message with image", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "user",
         content: [
-          { type: "text", text: "What is this?" },
+          { text: "What is this?", type: "text" },
           {
-            type: "file",
-            mediaType: "image/png",
             data: "base64data",
+            mediaType: "image/png",
+            type: "file",
           },
         ],
+        role: "user",
       },
     ];
 
@@ -61,22 +63,22 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "user",
       content: [
-        { type: "text", text: "What is this?" },
+        { text: "What is this?", type: "text" },
         {
-          type: "image_url",
           image_url: { url: "data:image/png;base64,base64data" },
+          type: "image_url",
         },
       ],
+      role: "user",
     });
   });
 
   it("should convert assistant message with text", () => {
     const prompt: LanguageModelV3Prompt = [
       {
+        content: [{ text: "Hello there!", type: "text" }],
         role: "assistant",
-        content: [{ type: "text", text: "Hello there!" }],
       },
     ];
 
@@ -84,8 +86,8 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "Hello there!",
+      role: "assistant",
       tool_calls: undefined,
     });
   });
@@ -93,11 +95,11 @@ describe("convertToSAPMessages", () => {
   it("should drop assistant reasoning by default", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "assistant",
         content: [
-          { type: "reasoning", text: "Hidden chain of thought" },
-          { type: "text", text: "Final answer" },
+          { text: "Hidden chain of thought", type: "reasoning" },
+          { text: "Final answer", type: "text" },
         ],
+        role: "assistant",
       },
     ];
 
@@ -105,8 +107,8 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "Final answer",
+      role: "assistant",
       tool_calls: undefined,
     });
   });
@@ -114,11 +116,11 @@ describe("convertToSAPMessages", () => {
   it("should include assistant reasoning when enabled", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "assistant",
         content: [
-          { type: "reasoning", text: "Hidden chain of thought" },
-          { type: "text", text: "Final answer" },
+          { text: "Hidden chain of thought", type: "reasoning" },
+          { text: "Final answer", type: "text" },
         ],
+        role: "assistant",
       },
     ];
 
@@ -126,8 +128,8 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "<reasoning>Hidden chain of thought</reasoning>Final answer",
+      role: "assistant",
       tool_calls: undefined,
     });
   });
@@ -135,15 +137,15 @@ describe("convertToSAPMessages", () => {
   it("should convert assistant message with tool calls", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "assistant",
         content: [
           {
-            type: "tool-call",
+            input: { location: "Tokyo" },
             toolCallId: "call_123",
             toolName: "get_weather",
-            input: { location: "Tokyo" },
+            type: "tool-call",
           },
         ],
+        role: "assistant",
       },
     ];
 
@@ -151,16 +153,16 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "",
+      role: "assistant",
       tool_calls: [
         {
+          function: {
+            arguments: '{"location":"Tokyo"}',
+            name: "get_weather",
+          },
           id: "call_123",
           type: "function",
-          function: {
-            name: "get_weather",
-            arguments: '{"location":"Tokyo"}',
-          },
         },
       ],
     });
@@ -169,15 +171,15 @@ describe("convertToSAPMessages", () => {
   it("should not double-encode tool-call input when already a JSON string", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "assistant",
         content: [
           {
-            type: "tool-call",
+            input: '{"location":"Tokyo"}',
             toolCallId: "call_123",
             toolName: "get_weather",
-            input: '{"location":"Tokyo"}',
+            type: "tool-call",
           },
         ],
+        role: "assistant",
       },
     ];
 
@@ -185,16 +187,16 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "",
+      role: "assistant",
       tool_calls: [
         {
+          function: {
+            arguments: '{"location":"Tokyo"}',
+            name: "get_weather",
+          },
           id: "call_123",
           type: "function",
-          function: {
-            name: "get_weather",
-            arguments: '{"location":"Tokyo"}',
-          },
         },
       ],
     });
@@ -203,15 +205,15 @@ describe("convertToSAPMessages", () => {
   it("should convert tool result message", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "tool",
         content: [
           {
-            type: "tool-result",
+            output: { type: "json" as const, value: { weather: "sunny" } },
             toolCallId: "call_123",
             toolName: "get_weather",
-            output: { type: "json" as const, value: { weather: "sunny" } },
+            type: "tool-result",
           },
         ],
+        role: "tool",
       },
     ];
 
@@ -219,18 +221,18 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
+      content: '{"type":"json","value":{"weather":"sunny"}}',
       role: "tool",
       tool_call_id: "call_123",
-      content: '{"type":"json","value":{"weather":"sunny"}}',
     });
   });
 
   it("should convert full conversation", () => {
     const prompt: LanguageModelV3Prompt = [
-      { role: "system", content: "You are helpful." },
-      { role: "user", content: [{ type: "text", text: "Hi" }] },
-      { role: "assistant", content: [{ type: "text", text: "Hello!" }] },
-      { role: "user", content: [{ type: "text", text: "Thanks" }] },
+      { content: "You are helpful.", role: "system" },
+      { content: [{ text: "Hi", type: "text" }], role: "user" },
+      { content: [{ text: "Hello!", type: "text" }], role: "assistant" },
+      { content: [{ text: "Thanks", type: "text" }], role: "user" },
     ];
 
     const result = convertToSAPMessages(prompt);
@@ -246,15 +248,15 @@ describe("convertToSAPMessages", () => {
     const imageUrl = new URL("https://example.com/image.jpg");
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "user",
         content: [
-          { type: "text", text: "Describe this image" },
+          { text: "Describe this image", type: "text" },
           {
-            type: "file",
-            mediaType: "image/jpeg",
             data: imageUrl,
+            mediaType: "image/jpeg",
+            type: "file",
           },
         ],
+        role: "user",
       },
     ];
 
@@ -262,35 +264,35 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "user",
       content: [
-        { type: "text", text: "Describe this image" },
+        { text: "Describe this image", type: "text" },
         {
-          type: "image_url",
           image_url: { url: "https://example.com/image.jpg" },
+          type: "image_url",
         },
       ],
+      role: "user",
     });
   });
 
   it("should convert multiple tool results into separate messages", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "tool",
         content: [
           {
-            type: "tool-result",
+            output: { type: "json" as const, value: { weather: "sunny" } },
             toolCallId: "call_1",
             toolName: "get_weather",
-            output: { type: "json" as const, value: { weather: "sunny" } },
+            type: "tool-result",
           },
           {
-            type: "tool-result",
+            output: { type: "json" as const, value: { time: "12:00" } },
             toolCallId: "call_2",
             toolName: "get_time",
-            output: { type: "json" as const, value: { time: "12:00" } },
+            type: "tool-result",
           },
         ],
+        role: "tool",
       },
     ];
 
@@ -298,34 +300,34 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(2);
     expect(result[0]).toEqual({
+      content: '{"type":"json","value":{"weather":"sunny"}}',
       role: "tool",
       tool_call_id: "call_1",
-      content: '{"type":"json","value":{"weather":"sunny"}}',
     });
     expect(result[1]).toEqual({
+      content: '{"type":"json","value":{"time":"12:00"}}',
       role: "tool",
       tool_call_id: "call_2",
-      content: '{"type":"json","value":{"time":"12:00"}}',
     });
   });
 
   it.each([
-    { mediaType: "audio/mp3", description: "audio" },
-    { mediaType: "application/pdf", description: "pdf" },
-    { mediaType: "video/mp4", description: "video" },
+    { description: "audio", mediaType: "audio/mp3" },
+    { description: "pdf", mediaType: "application/pdf" },
+    { description: "video", mediaType: "video/mp4" },
   ])(
     "should throw error for unsupported file type: $description",
     ({ mediaType }) => {
       const prompt: LanguageModelV3Prompt = [
         {
-          role: "user",
           content: [
             {
-              type: "file",
-              mediaType,
               data: "base64data",
+              mediaType,
+              type: "file",
             },
           ],
+          role: "user",
         },
       ];
 
@@ -338,21 +340,21 @@ describe("convertToSAPMessages", () => {
   it("should convert multiple tool calls in single assistant message", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "assistant",
         content: [
           {
-            type: "tool-call",
+            input: { location: "Tokyo" },
             toolCallId: "call_1",
             toolName: "get_weather",
-            input: { location: "Tokyo" },
+            type: "tool-call",
           },
           {
-            type: "tool-call",
+            input: { timezone: "JST" },
             toolCallId: "call_2",
             toolName: "get_time",
-            input: { timezone: "JST" },
+            type: "tool-call",
           },
         ],
+        role: "assistant",
       },
     ];
 
@@ -360,24 +362,24 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "",
+      role: "assistant",
       tool_calls: [
         {
+          function: {
+            arguments: '{"location":"Tokyo"}',
+            name: "get_weather",
+          },
           id: "call_1",
           type: "function",
-          function: {
-            name: "get_weather",
-            arguments: '{"location":"Tokyo"}',
-          },
         },
         {
+          function: {
+            arguments: '{"timezone":"JST"}',
+            name: "get_time",
+          },
           id: "call_2",
           type: "function",
-          function: {
-            name: "get_time",
-            arguments: '{"timezone":"JST"}',
-          },
         },
       ],
     });
@@ -386,16 +388,16 @@ describe("convertToSAPMessages", () => {
   it("should handle assistant message with both text and tool calls", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "assistant",
         content: [
-          { type: "text", text: "Let me check the weather for you." },
+          { text: "Let me check the weather for you.", type: "text" },
           {
-            type: "tool-call",
+            input: { location: "Paris" },
             toolCallId: "call_123",
             toolName: "get_weather",
-            input: { location: "Paris" },
+            type: "tool-call",
           },
         ],
+        role: "assistant",
       },
     ];
 
@@ -403,16 +405,16 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "Let me check the weather for you.",
+      role: "assistant",
       tool_calls: [
         {
+          function: {
+            arguments: '{"location":"Paris"}',
+            name: "get_weather",
+          },
           id: "call_123",
           type: "function",
-          function: {
-            name: "get_weather",
-            arguments: '{"location":"Paris"}',
-          },
         },
       ],
     });
@@ -421,11 +423,11 @@ describe("convertToSAPMessages", () => {
   it("should handle user message with multiple text parts", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "user",
         content: [
-          { type: "text", text: "First part." },
-          { type: "text", text: "Second part." },
+          { text: "First part.", type: "text" },
+          { text: "Second part.", type: "text" },
         ],
+        role: "user",
       },
     ];
 
@@ -433,19 +435,19 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "user",
       content: [
-        { type: "text", text: "First part." },
-        { type: "text", text: "Second part." },
+        { text: "First part.", type: "text" },
+        { text: "Second part.", type: "text" },
       ],
+      role: "user",
     });
   });
 
   it("should handle reasoning-only assistant message by dropping content", () => {
     const prompt: LanguageModelV3Prompt = [
       {
+        content: [{ text: "Thinking about this...", type: "reasoning" }],
         role: "assistant",
-        content: [{ type: "reasoning", text: "Thinking about this..." }],
       },
     ];
 
@@ -453,8 +455,8 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "",
+      role: "assistant",
       tool_calls: undefined,
     });
   });
@@ -462,11 +464,11 @@ describe("convertToSAPMessages", () => {
   it("should handle empty reasoning text", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "assistant",
         content: [
-          { type: "reasoning", text: "" },
-          { type: "text", text: "Answer" },
+          { text: "", type: "reasoning" },
+          { text: "Answer", type: "text" },
         ],
+        role: "assistant",
       },
     ];
 
@@ -474,8 +476,8 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "Answer",
+      role: "assistant",
       tool_calls: undefined,
     });
   });
@@ -483,8 +485,8 @@ describe("convertToSAPMessages", () => {
   it("should handle empty user content array as array format", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "user",
         content: [],
+        role: "user",
       },
     ];
 
@@ -493,16 +495,16 @@ describe("convertToSAPMessages", () => {
     expect(result).toHaveLength(1);
     // Empty content array stays as array (not simplified to string)
     expect(result[0]).toEqual({
-      role: "user",
       content: [],
+      role: "user",
     });
   });
 
   it("should handle empty assistant content array", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "assistant",
         content: [],
+        role: "assistant",
       },
     ];
 
@@ -510,8 +512,8 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "",
+      role: "assistant",
       tool_calls: undefined,
     });
   });
@@ -519,8 +521,8 @@ describe("convertToSAPMessages", () => {
   it("should handle empty tool content array", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "tool",
         content: [],
+        role: "tool",
       },
     ];
 
@@ -530,34 +532,34 @@ describe("convertToSAPMessages", () => {
   });
 
   it("should handle system message with empty string", () => {
-    const prompt: LanguageModelV3Prompt = [{ role: "system", content: "" }];
+    const prompt: LanguageModelV3Prompt = [{ content: "", role: "system" }];
 
     const result = convertToSAPMessages(prompt);
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "system",
       content: "",
+      role: "system",
     });
   });
 
   it("should handle multiple images in user message", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "user",
         content: [
-          { type: "text", text: "Compare these images" },
+          { text: "Compare these images", type: "text" },
           {
-            type: "file",
-            mediaType: "image/png",
             data: "base64data1",
+            mediaType: "image/png",
+            type: "file",
           },
           {
-            type: "file",
-            mediaType: "image/jpeg",
             data: "base64data2",
+            mediaType: "image/jpeg",
+            type: "file",
           },
         ],
+        role: "user",
       },
     ];
 
@@ -565,29 +567,29 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "user",
       content: [
-        { type: "text", text: "Compare these images" },
+        { text: "Compare these images", type: "text" },
         {
-          type: "image_url",
           image_url: { url: "data:image/png;base64,base64data1" },
+          type: "image_url",
         },
         {
-          type: "image_url",
           image_url: { url: "data:image/jpeg;base64,base64data2" },
+          type: "image_url",
         },
       ],
+      role: "user",
     });
   });
 
   it("should handle reasoning with includeReasoning but empty text", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "assistant",
         content: [
-          { type: "reasoning", text: "" },
-          { type: "text", text: "Final" },
+          { text: "", type: "reasoning" },
+          { text: "Final", type: "text" },
         ],
+        role: "assistant",
       },
     ];
 
@@ -596,8 +598,8 @@ describe("convertToSAPMessages", () => {
     expect(result).toHaveLength(1);
     // Empty reasoning should not produce <reasoning></reasoning> tags
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "Final",
+      role: "assistant",
       tool_calls: undefined,
     });
   });
@@ -605,15 +607,15 @@ describe("convertToSAPMessages", () => {
   it("should handle tool-call with object input containing special characters", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "assistant",
         content: [
           {
-            type: "tool-call",
+            input: { query: 'test "quotes" and \\ backslash' },
             toolCallId: "call_special",
             toolName: "search",
-            input: { query: 'test "quotes" and \\ backslash' },
+            type: "tool-call",
           },
         ],
+        role: "assistant",
       },
     ];
 
@@ -621,16 +623,16 @@ describe("convertToSAPMessages", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      role: "assistant",
       content: "",
+      role: "assistant",
       tool_calls: [
         {
+          function: {
+            arguments: '{"query":"test \\"quotes\\" and \\\\ backslash"}',
+            name: "search",
+          },
           id: "call_special",
           type: "function",
-          function: {
-            name: "search",
-            arguments: '{"query":"test \\"quotes\\" and \\\\ backslash"}',
-          },
         },
       ],
     });
@@ -639,12 +641,8 @@ describe("convertToSAPMessages", () => {
   it("should handle tool result with complex nested output", () => {
     const prompt: LanguageModelV3Prompt = [
       {
-        role: "tool",
         content: [
           {
-            type: "tool-result",
-            toolCallId: "call_nested",
-            toolName: "get_data",
             output: {
               type: "json" as const,
               value: {
@@ -654,8 +652,12 @@ describe("convertToSAPMessages", () => {
                 },
               },
             },
+            toolCallId: "call_nested",
+            toolName: "get_data",
+            type: "tool-result",
           },
         ],
+        role: "tool",
       },
     ];
 
@@ -679,13 +681,13 @@ describe("convertToSAPMessages", () => {
     // Force an unknown content type to trigger the default case
     const prompt = [
       {
-        role: "user",
         content: [
-          { type: "unknown_type", data: "some data" } as unknown as {
-            type: "text";
+          { data: "some data", type: "unknown_type" } as unknown as {
             text: string;
+            type: "text";
           },
         ],
+        role: "user",
       },
     ] as LanguageModelV3Prompt;
 

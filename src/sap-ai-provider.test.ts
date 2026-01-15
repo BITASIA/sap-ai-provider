@@ -5,7 +5,8 @@
  * and settings merge behavior.
  */
 
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { createSAPAIProvider, sapai } from "./sap-ai-provider";
 
 afterEach(() => {
@@ -116,9 +117,9 @@ describe("createSAPAIProvider", () => {
       .mockImplementation(() => undefined);
 
     const provider = createSAPAIProvider({
-      warnOnAmbiguousConfig: false,
       deploymentId: "d65d81e7c077e583",
       resourceGroup: "production",
+      warnOnAmbiguousConfig: false,
     });
 
     expect(provider("gpt-4o")).toBeDefined();

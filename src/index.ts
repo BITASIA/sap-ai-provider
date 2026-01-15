@@ -6,19 +6,25 @@
  */
 
 /**
+ * Error handling types.
+ */
+export type { OrchestrationErrorResponse } from "./sap-ai-error";
+
+/**
  * Provider factory and default instance.
  */
 export { createSAPAIProvider, sapai } from "./sap-ai-provider";
+
 export type {
+  DeploymentConfig,
   SAPAIProvider,
   SAPAIProviderSettings,
-  DeploymentConfig,
 } from "./sap-ai-provider";
 
 /**
  * Model settings and identifiers.
  */
-export type { SAPAISettings, SAPAIModelId } from "./sap-ai-settings";
+export type { SAPAIModelId, SAPAISettings } from "./sap-ai-settings";
 
 /**
  * SAP AI SDK types and utilities.
@@ -26,39 +32,39 @@ export type { SAPAISettings, SAPAIModelId } from "./sap-ai-settings";
  * Re-exported for convenience and advanced usage scenarios.
  */
 export type {
-  MaskingModule,
-  FilteringModule,
-  GroundingModule,
-  TranslationModule,
-  OrchestrationModuleConfig,
-  OrchestrationConfigRef,
-  ChatCompletionRequest,
-  PromptTemplatingModule,
-  TranslationInputParameters,
-  TranslationOutputParameters,
-  TranslationApplyToCategory,
-  DocumentTranslationApplyToSelector,
-  TranslationTargetLanguage,
-  LlmModelParams,
-  LlmModelDetails,
-  ChatCompletionTool,
-  FunctionObject,
-  ChatMessage,
-  SystemChatMessage,
-  UserChatMessage,
   AssistantChatMessage,
-  ToolChatMessage,
+  ChatCompletionRequest,
+  ChatCompletionTool,
+  ChatMessage,
   DeveloperChatMessage,
+  DocumentTranslationApplyToSelector,
+  FilteringModule,
+  FunctionObject,
+  GroundingModule,
+  LlmModelDetails,
+  LlmModelParams,
+  MaskingModule,
+  OrchestrationConfigRef,
+  OrchestrationModuleConfig,
+  PromptTemplatingModule,
+  SystemChatMessage,
+  ToolChatMessage,
+  TranslationApplyToCategory,
+  TranslationInputParameters,
+  TranslationModule,
+  TranslationOutputParameters,
+  TranslationTargetLanguage,
+  UserChatMessage,
 } from "./sap-ai-settings";
 
 /**
  * Helper functions for building configurations.
  */
 export {
-  buildDpiMaskingProvider,
   buildAzureContentSafetyFilter,
-  buildLlamaGuard38BFilter,
   buildDocumentGroundingConfig,
+  buildDpiMaskingProvider,
+  buildLlamaGuard38BFilter,
   buildTranslationConfig,
   isConfigReference,
 } from "./sap-ai-settings";
@@ -68,14 +74,9 @@ export {
  */
 export {
   OrchestrationResponse,
-  OrchestrationStreamResponse,
   OrchestrationStreamChunkResponse,
+  OrchestrationStreamResponse,
 } from "./sap-ai-settings";
-
-/**
- * Error handling types.
- */
-export type { OrchestrationErrorResponse } from "./sap-ai-error";
 
 /**
  * Direct access to SAP AI SDK OrchestrationClient.

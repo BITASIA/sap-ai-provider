@@ -10,46 +10,26 @@
  *   npm run fix-docs-toc                 # Fix all files with existing ToC
  */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 // ============================================================================
 // Helper Functions (duplicated from validate-docs.ts for independence)
 // ============================================================================
 
 interface HeaderEntry {
-  text: string;
   anchor: string;
   level: number;
   lineNumber: number;
-}
-
-/**
- * Converts header text to a GitHub-compatible anchor.
- *
- * GitHub's anchor generation rules (verified):
- * - Keep: Unicode letters (\p{L}), numbers (\p{N}), spaces, hyphens, underscores
- * - Remove: emoji, punctuation, special symbols, backticks
- * - Spaces → hyphens, collapse multiple hyphens, trim hyphens
- */
-function textToAnchor(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/`/g, "")
-    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
-    .replace(/\s+/g, " ")
-    .replace(/\s/g, "-")
-    .replace(/[-_]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  text: string;
 }
 
 /**
  * Detects if a file contains a Table of Contents section.
  */
 function detectToc(content: string): {
+  endLine: number;
   hasToc: boolean;
   startLine: number;
-  endLine: number;
 } {
   const lines = content.split("\n");
   const tocPatterns = [
@@ -85,58 +65,12 @@ function detectToc(content: string): {
           }
         }
 
-        return { hasToc: true, startLine: i, endLine };
+        return { endLine, hasToc: true, startLine: i };
       }
     }
   }
 
-  return { hasToc: false, startLine: -1, endLine: -1 };
-}
-
-/**
- * Infers ToC depth from document structure.
- * Uses heuristic: include levels that have >3 entries OR are level 2.
- */
-function inferTocDepthFromHeaders(headers: HeaderEntry[]): number {
-  if (headers.length === 0) return 2;
-
-  const levelCounts = new Map<number, number>();
-  for (const header of headers) {
-    levelCounts.set(header.level, (levelCounts.get(header.level) ?? 0) + 1);
-  }
-
-  const levels = Array.from(levelCounts.keys()).sort((a, b) => a - b);
-  let maxDepth = 2;
-
-  for (const level of levels) {
-    const count = levelCounts.get(level) ?? 0;
-
-    // Include this level if:
-    // - It's level 2 (always include ##)
-    // - It has more than 3 entries
-    // - Previous level had entries (maintain hierarchy)
-    if (level === 2 || count > 3 || (level === maxDepth + 1 && count > 1)) {
-      maxDepth = level;
-    }
-  }
-
-  return maxDepth;
-}
-
-/**
- * Generates ToC markdown from headers.
- */
-function generateTocMarkdown(headers: HeaderEntry[], maxDepth: number): string {
-  const filteredHeaders = headers.filter((h) => h.level <= maxDepth);
-  const lines: string[] = [];
-
-  for (const header of filteredHeaders) {
-    const indent = "  ".repeat(header.level - 2);
-    const line = `${indent}- [${header.text}](#${header.anchor})`;
-    lines.push(line);
-  }
-
-  return lines.join("\n");
+  return { endLine: -1, hasToc: false, startLine: -1 };
 }
 
 /**
@@ -178,10 +112,10 @@ function extractHeaders(lines: string[], tocStartLine: number): HeaderEntry[] {
       anchorCounts.set(baseAnchor, count + 1);
 
       headers.push({
-        text,
         anchor,
         level,
         lineNumber: i + 1,
+        text,
       });
     }
   }
@@ -198,7 +132,7 @@ function fixTocInFile(filePath: string): boolean {
   const content = readFileSync(filePath, "utf-8");
   const lines = content.split("\n");
 
-  const { hasToc, startLine, endLine } = detectToc(content);
+  const { endLine, hasToc, startLine } = detectToc(content);
 
   if (!hasToc) {
     console.log(`  ℹ️  No existing ToC found - skipping`);
@@ -250,9 +184,51 @@ function fixTocInFile(filePath: string): boolean {
   return true;
 }
 
-// ============================================================================
-// Main Execution
-// ============================================================================
+/**
+ * Generates ToC markdown from headers.
+ */
+function generateTocMarkdown(headers: HeaderEntry[], maxDepth: number): string {
+  const filteredHeaders = headers.filter((h) => h.level <= maxDepth);
+  const lines: string[] = [];
+
+  for (const header of filteredHeaders) {
+    const indent = "  ".repeat(header.level - 2);
+    const line = `${indent}- [${header.text}](#${header.anchor})`;
+    lines.push(line);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Infers ToC depth from document structure.
+ * Uses heuristic: include levels that have >3 entries OR are level 2.
+ */
+function inferTocDepthFromHeaders(headers: HeaderEntry[]): number {
+  if (headers.length === 0) return 2;
+
+  const levelCounts = new Map<number, number>();
+  for (const header of headers) {
+    levelCounts.set(header.level, (levelCounts.get(header.level) ?? 0) + 1);
+  }
+
+  const levels = Array.from(levelCounts.keys()).sort((a, b) => a - b);
+  let maxDepth = 2;
+
+  for (const level of levels) {
+    const count = levelCounts.get(level) ?? 0;
+
+    // Include this level if:
+    // - It's level 2 (always include ##)
+    // - It has more than 3 entries
+    // - Previous level had entries (maintain hierarchy)
+    if (level === 2 || count > 3 || (level === maxDepth + 1 && count > 1)) {
+      maxDepth = level;
+    }
+  }
+
+  return maxDepth;
+}
 
 function main(): void {
   const args = process.argv.slice(2);
@@ -300,6 +276,30 @@ function main(): void {
     const file = args[0];
     fixTocInFile(file);
   }
+}
+
+// ============================================================================
+// Main Execution
+// ============================================================================
+
+/**
+ * Converts header text to a GitHub-compatible anchor.
+ *
+ * GitHub's anchor generation rules (verified):
+ * - Keep: Unicode letters (\p{L}), numbers (\p{N}), spaces, hyphens, underscores
+ * - Remove: emoji, punctuation, special symbols, backticks
+ * - Spaces → hyphens, collapse multiple hyphens, trim hyphens
+ */
+function textToAnchor(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/`/g, "")
+    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s/g, "-")
+    .replace(/[-_]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 main();

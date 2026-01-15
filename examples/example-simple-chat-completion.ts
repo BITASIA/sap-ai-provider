@@ -13,17 +13,16 @@
 
 // Load environment variables
 import "dotenv/config";
+import { APICallError } from "@ai-sdk/provider";
+// In YOUR production project, use the published package instead:
+// import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+// ============================================================================
 
 // ============================================================================
 // NOTE: Import Path for Development vs Production
 // ============================================================================
 // This example uses relative imports for local development within this repo:
 import { createSAPAIProvider } from "../src/index";
-// In YOUR production project, use the published package instead:
-// import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
-// ============================================================================
-
-import { APICallError } from "@ai-sdk/provider";
 
 async function simpleTest() {
   console.log("🧪 Simple SAP AI Chat Completion Example\n");
@@ -50,18 +49,18 @@ async function simpleTest() {
 
     const model = provider("gpt-4o", {
       modelParams: {
-        temperature: 0.7,
         maxTokens: 1000,
+        temperature: 0.7,
       },
     });
 
     const result = await model.doGenerate({
       prompt: [
         {
-          role: "user",
           content: [
-            { type: "text", text: "How to cook a delicious chicken recipe?" },
+            { text: "How to cook a delicious chicken recipe?", type: "text" },
           ],
+          role: "user",
         },
       ],
     });
@@ -86,7 +85,7 @@ async function simpleTest() {
 
       // Parse SAP-specific metadata
       const sapError = JSON.parse(error.responseBody ?? "{}") as {
-        error?: { request_id?: string; code?: string };
+        error?: { code?: string; request_id?: string; };
       };
       if (sapError.error?.request_id) {
         console.error("   SAP Request ID:", sapError.error.request_id);

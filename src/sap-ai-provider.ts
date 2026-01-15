@@ -1,11 +1,18 @@
-import { ProviderV3 } from "@ai-sdk/provider";
-import type { HttpDestinationOrFetchOptions } from "@sap-cloud-sdk/connectivity";
 import type {
-  ResourceGroupConfig,
   DeploymentIdConfig,
+  ResourceGroupConfig,
 } from "@sap-ai-sdk/ai-api/internal.js";
+import type { HttpDestinationOrFetchOptions } from "@sap-cloud-sdk/connectivity";
+
+import { ProviderV3 } from "@ai-sdk/provider";
+
 import { SAPAILanguageModel } from "./sap-ai-language-model";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-settings";
+
+/**
+ * Deployment configuration type used by SAP AI SDK.
+ */
+export type DeploymentConfig = DeploymentIdConfig | ResourceGroupConfig;
 
 /**
  * SAP AI Provider interface.
@@ -81,29 +88,10 @@ export interface SAPAIProvider extends ProviderV3 {
  */
 export interface SAPAIProviderSettings {
   /**
-   * Whether to emit warnings for ambiguous configurations.
-   *
-   * When enabled (default), the provider will warn when mutually-exclusive
-   * settings are provided (e.g. both `deploymentId` and `resourceGroup`).
+   * Default model settings applied to every model instance created by this provider.
+   * Per-call settings provided to the model will override these.
    */
-  warnOnAmbiguousConfig?: boolean;
-
-  /**
-   * SAP AI Core resource group.
-   *
-   * Logical grouping of AI resources in SAP AI Core.
-   * Used for resource isolation and access control.
-   * Different resource groups can have different permissions and quotas.
-   *
-   * @default 'default'
-   * @example
-   * ```typescript
-   * resourceGroup: 'default'     // Default resource group
-   * resourceGroup: 'production'  // Production environment
-   * resourceGroup: 'development' // Development environment
-   * ```
-   */
-  resourceGroup?: string;
+  defaultSettings?: SAPAISettings;
 
   /**
    * SAP AI Core deployment ID.
@@ -136,16 +124,30 @@ export interface SAPAIProviderSettings {
   destination?: HttpDestinationOrFetchOptions;
 
   /**
-   * Default model settings applied to every model instance created by this provider.
-   * Per-call settings provided to the model will override these.
+   * SAP AI Core resource group.
+   *
+   * Logical grouping of AI resources in SAP AI Core.
+   * Used for resource isolation and access control.
+   * Different resource groups can have different permissions and quotas.
+   *
+   * @default 'default'
+   * @example
+   * ```typescript
+   * resourceGroup: 'default'     // Default resource group
+   * resourceGroup: 'production'  // Production environment
+   * resourceGroup: 'development' // Development environment
+   * ```
    */
-  defaultSettings?: SAPAISettings;
-}
+  resourceGroup?: string;
 
-/**
- * Deployment configuration type used by SAP AI SDK.
- */
-export type DeploymentConfig = ResourceGroupConfig | DeploymentIdConfig;
+  /**
+   * Whether to emit warnings for ambiguous configurations.
+   *
+   * When enabled (default), the provider will warn when mutually-exclusive
+   * settings are provided (e.g. both `deploymentId` and `resourceGroup`).
+   */
+  warnOnAmbiguousConfig?: boolean;
+}
 
 /**
  * Creates a SAP AI Core provider instance for use with the AI SDK.
@@ -296,21 +298,21 @@ export function createSAPAIProvider(
     const mergedSettings: SAPAISettings = {
       ...options.defaultSettings,
       ...settings,
+      filtering: settings.filtering ?? options.defaultSettings?.filtering,
+      // Complex objects: override, do not merge
+
+      masking: settings.masking ?? options.defaultSettings?.masking,
       modelParams: {
         ...(options.defaultSettings?.modelParams ?? {}),
         ...(settings.modelParams ?? {}),
       },
-      // Complex objects: override, do not merge
-
-      masking: settings.masking ?? options.defaultSettings?.masking,
-      filtering: settings.filtering ?? options.defaultSettings?.filtering,
       tools: settings.tools ?? options.defaultSettings?.tools,
     };
 
     return new SAPAILanguageModel(modelId, mergedSettings, {
-      provider: "sap-ai",
       deploymentConfig,
       destination: options.destination,
+      provider: "sap-ai",
     });
   };
 

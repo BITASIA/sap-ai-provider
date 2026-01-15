@@ -21,51 +21,51 @@
  *   npx tsx scripts/validate-docs.ts
  */
 
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 // ============================================================================
 // Types and Interfaces
 // ============================================================================
 
-interface ValidationResult {
-  passed: boolean;
-  errors: string[];
-  warnings: string[];
-}
-
 interface FileThreshold {
   file: string;
   threshold: number;
 }
 
+interface HeaderEntry {
+  anchor: string;
+  level: number;
+  lineNumber: number;
+  text: string;
+}
+
 interface PackageJson {
-  version: string;
   [key: string]: unknown;
+  version: string;
 }
 
 interface TocEntry {
-  text: string;
   anchor: string;
   level: number;
   lineNumber: number;
-}
-
-interface HeaderEntry {
   text: string;
-  anchor: string;
-  level: number;
-  lineNumber: number;
 }
 
 interface TocValidationResult {
-  hasToc: boolean;
-  tocDepth: number;
-  expectedEntries: HeaderEntry[];
   actualEntries: TocEntry[];
-  missing: HeaderEntry[];
+  expectedEntries: HeaderEntry[];
   extra: TocEntry[];
-  mismatched: { expected: HeaderEntry; actual: TocEntry }[];
+  hasToc: boolean;
+  mismatched: { actual: TocEntry; expected: HeaderEntry; }[];
+  missing: HeaderEntry[];
+  tocDepth: number;
+}
+
+interface ValidationResult {
+  errors: string[];
+  passed: boolean;
+  warnings: string[];
 }
 
 // ============================================================================
@@ -124,7 +124,6 @@ const EXCLUDED_DIRS = ["node_modules", ".git"] as const;
  */
 const MODEL_VALIDATION_RULES = [
   {
-    vendor: "OpenAI",
     // Match any GPT model (gpt-3, gpt-4, gpt-5, etc.) and o-series (o1, o3, etc.)
     countPatterns: [
       /"gpt-[\d.]+[a-z0-9-]*"/gi, // gpt-3.5-turbo, gpt-4o, gpt-5-ultra, etc.
@@ -132,52 +131,53 @@ const MODEL_VALIDATION_RULES = [
     ],
     // No format validation (no vendor prefix required)
     incorrectPattern: null,
+    vendor: "OpenAI",
   },
   {
-    vendor: "Google",
     // Match any Gemini model (current and future versions)
     countPatterns: [/"gemini-[\d.]+-[a-z]+"/gi], // gemini-1.5-pro, gemini-2.0-flash, etc.
     incorrectPattern: null,
+    vendor: "Google",
   },
   {
-    vendor: "Anthropic",
     // Match any Claude model with anthropic-- prefix
     countPatterns: [/"anthropic--claude-[^"]+"/gi], // anthropic--claude-3.5-sonnet, etc.
     // Detect Claude without anthropic-- prefix in markdown lists
     incorrectPattern: {
-      pattern: /(?<!anthropic--)(\bclaude-[\d.]+-(sonnet|opus|haiku)\b)/g,
       correctFormat: "anthropic--claude-*",
+      pattern: /(?<!anthropic--)(\bclaude-[\d.]+-(sonnet|opus|haiku)\b)/g,
     },
+    vendor: "Anthropic",
   },
   {
-    vendor: "Amazon",
     // Match any Amazon model with amazon-- prefix
     countPatterns: [/"amazon--[a-z0-9-]+"/gi], // amazon--nova-pro, amazon--titan-*, etc.
     // Detect Nova without amazon-- prefix in markdown lists
     incorrectPattern: {
-      pattern: /(?<!amazon--)(\bnova-(pro|lite|micro|premier)\b)/g,
       correctFormat: "amazon--nova-*",
+      pattern: /(?<!amazon--)(\bnova-(pro|lite|micro|premier)\b)/g,
     },
+    vendor: "Amazon",
   },
   {
-    vendor: "Meta",
     // Match any Llama model with meta-- prefix
     countPatterns: [/"meta--llama[^"]+"/gi], // meta--llama3.1-70b-instruct, etc.
     // Detect Llama without meta-- prefix or -instruct suffix
     incorrectPattern: {
-      pattern: /(?<!meta--)(\bllama[\d.]+(?!-instruct\b)[a-z\d.]*)\b/g,
       correctFormat: "meta--llama*-instruct",
+      pattern: /(?<!meta--)(\bllama[\d.]+(?!-instruct\b)[a-z\d.]*)\b/g,
     },
+    vendor: "Meta",
   },
   {
-    vendor: "Mistral",
     // Match any Mistral model with mistralai-- prefix
     countPatterns: [/"mistralai--[a-z0-9-]+"/gi], // mistralai--mistral-large-instruct, etc.
     // Detect Mistral without mistralai-- prefix or -instruct suffix
     incorrectPattern: {
-      pattern: /(?<!mistralai--)(\bmistralai-mistral-\w+)(?!-instruct\b)/g,
       correctFormat: "mistralai--mistral-*-instruct",
+      pattern: /(?<!mistralai--)(\bmistralai-mistral-\w+)(?!-instruct\b)/g,
     },
+    vendor: "Mistral",
   },
 ] as const;
 
@@ -186,8 +186,8 @@ const MODEL_VALIDATION_RULES = [
 // ============================================================================
 
 const results: ValidationResult = {
-  passed: true,
   errors: [],
+  passed: true,
   warnings: [],
 };
 
@@ -196,154 +196,15 @@ const results: ValidationResult = {
 // ============================================================================
 
 /**
- * Recursively finds all markdown files in a directory.
- *
- * @param dir - Directory to search
- * @param exclude - Patterns to exclude from search
- * @returns Array of relative file paths
- */
-function findMarkdownFiles(
-  dir: string,
-  exclude: readonly string[] = [],
-): string[] {
-  const files: string[] = [];
-
-  function walk(currentDir: string): void {
-    const entries = readdirSync(currentDir);
-
-    for (const entry of entries) {
-      const fullPath = join(currentDir, entry);
-      const relativePath = relative(process.cwd(), fullPath);
-
-      // Skip excluded paths
-      if (exclude.some((ex) => relativePath.includes(ex))) {
-        continue;
-      }
-
-      if (statSync(fullPath).isDirectory()) {
-        walk(fullPath);
-      } else if (entry.endsWith(".md")) {
-        files.push(relativePath);
-      }
-    }
-  }
-
-  walk(dir);
-  return files;
-}
-
-/**
- * Safely reads and parses a JSON file.
- *
- * @param filePath - Path to JSON file
- * @returns Parsed JSON object or null if error
- */
-function readJsonFile(filePath: string): PackageJson | null {
-  try {
-    const content = readFileSync(filePath, "utf-8");
-    return JSON.parse(content) as PackageJson;
-  } catch (error) {
-    results.warnings.push(
-      `Failed to parse JSON file ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    return null;
-  }
-}
-
-/**
- * Extracts TypeScript code blocks from markdown content.
- *
- * @param content - Markdown file content
- * @returns Array of code block contents
- */
-function extractTypeScriptCodeBlocks(content: string): string[] {
-  const codeBlockPattern = /```typescript\n([\s\S]*?)\n```/g;
-  const matches = Array.from(content.matchAll(codeBlockPattern));
-  return matches.map((match) => match[1]);
-}
-
-/**
- * Checks if a line is inside a code block.
- *
- * @param lines - All lines in the file
- * @param lineIndex - Index of current line
- * @returns True if line is in a code block
- */
-function isLineInCodeBlock(lines: string[], lineIndex: number): boolean {
-  let inCodeBlock = false;
-
-  for (let i = 0; i <= lineIndex; i++) {
-    if (lines[i].trim().startsWith("```")) {
-      inCodeBlock = !inCodeBlock;
-    }
-  }
-
-  return inCodeBlock;
-}
-
-/**
- * Checks if a line contains an inline code example with markdown links.
- *
- * @param line - Line to check
- * @returns True if line has inline code with markdown syntax
- */
-function hasInlineCodeExample(line: string): boolean {
-  return line.includes("`[") && line.includes("](");
-}
-
-/**
- * Converts header text to a GitHub-compatible anchor.
- *
- * GitHub's anchor generation rules (verified):
- * 1. Convert to lowercase
- * 2. Remove backticks
- * 3. Keep: Unicode letters (\p{L}), Unicode numbers (\p{N}), spaces, hyphens, underscores
- * 4. Remove: emoji, punctuation, special symbols
- * 5. Replace spaces with hyphens
- * 6. Collapse multiple hyphens to single
- * 7. Remove leading/trailing hyphens
- *
- * Examples:
- * - "🚀 Getting Started" → "getting-started" (emoji removed)
- * - "日本語セクション" → "日本語セクション" (Unicode kept)
- * - "Über uns" → "über-uns" (ü kept)
- * - "Q&A / FAQ" → "qa-faq" (punctuation removed)
- * - "API: `createProvider()`" → "api-createprovider" (backticks/parens removed)
- *
- * @param text - Header text
- * @returns Anchor string
- */
-function textToAnchor(text: string): string {
-  return (
-    text
-      .toLowerCase()
-      .trim()
-      // Remove backticks (common in code references)
-      .replace(/`/g, "")
-      // Keep ONLY: Unicode letters, Unicode numbers, spaces, hyphens, underscores
-      // \p{L} = any Unicode letter, \p{N} = any Unicode number
-      .replace(/[^\p{L}\p{N}\s_-]/gu, "")
-      // Replace multiple spaces with single space
-      .replace(/\s+/g, " ")
-      // Replace spaces with hyphens
-      .replace(/\s/g, "-")
-      // Replace multiple hyphens/underscores with single hyphen
-      .replace(/[-_]+/g, "-")
-      // Remove leading/trailing hyphens
-      .replace(/^-+|-+$/g, "")
-  );
-}
-
-/**
  * Detects if a file contains a Table of Contents section.
  *
  * @param content - File content
  * @returns Object with ToC detection info
  */
 function detectToc(content: string): {
+  endLine: number;
   hasToc: boolean;
   startLine: number;
-  endLine: number;
 } {
   const lines = content.split("\n");
 
@@ -385,54 +246,12 @@ function detectToc(content: string): {
           }
         }
 
-        return { hasToc: true, startLine: i, endLine };
+        return { endLine, hasToc: true, startLine: i };
       }
     }
   }
 
-  return { hasToc: false, startLine: -1, endLine: -1 };
-}
-
-/**
- * Extracts ToC entries from the ToC section.
- *
- * @param lines - File lines
- * @param startLine - ToC start line
- * @param endLine - ToC end line
- * @returns Array of ToC entries
- */
-function extractTocEntries(
-  lines: string[],
-  startLine: number,
-  endLine: number,
-): TocEntry[] {
-  const entries: TocEntry[] = [];
-
-  // Pattern: - [Text](#anchor) or * [Text](#anchor)
-  const tocPattern = /^(\s*)[-*]\s+\[([^\]]+)\]\(#([^)]+)\)/;
-
-  for (let i = startLine + 1; i < endLine; i++) {
-    const line = lines[i];
-    const match = tocPattern.exec(line);
-
-    if (match) {
-      const indent = match[1].length;
-      const text = match[2];
-      const anchor = match[3];
-
-      // Calculate level based on indentation (2 spaces = 1 level)
-      const level = Math.floor(indent / 2) + 2; // Start at level 2 (##)
-
-      entries.push({
-        text,
-        anchor,
-        level,
-        lineNumber: i + 1,
-      });
-    }
-  }
-
-  return entries;
+  return { endLine: -1, hasToc: false, startLine: -1 };
 }
 
 /**
@@ -481,15 +300,116 @@ function extractHeaders(lines: string[], tocStartLine: number): HeaderEntry[] {
       anchorCounts.set(baseAnchor, count + 1);
 
       headers.push({
-        text,
         anchor,
         level,
         lineNumber: i + 1,
+        text,
       });
     }
   }
 
   return headers;
+}
+
+/**
+ * Extracts ToC entries from the ToC section.
+ *
+ * @param lines - File lines
+ * @param startLine - ToC start line
+ * @param endLine - ToC end line
+ * @returns Array of ToC entries
+ */
+function extractTocEntries(
+  lines: string[],
+  startLine: number,
+  endLine: number,
+): TocEntry[] {
+  const entries: TocEntry[] = [];
+
+  // Pattern: - [Text](#anchor) or * [Text](#anchor)
+  const tocPattern = /^(\s*)[-*]\s+\[([^\]]+)\]\(#([^)]+)\)/;
+
+  for (let i = startLine + 1; i < endLine; i++) {
+    const line = lines[i];
+    const match = tocPattern.exec(line);
+
+    if (match) {
+      const indent = match[1].length;
+      const text = match[2];
+      const anchor = match[3];
+
+      // Calculate level based on indentation (2 spaces = 1 level)
+      const level = Math.floor(indent / 2) + 2; // Start at level 2 (##)
+
+      entries.push({
+        anchor,
+        level,
+        lineNumber: i + 1,
+        text,
+      });
+    }
+  }
+
+  return entries;
+}
+
+/**
+ * Extracts TypeScript code blocks from markdown content.
+ *
+ * @param content - Markdown file content
+ * @returns Array of code block contents
+ */
+function extractTypeScriptCodeBlocks(content: string): string[] {
+  const codeBlockPattern = /```typescript\n([\s\S]*?)\n```/g;
+  const matches = Array.from(content.matchAll(codeBlockPattern));
+  return matches.map((match) => match[1]);
+}
+
+/**
+ * Recursively finds all markdown files in a directory.
+ *
+ * @param dir - Directory to search
+ * @param exclude - Patterns to exclude from search
+ * @returns Array of relative file paths
+ */
+function findMarkdownFiles(
+  dir: string,
+  exclude: readonly string[] = [],
+): string[] {
+  const files: string[] = [];
+
+  function walk(currentDir: string): void {
+    const entries = readdirSync(currentDir);
+
+    for (const entry of entries) {
+      const fullPath = join(currentDir, entry);
+      const relativePath = relative(process.cwd(), fullPath);
+
+      // Skip excluded paths
+      if (exclude.some((ex) => relativePath.includes(ex))) {
+        continue;
+      }
+
+      if (statSync(fullPath).isDirectory()) {
+        walk(fullPath);
+      } else if (entry.endsWith(".md")) {
+        files.push(relativePath);
+      }
+    }
+  }
+
+  walk(dir);
+  return files;
+}
+
+/**
+ * Checks if a line contains an inline code example with markdown links.
+ *
+ * @param line - Line to check
+ * @returns True if line has inline code with markdown syntax
+ */
+function hasInlineCodeExample(line: string): boolean {
+  return line.includes("`[") && line.includes("](");
 }
 
 /**
@@ -529,71 +449,411 @@ function inferTocDepth(tocEntries: TocEntry[]): number {
 }
 
 /**
- * Validates ToC against actual document headers using diff algorithm.
+ * Checks if a line is inside a code block.
  *
- * @param tocEntries - Entries in ToC
- * @param headers - Actual headers in document
- * @param tocDepth - Maximum depth to validate
- * @returns Validation result with missing/extra/mismatched entries
+ * @param lines - All lines in the file
+ * @param lineIndex - Index of current line
+ * @returns True if line is in a code block
  */
-function validateTocEntries(
-  tocEntries: TocEntry[],
-  headers: HeaderEntry[],
-  tocDepth: number,
-): TocValidationResult {
-  // Filter headers to only those that should be in ToC (by depth)
-  const expectedHeaders = headers.filter((h) => h.level <= tocDepth);
+function isLineInCodeBlock(lines: string[], lineIndex: number): boolean {
+  let inCodeBlock = false;
 
-  const missing: HeaderEntry[] = [];
-  const extra: TocEntry[] = [];
-  const mismatched: { expected: HeaderEntry; actual: TocEntry }[] = [];
-
-  // Create maps for efficient lookup
-  const tocMap = new Map<string, TocEntry>();
-  for (const entry of tocEntries) {
-    tocMap.set(entry.anchor, entry);
-  }
-
-  const headerMap = new Map<string, HeaderEntry>();
-  for (const header of expectedHeaders) {
-    headerMap.set(header.anchor, header);
-  }
-
-  // Find missing entries (in headers but not in ToC)
-  for (const header of expectedHeaders) {
-    const tocEntry = tocMap.get(header.anchor);
-
-    if (!tocEntry) {
-      missing.push(header);
-    } else {
-      // Check for mismatches (wrong text or level)
-      if (tocEntry.text !== header.text || tocEntry.level !== header.level) {
-        mismatched.push({ expected: header, actual: tocEntry });
-      }
+  for (let i = 0; i <= lineIndex; i++) {
+    if (lines[i].trim().startsWith("```")) {
+      inCodeBlock = !inCodeBlock;
     }
   }
 
-  // Find extra entries (in ToC but not in headers)
-  for (const tocEntry of tocEntries) {
-    if (!headerMap.has(tocEntry.anchor)) {
-      extra.push(tocEntry);
-    }
+  return inCodeBlock;
+}
+
+/**
+ * Runs all validation checks and reports results.
+ */
+function main(): void {
+  console.log("📚 SAP AI Provider - Documentation Validation");
+  console.log("=".repeat(60));
+  console.log("");
+
+  try {
+    validatePublicExportsDocumented();
+    validateInternalLinks();
+    validateModelLists();
+    validateModelIdFormats();
+    validateDotenvImports();
+    validateLinkFormat();
+    validateRequiredFiles();
+    validateTableOfContents();
+    validateVersionConsistency();
+  } catch (error) {
+    results.errors.push(
+      `Validation error: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    results.passed = false;
   }
 
-  return {
-    hasToc: true,
-    tocDepth,
-    expectedEntries: expectedHeaders,
-    actualEntries: tocEntries,
-    missing,
-    extra,
-    mismatched,
-  };
+  // Print summary
+  console.log("");
+  console.log("=".repeat(60));
+  console.log("\n📊 Summary:");
+  console.log(`  Errors:   ${String(results.errors.length)}`);
+  console.log(`  Warnings: ${String(results.warnings.length)}`);
+
+  if (results.errors.length > 0) {
+    console.log("\n❌ ERRORS:");
+    results.errors.forEach((err) => {
+      console.log(`  • ${err}`);
+    });
+  }
+
+  if (results.warnings.length > 0) {
+    console.log("\n⚠️  WARNINGS:");
+    results.warnings.forEach((warn) => {
+      console.log(`  • ${warn}`);
+    });
+  }
+
+  // Exit with appropriate status
+  console.log("");
+  if (results.errors.length === 0 && results.warnings.length === 0) {
+    console.log("✅ Documentation validation PASSED - No issues found!\n");
+    process.exit(0);
+  } else if (results.errors.length === 0) {
+    console.log("✅ Documentation validation PASSED with warnings");
+    console.log("   Consider addressing warnings before release.\n");
+    process.exit(0);
+  } else {
+    console.log("❌ Documentation validation FAILED");
+    console.log("   Fix errors before proceeding with release.\n");
+    process.exit(1);
+  }
+}
+
+/**
+ * Safely reads and parses a JSON file.
+ *
+ * @param filePath - Path to JSON file
+ * @returns Parsed JSON object or null if error
+ */
+function readJsonFile(filePath: string): null | PackageJson {
+  try {
+    const content = readFileSync(filePath, "utf-8");
+    return JSON.parse(content) as PackageJson;
+  } catch (error) {
+    results.warnings.push(
+      `Failed to parse JSON file ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Converts header text to a GitHub-compatible anchor.
+ *
+ * GitHub's anchor generation rules (verified):
+ * 1. Convert to lowercase
+ * 2. Remove backticks
+ * 3. Keep: Unicode letters (\p{L}), Unicode numbers (\p{N}), spaces, hyphens, underscores
+ * 4. Remove: emoji, punctuation, special symbols
+ * 5. Replace spaces with hyphens
+ * 6. Collapse multiple hyphens to single
+ * 7. Remove leading/trailing hyphens
+ *
+ * Examples:
+ * - "🚀 Getting Started" → "getting-started" (emoji removed)
+ * - "日本語セクション" → "日本語セクション" (Unicode kept)
+ * - "Über uns" → "über-uns" (ü kept)
+ * - "Q&A / FAQ" → "qa-faq" (punctuation removed)
+ * - "API: `createProvider()`" → "api-createprovider" (backticks/parens removed)
+ *
+ * @param text - Header text
+ * @returns Anchor string
+ */
+function textToAnchor(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .trim()
+      // Remove backticks (common in code references)
+      .replace(/`/g, "")
+      // Keep ONLY: Unicode letters, Unicode numbers, spaces, hyphens, underscores
+      // \p{L} = any Unicode letter, \p{N} = any Unicode number
+      .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+      // Replace multiple spaces with single space
+      .replace(/\s+/g, " ")
+      // Replace spaces with hyphens
+      .replace(/\s/g, "-")
+      // Replace multiple hyphens/underscores with single hyphen
+      .replace(/[-_]+/g, "-")
+      // Remove leading/trailing hyphens
+      .replace(/^-+|-+$/g, "")
+  );
 }
 
 // ============================================================================
 // Validation Checks
 // ============================================================================
+
+/**
+ * Check 5: Validates dotenv imports in code examples
+ */
+function validateDotenvImports(): void {
+  console.log("\n5️⃣  Checking dotenv imports in documentation...");
+
+  let issuesFound = 0;
+
+  for (const file of DOTENV_CHECK_FILES) {
+    if (!existsSync(file)) {
+      console.log(`  ⚠️  File not found: ${file}`);
+      continue;
+    }
+
+    const content = readFileSync(file, "utf-8");
+    const codeBlocks = extractTypeScriptCodeBlocks(content);
+
+    for (const code of codeBlocks) {
+      // If block uses provider creation, check for dotenv import or env comment
+      if (!code.includes("createSAPAIProvider") && !code.includes("sapai(")) {
+        continue;
+      }
+
+      const hasDotenvImport =
+        code.includes("dotenv/config") ||
+        code.includes("// Load environment") ||
+        code.includes('import "dotenv/config"') ||
+        /import.*dotenv/.test(code);
+
+      const hasEnvComment =
+        code.includes("AICORE_SERVICE_KEY") ||
+        code.includes("environment variable") ||
+        code.includes("via AICORE_SERVICE_KEY");
+
+      if (!hasDotenvImport && !hasEnvComment) {
+        results.warnings.push(
+          `${file}: Code example with createSAPAIProvider missing dotenv import or env setup comment`,
+        );
+        issuesFound++;
+        break; // Only report once per file
+      }
+    }
+  }
+
+  if (issuesFound > 0) {
+    console.log(
+      `  ⚠️  ${String(issuesFound)} files with potential dotenv import issues`,
+    );
+  } else {
+    console.log("  ✅ All code examples have proper environment setup");
+  }
+}
+
+/**
+ * Check 2: Detects broken internal markdown links
+ */
+function validateInternalLinks(): void {
+  console.log("\n2️⃣  Checking for broken internal links...");
+
+  const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
+  let brokenCount = 0;
+
+  for (const file of mdFiles) {
+    if (!existsSync(file)) {
+      continue;
+    }
+
+    const content = readFileSync(file, "utf-8");
+    const lines = content.split("\n");
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Skip code blocks and inline code examples
+      if (isLineInCodeBlock(lines, i) || hasInlineCodeExample(line)) {
+        continue;
+      }
+
+      // Match only internal relative links (not http/https URLs)
+      const linkPattern =
+        /\[([^\]]+)\]\(((?!https?:\/\/)(?:\.\/)?([^)#]+\.md))(#[^)]+)?\)/g;
+      const matches = Array.from(line.matchAll(linkPattern));
+
+      for (const match of matches) {
+        const fullPath = match[2]; // The full path without # anchor
+        const targetFile = match[3]; // Just the filename
+
+        // Skip if it looks like a URL (safety check)
+        if (fullPath.includes("://")) {
+          continue;
+        }
+
+        // Resolve target path relative to the source file's directory
+        const sourceDir = file.includes("/")
+          ? file.substring(0, file.lastIndexOf("/"))
+          : ".";
+        const resolvedPath = join(sourceDir, fullPath);
+
+        if (!existsSync(resolvedPath)) {
+          results.errors.push(
+            `${file}:${String(i + 1)} - Broken link to ${targetFile}`,
+          );
+          results.passed = false;
+          brokenCount++;
+        }
+      }
+    }
+  }
+
+  if (brokenCount > 0) {
+    console.log(`  ❌ ${String(brokenCount)} broken internal links found`);
+  } else {
+    console.log("  ✅ No broken internal links");
+  }
+}
+
+/**
+ * Check 6: Validates link format consistency (./file.md vs file.md)
+ */
+function validateLinkFormat(): void {
+  console.log("\n6️⃣  Checking link format consistency...");
+
+  const mdFiles = findMarkdownFiles(".", ["node_modules", ".git"]);
+  let badLinksCount = 0;
+
+  for (const file of mdFiles) {
+    const content = readFileSync(file, "utf-8");
+    const lines = content.split("\n");
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Skip code blocks
+      if (isLineInCodeBlock(lines, i)) {
+        continue;
+      }
+
+      // Match links like [text](FILE.md) but not [text](./FILE.md) or [text](http://...)
+      const badLinkPattern =
+        /\[([^\]]+)\]\((?!\.\/|https?:\/\/|#)([^)]+\.md[^)]*)\)/g;
+      const matches = Array.from(line.matchAll(badLinkPattern));
+
+      for (const match of matches) {
+        results.warnings.push(
+          `${file}:${String(i + 1)} - Relative link without ./ prefix: ${match[2]}`,
+        );
+        badLinksCount++;
+      }
+    }
+  }
+
+  if (badLinksCount > 0) {
+    console.log(
+      `  ⚠️  ${String(badLinksCount)} links without ./ prefix (should be: ./FILE.md)`,
+    );
+  } else {
+    console.log("  ✅ All links use correct format");
+  }
+}
+
+/**
+ * Check 4: Validates model ID format consistency
+ *
+ * Detects model IDs without required vendor prefixes in markdown lists.
+ * Uses MODEL_VALIDATION_RULES to check for incorrect formats.
+ */
+function validateModelIdFormats(): void {
+  console.log("\n4️⃣  Checking model ID format consistency...");
+
+  const filesToCheck = ["README.md", "API_REFERENCE.md"];
+  let issuesFound = 0;
+
+  for (const file of filesToCheck) {
+    if (!existsSync(file)) {
+      continue;
+    }
+
+    const content = readFileSync(file, "utf-8");
+    const lines = content.split("\n");
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Skip code blocks, model usage in code, and markdown tables
+      if (
+        line.trim().startsWith("```") ||
+        line.includes('model: provider("') ||
+        line.includes("model: sapai(") ||
+        line.trim().startsWith("|") // Skip markdown table rows
+      ) {
+        continue;
+      }
+
+      // Check each rule's incorrect pattern
+      for (const rule of MODEL_VALIDATION_RULES) {
+        if (!rule.incorrectPattern) continue;
+
+        const { correctFormat, pattern } = rule.incorrectPattern;
+        const matches = line.matchAll(
+          new RegExp(pattern.source, pattern.flags),
+        );
+
+        for (const match of matches) {
+          const incorrect = match[1];
+          results.errors.push(
+            `${file}:${String(i + 1)} - Model ID format error (${rule.vendor}): "${incorrect}" should be "${correctFormat}"`,
+          );
+          results.passed = false;
+          issuesFound++;
+        }
+      }
+    }
+  }
+
+  if (issuesFound > 0) {
+    console.log(`  ❌ ${String(issuesFound)} model ID format issues found`);
+  } else {
+    console.log("  ✅ All model IDs use correct format with vendor prefixes");
+  }
+}
+
+/**
+ * Check 3: Detects excessive hardcoded model ID lists
+ */
+function validateModelLists(): void {
+  console.log("\n3️⃣  Checking for excessive hardcoded model lists...");
+
+  for (const { file, threshold } of MODEL_CHECK_FILES) {
+    if (!existsSync(file)) {
+      continue;
+    }
+
+    const content = readFileSync(file, "utf-8");
+
+    // Count model ID mentions using patterns from rules
+    let modelMentions = 0;
+    for (const rule of MODEL_VALIDATION_RULES) {
+      for (const pattern of rule.countPatterns) {
+        const matches = content.match(pattern);
+        if (matches) {
+          modelMentions += matches.length;
+        }
+      }
+    }
+
+    if (modelMentions > threshold) {
+      results.warnings.push(
+        `${file}: ${String(modelMentions)} model IDs (threshold: ${String(threshold)}). ` +
+          `Consider using representative examples instead of exhaustive lists.`,
+      );
+      console.log(
+        `  ⚠️  ${file}: ${String(modelMentions)} model mentions (may be excessive)`,
+      );
+    } else {
+      console.log(
+        `  ✅ ${file}: ${String(modelMentions)} model mentions (within threshold)`,
+      );
+    }
+  }
+}
 
 /**
  * Check 1: Verifies that all public exports are documented in API_REFERENCE.md
@@ -684,267 +944,6 @@ function validatePublicExportsDocumented(): void {
 }
 
 /**
- * Check 2: Detects broken internal markdown links
- */
-function validateInternalLinks(): void {
-  console.log("\n2️⃣  Checking for broken internal links...");
-
-  const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
-  let brokenCount = 0;
-
-  for (const file of mdFiles) {
-    if (!existsSync(file)) {
-      continue;
-    }
-
-    const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-
-      // Skip code blocks and inline code examples
-      if (isLineInCodeBlock(lines, i) || hasInlineCodeExample(line)) {
-        continue;
-      }
-
-      // Match only internal relative links (not http/https URLs)
-      const linkPattern =
-        /\[([^\]]+)\]\(((?!https?:\/\/)(?:\.\/)?([^)#]+\.md))(#[^)]+)?\)/g;
-      const matches = Array.from(line.matchAll(linkPattern));
-
-      for (const match of matches) {
-        const fullPath = match[2]; // The full path without # anchor
-        const targetFile = match[3]; // Just the filename
-
-        // Skip if it looks like a URL (safety check)
-        if (fullPath.includes("://")) {
-          continue;
-        }
-
-        // Resolve target path relative to the source file's directory
-        const sourceDir = file.includes("/")
-          ? file.substring(0, file.lastIndexOf("/"))
-          : ".";
-        const resolvedPath = join(sourceDir, fullPath);
-
-        if (!existsSync(resolvedPath)) {
-          results.errors.push(
-            `${file}:${String(i + 1)} - Broken link to ${targetFile}`,
-          );
-          results.passed = false;
-          brokenCount++;
-        }
-      }
-    }
-  }
-
-  if (brokenCount > 0) {
-    console.log(`  ❌ ${String(brokenCount)} broken internal links found`);
-  } else {
-    console.log("  ✅ No broken internal links");
-  }
-}
-
-/**
- * Check 3: Detects excessive hardcoded model ID lists
- */
-function validateModelLists(): void {
-  console.log("\n3️⃣  Checking for excessive hardcoded model lists...");
-
-  for (const { file, threshold } of MODEL_CHECK_FILES) {
-    if (!existsSync(file)) {
-      continue;
-    }
-
-    const content = readFileSync(file, "utf-8");
-
-    // Count model ID mentions using patterns from rules
-    let modelMentions = 0;
-    for (const rule of MODEL_VALIDATION_RULES) {
-      for (const pattern of rule.countPatterns) {
-        const matches = content.match(pattern);
-        if (matches) {
-          modelMentions += matches.length;
-        }
-      }
-    }
-
-    if (modelMentions > threshold) {
-      results.warnings.push(
-        `${file}: ${String(modelMentions)} model IDs (threshold: ${String(threshold)}). ` +
-          `Consider using representative examples instead of exhaustive lists.`,
-      );
-      console.log(
-        `  ⚠️  ${file}: ${String(modelMentions)} model mentions (may be excessive)`,
-      );
-    } else {
-      console.log(
-        `  ✅ ${file}: ${String(modelMentions)} model mentions (within threshold)`,
-      );
-    }
-  }
-}
-
-/**
- * Check 4: Validates model ID format consistency
- *
- * Detects model IDs without required vendor prefixes in markdown lists.
- * Uses MODEL_VALIDATION_RULES to check for incorrect formats.
- */
-function validateModelIdFormats(): void {
-  console.log("\n4️⃣  Checking model ID format consistency...");
-
-  const filesToCheck = ["README.md", "API_REFERENCE.md"];
-  let issuesFound = 0;
-
-  for (const file of filesToCheck) {
-    if (!existsSync(file)) {
-      continue;
-    }
-
-    const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-
-      // Skip code blocks, model usage in code, and markdown tables
-      if (
-        line.trim().startsWith("```") ||
-        line.includes('model: provider("') ||
-        line.includes("model: sapai(") ||
-        line.trim().startsWith("|") // Skip markdown table rows
-      ) {
-        continue;
-      }
-
-      // Check each rule's incorrect pattern
-      for (const rule of MODEL_VALIDATION_RULES) {
-        if (!rule.incorrectPattern) continue;
-
-        const { pattern, correctFormat } = rule.incorrectPattern;
-        const matches = line.matchAll(
-          new RegExp(pattern.source, pattern.flags),
-        );
-
-        for (const match of matches) {
-          const incorrect = match[1];
-          results.errors.push(
-            `${file}:${String(i + 1)} - Model ID format error (${rule.vendor}): "${incorrect}" should be "${correctFormat}"`,
-          );
-          results.passed = false;
-          issuesFound++;
-        }
-      }
-    }
-  }
-
-  if (issuesFound > 0) {
-    console.log(`  ❌ ${String(issuesFound)} model ID format issues found`);
-  } else {
-    console.log("  ✅ All model IDs use correct format with vendor prefixes");
-  }
-}
-
-/**
- * Check 5: Validates dotenv imports in code examples
- */
-function validateDotenvImports(): void {
-  console.log("\n5️⃣  Checking dotenv imports in documentation...");
-
-  let issuesFound = 0;
-
-  for (const file of DOTENV_CHECK_FILES) {
-    if (!existsSync(file)) {
-      console.log(`  ⚠️  File not found: ${file}`);
-      continue;
-    }
-
-    const content = readFileSync(file, "utf-8");
-    const codeBlocks = extractTypeScriptCodeBlocks(content);
-
-    for (const code of codeBlocks) {
-      // If block uses provider creation, check for dotenv import or env comment
-      if (!code.includes("createSAPAIProvider") && !code.includes("sapai(")) {
-        continue;
-      }
-
-      const hasDotenvImport =
-        code.includes("dotenv/config") ||
-        code.includes("// Load environment") ||
-        code.includes('import "dotenv/config"') ||
-        /import.*dotenv/.test(code);
-
-      const hasEnvComment =
-        code.includes("AICORE_SERVICE_KEY") ||
-        code.includes("environment variable") ||
-        code.includes("via AICORE_SERVICE_KEY");
-
-      if (!hasDotenvImport && !hasEnvComment) {
-        results.warnings.push(
-          `${file}: Code example with createSAPAIProvider missing dotenv import or env setup comment`,
-        );
-        issuesFound++;
-        break; // Only report once per file
-      }
-    }
-  }
-
-  if (issuesFound > 0) {
-    console.log(
-      `  ⚠️  ${String(issuesFound)} files with potential dotenv import issues`,
-    );
-  } else {
-    console.log("  ✅ All code examples have proper environment setup");
-  }
-}
-
-/**
- * Check 6: Validates link format consistency (./file.md vs file.md)
- */
-function validateLinkFormat(): void {
-  console.log("\n6️⃣  Checking link format consistency...");
-
-  const mdFiles = findMarkdownFiles(".", ["node_modules", ".git"]);
-  let badLinksCount = 0;
-
-  for (const file of mdFiles) {
-    const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-
-      // Skip code blocks
-      if (isLineInCodeBlock(lines, i)) {
-        continue;
-      }
-
-      // Match links like [text](FILE.md) but not [text](./FILE.md) or [text](http://...)
-      const badLinkPattern =
-        /\[([^\]]+)\]\((?!\.\/|https?:\/\/|#)([^)]+\.md[^)]*)\)/g;
-      const matches = Array.from(line.matchAll(badLinkPattern));
-
-      for (const match of matches) {
-        results.warnings.push(
-          `${file}:${String(i + 1)} - Relative link without ./ prefix: ${match[2]}`,
-        );
-        badLinksCount++;
-      }
-    }
-  }
-
-  if (badLinksCount > 0) {
-    console.log(
-      `  ⚠️  ${String(badLinksCount)} links without ./ prefix (should be: ./FILE.md)`,
-    );
-  } else {
-    console.log("  ✅ All links use correct format");
-  }
-}
-
-/**
  * Check 7: Verifies required documentation files exist
  */
 function validateRequiredFiles(): void {
@@ -984,7 +983,7 @@ function validateTableOfContents(): void {
     const lines = content.split("\n");
 
     // Detect if file has ToC
-    const { hasToc, startLine, endLine } = detectToc(content);
+    const { endLine, hasToc, startLine } = detectToc(content);
 
     if (!hasToc) {
       continue;
@@ -1035,7 +1034,7 @@ function validateTableOfContents(): void {
 
     // Report mismatched entries
     if (validation.mismatched.length > 0) {
-      for (const { expected, actual } of validation.mismatched) {
+      for (const { actual, expected } of validation.mismatched) {
         if (actual.text !== expected.text) {
           results.errors.push(
             `${file}:${String(actual.lineNumber)} - ToC text mismatch: "${actual.text}" should be "${expected.text}"`,
@@ -1065,6 +1064,73 @@ function validateTableOfContents(): void {
     );
   }
 }
+
+/**
+ * Validates ToC against actual document headers using diff algorithm.
+ *
+ * @param tocEntries - Entries in ToC
+ * @param headers - Actual headers in document
+ * @param tocDepth - Maximum depth to validate
+ * @returns Validation result with missing/extra/mismatched entries
+ */
+function validateTocEntries(
+  tocEntries: TocEntry[],
+  headers: HeaderEntry[],
+  tocDepth: number,
+): TocValidationResult {
+  // Filter headers to only those that should be in ToC (by depth)
+  const expectedHeaders = headers.filter((h) => h.level <= tocDepth);
+
+  const missing: HeaderEntry[] = [];
+  const extra: TocEntry[] = [];
+  const mismatched: { actual: TocEntry; expected: HeaderEntry; }[] = [];
+
+  // Create maps for efficient lookup
+  const tocMap = new Map<string, TocEntry>();
+  for (const entry of tocEntries) {
+    tocMap.set(entry.anchor, entry);
+  }
+
+  const headerMap = new Map<string, HeaderEntry>();
+  for (const header of expectedHeaders) {
+    headerMap.set(header.anchor, header);
+  }
+
+  // Find missing entries (in headers but not in ToC)
+  for (const header of expectedHeaders) {
+    const tocEntry = tocMap.get(header.anchor);
+
+    if (!tocEntry) {
+      missing.push(header);
+    } else {
+      // Check for mismatches (wrong text or level)
+      if (tocEntry.text !== header.text || tocEntry.level !== header.level) {
+        mismatched.push({ actual: tocEntry, expected: header });
+      }
+    }
+  }
+
+  // Find extra entries (in ToC but not in headers)
+  for (const tocEntry of tocEntries) {
+    if (!headerMap.has(tocEntry.anchor)) {
+      extra.push(tocEntry);
+    }
+  }
+
+  return {
+    actualEntries: tocEntries,
+    expectedEntries: expectedHeaders,
+    extra,
+    hasToc: true,
+    mismatched,
+    missing,
+    tocDepth,
+  };
+}
+
+// ============================================================================
+// Main Execution
+// ============================================================================
 
 /**
  * Check 9: Validates version consistency across documentation
@@ -1115,72 +1181,6 @@ function validateVersionConsistency(): void {
     console.log(
       `  ✅ Version mentioned in ${String(mentionedCount)}/${String(VERSION_CHECK_FILES.length)} key files`,
     );
-  }
-}
-
-// ============================================================================
-// Main Execution
-// ============================================================================
-
-/**
- * Runs all validation checks and reports results.
- */
-function main(): void {
-  console.log("📚 SAP AI Provider - Documentation Validation");
-  console.log("=".repeat(60));
-  console.log("");
-
-  try {
-    validatePublicExportsDocumented();
-    validateInternalLinks();
-    validateModelLists();
-    validateModelIdFormats();
-    validateDotenvImports();
-    validateLinkFormat();
-    validateRequiredFiles();
-    validateTableOfContents();
-    validateVersionConsistency();
-  } catch (error) {
-    results.errors.push(
-      `Validation error: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    results.passed = false;
-  }
-
-  // Print summary
-  console.log("");
-  console.log("=".repeat(60));
-  console.log("\n📊 Summary:");
-  console.log(`  Errors:   ${String(results.errors.length)}`);
-  console.log(`  Warnings: ${String(results.warnings.length)}`);
-
-  if (results.errors.length > 0) {
-    console.log("\n❌ ERRORS:");
-    results.errors.forEach((err) => {
-      console.log(`  • ${err}`);
-    });
-  }
-
-  if (results.warnings.length > 0) {
-    console.log("\n⚠️  WARNINGS:");
-    results.warnings.forEach((warn) => {
-      console.log(`  • ${warn}`);
-    });
-  }
-
-  // Exit with appropriate status
-  console.log("");
-  if (results.errors.length === 0 && results.warnings.length === 0) {
-    console.log("✅ Documentation validation PASSED - No issues found!\n");
-    process.exit(0);
-  } else if (results.errors.length === 0) {
-    console.log("✅ Documentation validation PASSED with warnings");
-    console.log("   Consider addressing warnings before release.\n");
-    process.exit(0);
-  } else {
-    console.log("❌ Documentation validation FAILED");
-    console.log("   Fix errors before proceeding with release.\n");
-    process.exit(1);
   }
 }
 

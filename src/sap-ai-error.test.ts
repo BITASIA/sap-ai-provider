@@ -5,9 +5,11 @@
  * including status code mapping, retry logic, and error message enhancement.
  */
 
-import { describe, it, expect } from "vitest";
-import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
 import type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
+
+import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
+import { describe, expect, it } from "vitest";
+
 import {
   convertSAPErrorToAPICallError,
   convertToAISDKError,
@@ -17,9 +19,9 @@ describe("convertSAPErrorToAPICallError", () => {
   it("should convert SAP error with single error object", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: {
-        message: "Test error message",
         code: 500,
         location: "LLM Module",
+        message: "Test error message",
         request_id: "test-request-123",
       },
     };
@@ -36,9 +38,9 @@ describe("convertSAPErrorToAPICallError", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: [
         {
-          message: "First error",
           code: 400,
           location: "Input Module",
+          message: "First error",
           request_id: "test-request-456",
         },
       ],
@@ -52,27 +54,27 @@ describe("convertSAPErrorToAPICallError", () => {
   });
 
   it.each([
-    { code: 429, message: "Rate limit exceeded", description: "Rate Limit" },
+    { code: 429, description: "Rate Limit", message: "Rate limit exceeded" },
     {
       code: 500,
-      message: "Server error 500",
       description: "Internal Server Error",
+      message: "Server error 500",
     },
-    { code: 502, message: "Server error 502", description: "Bad Gateway" },
+    { code: 502, description: "Bad Gateway", message: "Server error 502" },
     {
       code: 503,
-      message: "Server error 503",
       description: "Service Unavailable",
+      message: "Server error 503",
     },
-    { code: 504, message: "Server error 504", description: "Gateway Timeout" },
+    { code: 504, description: "Gateway Timeout", message: "Server error 504" },
   ])(
     "should mark $code ($description) errors as retryable",
     ({ code, message }) => {
       const errorResponse: OrchestrationErrorResponse = {
         error: {
-          message,
           code,
           location: "Gateway",
+          message,
           request_id: `error-${String(code)}`,
         },
       };
@@ -87,30 +89,30 @@ describe("convertSAPErrorToAPICallError", () => {
   it.each([
     {
       code: 401,
+      description: "Unauthorized",
       message: "Unauthorized",
       messageContains: "Authentication failed",
-      description: "Unauthorized",
     },
     {
       code: 403,
+      description: "Forbidden",
       message: "Forbidden",
       messageContains: "Authentication failed",
-      description: "Forbidden",
     },
     {
       code: 404,
+      description: "Not Found",
       message: "Model not found",
       messageContains: "Resource not found",
-      description: "Not Found",
     },
   ])(
     "should not mark $code ($description) errors as retryable",
     ({ code, message, messageContains }) => {
       const errorResponse: OrchestrationErrorResponse = {
         error: {
-          message,
           code,
           location: "Auth",
+          message,
           request_id: `error-${String(code)}`,
         },
       };
@@ -126,9 +128,9 @@ describe("convertSAPErrorToAPICallError", () => {
   it("should preserve SAP metadata in responseBody", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: {
-        message: "Test error",
         code: 500,
         location: "Test Module",
+        message: "Test error",
         request_id: "metadata-test-123",
       },
     };
@@ -139,9 +141,9 @@ describe("convertSAPErrorToAPICallError", () => {
     if (result.responseBody) {
       const body = JSON.parse(result.responseBody) as {
         error: {
-          message: string;
           code: number;
           location: string;
+          message: string;
           request_id: string;
         };
       };
@@ -155,9 +157,9 @@ describe("convertSAPErrorToAPICallError", () => {
   it("should add context URL to error", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: {
-        message: "Test error",
         code: 500,
         location: "Module",
+        message: "Test error",
         request_id: "url-test-123",
       },
     };
@@ -172,18 +174,18 @@ describe("convertSAPErrorToAPICallError", () => {
   it("should preserve response headers when provided", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: {
-        message: "Test error",
         code: 500,
         location: "Module",
+        message: "Test error",
         request_id: "headers-test-123",
       },
     };
 
     const result = convertSAPErrorToAPICallError(errorResponse, {
-      url: "https://api.sap.com/v1/chat",
       responseHeaders: {
         "x-request-id": "headers-test-123",
       },
+      url: "https://api.sap.com/v1/chat",
     });
 
     expect(result.responseHeaders).toEqual({
@@ -194,9 +196,9 @@ describe("convertSAPErrorToAPICallError", () => {
   it("should include request body in context", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: {
-        message: "Test error",
         code: 500,
         location: "Module",
+        message: "Test error",
         request_id: "body-test-123",
       },
     };
@@ -212,9 +214,9 @@ describe("convertSAPErrorToAPICallError", () => {
   it("should add request ID to error message", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: {
-        message: "Test error",
         code: 500,
         location: "Module",
+        message: "Test error",
         request_id: "message-test-123",
       },
     };
@@ -229,9 +231,9 @@ describe("convertToAISDKError", () => {
   it("should return APICallError as-is if already an APICallError", () => {
     const apiError = new APICallError({
       message: "Test error",
-      url: "https://test.com",
       requestBodyValues: {},
       statusCode: 500,
+      url: "https://test.com",
     });
 
     const result = convertToAISDKError(apiError);
@@ -250,9 +252,9 @@ describe("convertToAISDKError", () => {
   it("should convert OrchestrationErrorResponse", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: {
-        message: "Orchestration error",
         code: 500,
         location: "Module",
+        message: "Orchestration error",
         request_id: "conversion-test-123",
       },
     };
@@ -265,29 +267,29 @@ describe("convertToAISDKError", () => {
 
   it.each([
     {
-      testName: "arbitrary objects with 'error' property",
       errorObject: { error: { message: 123 } },
       expectsUnknown: false,
+      testName: "arbitrary objects with 'error' property",
     },
     {
-      testName: "error array with non-object entries",
       errorObject: { error: ["not an object", "also not an object"] },
       expectsUnknown: true,
+      testName: "error array with non-object entries",
     },
     {
-      testName: "error array with null entries",
       errorObject: { error: [null, { message: "valid" }] },
       expectsUnknown: false,
+      testName: "error array with null entries",
     },
     {
-      testName: "error array with entries missing message",
       errorObject: { error: [{ code: 400, location: "Module" }] },
       expectsUnknown: false,
+      testName: "error array with entries missing message",
     },
     {
-      testName: "error array with non-string message",
       errorObject: { error: [{ message: { nested: "object" } }] },
       expectsUnknown: false,
+      testName: "error array with non-string message",
     },
   ])(
     "should not treat $testName as orchestration errors",
@@ -389,8 +391,8 @@ describe("convertToAISDKError", () => {
     const error = new Error("Test error");
     const context = {
       operation: "doStream",
-      url: "https://api.sap.com",
       requestBody: { test: "data" },
+      url: "https://api.sap.com",
     };
 
     const result = convertToAISDKError(error, context) as APICallError;
@@ -412,11 +414,11 @@ describe("convertToAISDKError", () => {
     };
 
     const result = convertToAISDKError(axiosError, {
-      url: "sap-ai:orchestration",
       operation: "doGenerate",
       responseHeaders: {
         "x-request-id": "axios-123",
       },
+      url: "sap-ai:orchestration",
     }) as APICallError;
 
     expect(result.responseHeaders).toEqual({
@@ -425,9 +427,9 @@ describe("convertToAISDKError", () => {
   });
 
   it.each([
-    { value: null, description: "null" },
-    { value: undefined, description: "undefined" },
-    { value: 42, description: "number" },
+    { description: "null", value: null },
+    { description: "undefined", value: undefined },
+    { description: "number", value: 42 },
   ])("should handle error with $description value", ({ value }) => {
     const result = convertToAISDKError(value);
 
@@ -467,8 +469,8 @@ describe("convertToAISDKError", () => {
     // Cast to unknown first to simulate malformed API response
     const errorResponse = {
       error: {
-        message: "Unknown error",
         location: "Unknown",
+        message: "Unknown error",
         request_id: "unknown-123",
       },
     } as unknown as OrchestrationErrorResponse;
@@ -483,8 +485,8 @@ describe("convertToAISDKError", () => {
     // Cast to unknown first to simulate malformed API response
     const errorResponse = {
       error: {
-        message: "Error without location",
         code: 400,
+        message: "Error without location",
         request_id: "no-loc-123",
       },
     } as unknown as OrchestrationErrorResponse;
@@ -499,9 +501,9 @@ describe("convertToAISDKError", () => {
     // Cast to unknown first to simulate malformed API response
     const errorResponse = {
       error: {
-        message: "Error without request ID",
         code: 400,
         location: "Module",
+        message: "Error without request ID",
       },
     } as unknown as OrchestrationErrorResponse;
 
@@ -514,9 +516,9 @@ describe("convertToAISDKError", () => {
   it("should include location in error message for 4xx errors", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: {
-        message: "Bad request",
         code: 400,
         location: "Input Validation",
+        message: "Bad request",
         request_id: "validation-123",
       },
     };
@@ -530,15 +532,15 @@ describe("convertToAISDKError", () => {
     const errorResponse: OrchestrationErrorResponse = {
       error: [
         {
-          message: "First error in list",
           code: 400,
           location: "First Module",
+          message: "First error in list",
           request_id: "first-123",
         },
         {
-          message: "Second error in list",
           code: 500,
           location: "Second Module",
+          message: "Second error in list",
           request_id: "second-456",
         },
       ],
@@ -562,38 +564,38 @@ describe("convertToAISDKError", () => {
   it.each([
     {
       description: "normalize array header values by joining with semicolon",
-      headers: { "x-multi-value": ["value1", "value2", "value3"] },
       expected: { "x-multi-value": "value1; value2; value3" },
+      headers: { "x-multi-value": ["value1", "value2", "value3"] },
     },
     {
       description: "filter non-string values from array headers",
-      headers: { "x-mixed": ["valid", 123, null, "also-valid"] },
       expected: { "x-mixed": "valid; also-valid" },
+      headers: { "x-mixed": ["valid", 123, null, "also-valid"] },
     },
     {
       description: "exclude array headers with only non-string items",
-      headers: {
-        "x-valid": "keep-this",
-        "x-invalid-array": [123, null, undefined],
-      },
       expected: { "x-valid": "keep-this" },
+      headers: {
+        "x-invalid-array": [123, null, undefined],
+        "x-valid": "keep-this",
+      },
     },
     {
       description: "convert number header values to strings",
-      headers: { "x-numeric": 42, "content-length": 1024 },
-      expected: { "x-numeric": "42", "content-length": "1024" },
+      expected: { "content-length": "1024", "x-numeric": "42" },
+      headers: { "content-length": 1024, "x-numeric": 42 },
     },
     {
       description: "convert boolean header values to strings",
-      headers: { "x-enabled": true, "x-disabled": false },
-      expected: { "x-enabled": "true", "x-disabled": "false" },
+      expected: { "x-disabled": "false", "x-enabled": "true" },
+      headers: { "x-disabled": false, "x-enabled": true },
     },
     {
       description: "skip object and unsupported header value types",
-      headers: { "x-valid": "valid-value", "x-object": { nested: "object" } },
       expected: { "x-valid": "valid-value" },
+      headers: { "x-object": { nested: "object" }, "x-valid": "valid-value" },
     },
-  ])("should $description from axios errors", ({ headers, expected }) => {
+  ])("should $description from axios errors", ({ expected, headers }) => {
     const axiosError = new Error("Request failed") as unknown as {
       isAxiosError: boolean;
       response: { headers: Record<string, unknown> };

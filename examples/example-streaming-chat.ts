@@ -13,18 +13,17 @@
 
 // Load environment variables
 import "dotenv/config";
+import { APICallError } from "@ai-sdk/provider";
+// In YOUR production project, use the published package instead:
+// import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+// ============================================================================
+import { streamText } from "ai";
 
 // ============================================================================
 // NOTE: Import Path for Development vs Production
 // ============================================================================
 // This example uses relative imports for local development within this repo:
 import { createSAPAIProvider } from "../src/index";
-// In YOUR production project, use the published package instead:
-// import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
-// ============================================================================
-
-import { streamText } from "ai";
-import { APICallError } from "@ai-sdk/provider";
 
 async function streamingChatExample() {
   console.log("🧪 Streaming Chat with Vercel AI SDK (streamText)\n");
@@ -73,7 +72,7 @@ async function streamingChatExample() {
 
       // Parse SAP-specific metadata
       const sapError = JSON.parse(error.responseBody ?? "{}") as {
-        error?: { request_id?: string; code?: string };
+        error?: { code?: string; request_id?: string; };
       };
       if (sapError.error?.request_id) {
         console.error("   SAP Request ID:", sapError.error.request_id);

@@ -16,15 +16,16 @@
 
 // Load environment variables
 import "dotenv/config";
-import { generateText, tool, stepCountIs } from "ai";
+import { generateText, stepCountIs, tool } from "ai";
 import { z } from "zod";
+
+import type { ChatCompletionTool } from "../src/index";
 
 // ============================================================================
 // NOTE: Import Path for Development vs Production
 // ============================================================================
 // This example uses relative imports for local development within this repo:
 import { createSAPAIProvider } from "../src/index";
-import type { ChatCompletionTool } from "../src/index";
 // In YOUR production project, use the published package instead:
 // import { createSAPAIProvider, ChatCompletionTool } from "@mymediset/sap-ai-provider";
 // ============================================================================
@@ -32,55 +33,55 @@ import type { ChatCompletionTool } from "../src/index";
 // Define tool schemas in SAP AI SDK format (proper JSON Schema)
 // These are passed via provider settings to bypass AI SDK conversion issues
 const calculatorToolDef: ChatCompletionTool = {
-  type: "function",
   function: {
-    name: "calculate",
     description: "Perform basic arithmetic operations",
+    name: "calculate",
     parameters: {
-      type: "object",
       properties: {
-        operation: {
-          type: "string",
-          enum: ["add", "subtract", "multiply", "divide"],
-          description: "The arithmetic operation to perform",
-        },
         a: {
-          type: "number",
           description: "First operand",
+          type: "number",
         },
         b: {
-          type: "number",
           description: "Second operand",
+          type: "number",
+        },
+        operation: {
+          description: "The arithmetic operation to perform",
+          enum: ["add", "subtract", "multiply", "divide"],
+          type: "string",
         },
       },
       required: ["operation", "a", "b"],
+      type: "object",
     },
   },
+  type: "function",
 };
 
 const weatherToolDef: ChatCompletionTool = {
-  type: "function",
   function: {
-    name: "getWeather",
     description: "Get weather for a location",
+    name: "getWeather",
     parameters: {
-      type: "object",
       properties: {
         location: {
-          type: "string",
           description: "The city or location to get weather for",
+          type: "string",
         },
       },
       required: ["location"],
+      type: "object",
     },
   },
+  type: "function",
 };
 
 // Define Zod schemas for type-safe execute functions
 const calculatorSchema = z.object({
-  operation: z.enum(["add", "subtract", "multiply", "divide"]),
   a: z.number(),
   b: z.number(),
+  operation: z.enum(["add", "subtract", "multiply", "divide"]),
 });
 
 const weatherSchema = z.object({
@@ -91,31 +92,31 @@ const weatherSchema = z.object({
 // The schema here is for validation, actual schema is passed via settings
 const calculatorTool = tool({
   description: "Perform basic arithmetic operations",
-  inputSchema: calculatorSchema,
   execute: (args: z.infer<typeof calculatorSchema>) => {
-    const { operation, a, b } = args;
+    const { a, b, operation } = args;
     switch (operation) {
       case "add":
         return String(a + b);
-      case "subtract":
-        return String(a - b);
-      case "multiply":
-        return String(a * b);
       case "divide":
         return b !== 0 ? String(a / b) : "Error: Division by zero";
+      case "multiply":
+        return String(a * b);
+      case "subtract":
+        return String(a - b);
       default:
         return "Unknown operation";
     }
   },
+  inputSchema: calculatorSchema,
 });
 
 const weatherTool = tool({
   description: "Get weather for a location",
-  inputSchema: weatherSchema,
   execute: (args: z.infer<typeof weatherSchema>) => {
     const { location } = args;
     return `Weather in ${location}: sunny, 72°F`;
   },
+  inputSchema: weatherSchema,
 });
 
 async function simpleToolExample() {
@@ -152,10 +153,10 @@ async function simpleToolExample() {
   const result1 = await generateText({
     model: modelWithCalculator,
     prompt: "What is 15 + 27?",
+    stopWhen: [stepCountIs(5)],
     tools: {
       calculate: calculatorTool,
     },
-    stopWhen: [stepCountIs(5)],
   });
   console.log("Answer:", result1.text);
   console.log("");
@@ -165,10 +166,10 @@ async function simpleToolExample() {
   const result2 = await generateText({
     model: modelWithWeather,
     prompt: "What's the weather in Tokyo?",
+    stopWhen: [stepCountIs(5)],
     tools: {
       getWeather: weatherTool,
     },
-    stopWhen: [stepCountIs(5)],
   });
   console.log("Answer:", result2.text);
   console.log("");
@@ -178,11 +179,11 @@ async function simpleToolExample() {
   const result3 = await generateText({
     model: modelWithAllTools,
     prompt: "Calculate 8 * 7, then tell me about the weather in Paris",
+    stopWhen: [stepCountIs(10)],
     tools: {
       calculate: calculatorTool,
       getWeather: weatherTool,
     },
-    stopWhen: [stepCountIs(10)],
   });
   console.log("Answer:", result3.text);
 

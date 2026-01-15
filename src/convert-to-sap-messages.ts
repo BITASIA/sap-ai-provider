@@ -1,29 +1,16 @@
+import type {
+  AssistantChatMessage,
+  ChatMessage,
+  SystemChatMessage,
+  ToolChatMessage,
+  UserChatMessage,
+} from "@sap-ai-sdk/orchestration";
+
 import {
   LanguageModelV3Prompt,
   UnsupportedFunctionalityError,
 } from "@ai-sdk/provider";
-import type {
-  ChatMessage,
-  SystemChatMessage,
-  UserChatMessage,
-  AssistantChatMessage,
-  ToolChatMessage,
-} from "@sap-ai-sdk/orchestration";
 import { Buffer } from "node:buffer";
-
-/**
- * User chat message content item for multi-modal messages.
- * Maps to SAP AI SDK format for user message content.
- *
- * @internal
- */
-interface UserContentItem {
-  type: "text" | "image_url";
-  text?: string;
-  image_url?: {
-    url: string;
-  };
-}
 
 /**
  * Converts AI SDK prompt format to SAP AI SDK ChatMessage format.
@@ -98,6 +85,20 @@ export interface ConvertToSAPMessagesOptions {
   includeReasoning?: boolean;
 }
 
+/**
+ * User chat message content item for multi-modal messages.
+ * Maps to SAP AI SDK format for user message content.
+ *
+ * @internal
+ */
+interface UserContentItem {
+  image_url?: {
+    url: string;
+  };
+  text?: string;
+  type: "image_url" | "text";
+}
+
 export function convertToSAPMessages(
   prompt: LanguageModelV3Prompt,
   options: ConvertToSAPMessagesOptions = {},
@@ -107,12 +108,90 @@ export function convertToSAPMessages(
 
   for (const message of prompt) {
     switch (message.role) {
+      case "assistant": {
+        let text = "";
+        const toolCalls: {
+          function: { arguments: string; name: string; };
+          id: string;
+          type: "function";
+        }[] = [];
+
+        for (const part of message.content) {
+          switch (part.type) {
+            case "reasoning": {
+              // SAP AI SDK doesn't support reasoning parts natively
+              // Drop them by default, or preserve as <reasoning>...</reasoning> when enabled
+              if (includeReasoning && part.text) {
+                text += `<reasoning>${part.text}</reasoning>`;
+              }
+              break;
+            }
+            case "text": {
+              text += part.text;
+              break;
+            }
+            case "tool-call": {
+              // Normalize tool call input: validate and convert to JSON string
+              // AI SDK provides either JSON strings or objects; SAP expects valid JSON
+              let argumentsJson: string;
+
+              if (typeof part.input === "string") {
+                // Validate it's valid JSON before passing it through
+                try {
+                  JSON.parse(part.input);
+                  argumentsJson = part.input;
+                } catch {
+                  // Not valid JSON, stringify the string itself
+                  argumentsJson = JSON.stringify(part.input);
+                }
+              } else {
+                // Object: stringify it
+                argumentsJson = JSON.stringify(part.input);
+              }
+
+              toolCalls.push({
+                function: {
+                  arguments: argumentsJson,
+                  name: part.toolName,
+                },
+                id: part.toolCallId,
+                type: "function",
+              });
+              break;
+            }
+          }
+        }
+
+        const assistantMessage: AssistantChatMessage = {
+          content: text || "",
+          role: "assistant",
+          tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+        };
+        messages.push(assistantMessage);
+        break;
+      }
+
       case "system": {
         const systemMessage: SystemChatMessage = {
-          role: "system",
           content: message.content,
+          role: "system",
         };
         messages.push(systemMessage);
+        break;
+      }
+
+      case "tool": {
+        for (const part of message.content) {
+          // Only process tool-result parts (approval responses are not supported)
+          if (part.type === "tool-result") {
+            const toolMessage: ToolChatMessage = {
+              content: JSON.stringify(part.output),
+              role: "tool",
+              tool_call_id: part.toolCallId,
+            };
+            messages.push(toolMessage);
+          }
+        }
         break;
       }
 
@@ -121,13 +200,6 @@ export function convertToSAPMessages(
 
         for (const part of message.content) {
           switch (part.type) {
-            case "text": {
-              contentParts.push({
-                type: "text",
-                text: part.text,
-              });
-              break;
-            }
             case "file": {
               // Only image files are supported for multi-modal inputs in SAP AI Core
               if (!part.mediaType.startsWith("image/")) {
@@ -189,10 +261,17 @@ export function convertToSAPMessages(
               }
 
               contentParts.push({
-                type: "image_url",
                 image_url: {
                   url: imageUrl,
                 },
+                type: "image_url",
+              });
+              break;
+            }
+            case "text": {
+              contentParts.push({
+                text: part.text,
+                type: "text",
               });
               break;
             }
@@ -209,93 +288,15 @@ export function convertToSAPMessages(
         const userMessage: UserChatMessage =
           contentParts.length === 1 && contentParts[0].type === "text"
             ? {
-                role: "user",
                 content: contentParts[0].text ?? "",
+                role: "user",
               }
             : {
-                role: "user",
                 content: contentParts as UserChatMessage["content"],
+                role: "user",
               };
 
         messages.push(userMessage);
-        break;
-      }
-
-      case "assistant": {
-        let text = "";
-        const toolCalls: {
-          id: string;
-          type: "function";
-          function: { name: string; arguments: string };
-        }[] = [];
-
-        for (const part of message.content) {
-          switch (part.type) {
-            case "text": {
-              text += part.text;
-              break;
-            }
-            case "reasoning": {
-              // SAP AI SDK doesn't support reasoning parts natively
-              // Drop them by default, or preserve as <reasoning>...</reasoning> when enabled
-              if (includeReasoning && part.text) {
-                text += `<reasoning>${part.text}</reasoning>`;
-              }
-              break;
-            }
-            case "tool-call": {
-              // Normalize tool call input: validate and convert to JSON string
-              // AI SDK provides either JSON strings or objects; SAP expects valid JSON
-              let argumentsJson: string;
-
-              if (typeof part.input === "string") {
-                // Validate it's valid JSON before passing it through
-                try {
-                  JSON.parse(part.input);
-                  argumentsJson = part.input;
-                } catch {
-                  // Not valid JSON, stringify the string itself
-                  argumentsJson = JSON.stringify(part.input);
-                }
-              } else {
-                // Object: stringify it
-                argumentsJson = JSON.stringify(part.input);
-              }
-
-              toolCalls.push({
-                id: part.toolCallId,
-                type: "function",
-                function: {
-                  name: part.toolName,
-                  arguments: argumentsJson,
-                },
-              });
-              break;
-            }
-          }
-        }
-
-        const assistantMessage: AssistantChatMessage = {
-          role: "assistant",
-          content: text || "",
-          tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-        };
-        messages.push(assistantMessage);
-        break;
-      }
-
-      case "tool": {
-        for (const part of message.content) {
-          // Only process tool-result parts (approval responses are not supported)
-          if (part.type === "tool-result") {
-            const toolMessage: ToolChatMessage = {
-              role: "tool",
-              tool_call_id: part.toolCallId,
-              content: JSON.stringify(part.output),
-            };
-            messages.push(toolMessage);
-          }
-        }
         break;
       }
 

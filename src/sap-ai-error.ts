@@ -1,40 +1,7 @@
-import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
 import type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
+
+import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
 import { isErrorWithCause } from "@sap-cloud-sdk/util";
-
-/**
- * Maps SAP AI Core error codes to HTTP status codes for standardized error handling.
- *
- * Validates that codes are in standard HTTP range (100-599) and falls back
- * to 500 for custom SAP error codes outside this range.
- *
- * @param code - SAP error code
- * @returns HTTP status code (100-599)
- * @internal
- */
-function getStatusCodeFromSAPError(code?: number): number {
-  if (!code) return 500;
-
-  // Validate the code is a standard HTTP status code (100-599)
-  if (code >= 100 && code < 600) {
-    return code;
-  }
-
-  // If code is outside HTTP range (custom SAP codes), map to generic server error
-  return 500;
-}
-
-/**
- * Determines if an error should be retryable based on status code.
- * Following the AI SDK pattern: 429 (rate limit) and 5xx (server errors) are retryable.
- *
- * @param statusCode - HTTP status code
- * @returns True if error should be retried
- * @internal
- */
-function isRetryable(statusCode: number): boolean {
-  return statusCode === 429 || (statusCode >= 500 && statusCode < 600);
-}
 
 /**
  * Converts SAP AI SDK OrchestrationErrorResponse to AI SDK APICallError.
@@ -59,9 +26,9 @@ function isRetryable(statusCode: number): boolean {
 export function convertSAPErrorToAPICallError(
   errorResponse: OrchestrationErrorResponse,
   context?: {
-    url?: string;
     requestBody?: unknown;
     responseHeaders?: Record<string, string>;
+    url?: string;
   },
 ): APICallError {
   const error = errorResponse.error;
@@ -89,9 +56,9 @@ export function convertSAPErrorToAPICallError(
 
   const responseBody = JSON.stringify({
     error: {
-      message,
       code,
       location,
+      message,
       request_id: requestId,
     },
   });
@@ -123,14 +90,155 @@ export function convertSAPErrorToAPICallError(
   }
 
   return new APICallError({
-    message: enhancedMessage,
-    url: context?.url ?? "",
-    requestBodyValues: context?.requestBody,
-    statusCode,
-    responseHeaders: context?.responseHeaders,
-    responseBody,
     isRetryable: isRetryable(statusCode),
+    message: enhancedMessage,
+    requestBodyValues: context?.requestBody,
+    responseBody,
+    responseHeaders: context?.responseHeaders,
+    statusCode,
+    url: context?.url ?? "",
   });
+}
+
+/**
+ * Converts a generic error to an appropriate AI SDK error.
+ *
+ * @param error - The error to convert
+ * @param context - Optional context about where the error occurred
+ * @returns APICallError or LoadAPIKeyError
+ *
+ * @example
+ * **Basic Usage**
+ * ```typescript
+ * catch (error) {
+ *   throw convertToAISDKError(error, { operation: 'doGenerate' });
+ * }
+ * ```
+ */
+export function convertToAISDKError(
+  error: unknown,
+  context?: {
+    operation?: string;
+    requestBody?: unknown;
+    responseHeaders?: Record<string, string>;
+    url?: string;
+  },
+): APICallError | LoadAPIKeyError {
+  if (error instanceof APICallError || error instanceof LoadAPIKeyError) {
+    return error;
+  }
+
+  if (isOrchestrationErrorResponse(error)) {
+    return convertSAPErrorToAPICallError(error, {
+      ...context,
+      responseHeaders:
+        context?.responseHeaders ?? getAxiosResponseHeaders(error),
+    });
+  }
+
+  const responseHeaders =
+    context?.responseHeaders ?? getAxiosResponseHeaders(error);
+
+  if (error instanceof Error) {
+    const errorMsg = error.message.toLowerCase();
+    if (
+      errorMsg.includes("authentication") ||
+      errorMsg.includes("unauthorized") ||
+      errorMsg.includes("aicore_service_key") ||
+      errorMsg.includes("invalid credentials")
+    ) {
+      return new LoadAPIKeyError({
+        message:
+          `SAP AI Core authentication failed: ${error.message}\n\n` +
+          `Make sure your AICORE_SERVICE_KEY environment variable is set correctly.\n` +
+          `See: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-service-key`,
+      });
+    }
+
+    if (
+      errorMsg.includes("econnrefused") ||
+      errorMsg.includes("enotfound") ||
+      errorMsg.includes("network") ||
+      errorMsg.includes("timeout")
+    ) {
+      return new APICallError({
+        cause: error,
+        isRetryable: true,
+        message: `Network error connecting to SAP AI Core: ${error.message}`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 503,
+        url: context?.url ?? "",
+      });
+    }
+  }
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "Unknown error occurred";
+
+  const fullMessage = context?.operation
+    ? `SAP AI Core ${context.operation} failed: ${message}`
+    : `SAP AI Core error: ${message}`;
+
+  return new APICallError({
+    cause: error,
+    isRetryable: false,
+    message: fullMessage,
+    requestBodyValues: context?.requestBody,
+    responseHeaders,
+    statusCode: 500,
+    url: context?.url ?? "",
+  });
+}
+
+/**
+ * Extracts response headers from Axios errors.
+ *
+ * @param error - Error object
+ * @returns Response headers or undefined
+ * @internal
+ */
+function getAxiosResponseHeaders(
+  error: unknown,
+): Record<string, string> | undefined {
+  if (!(error instanceof Error)) return undefined;
+
+  const rootCause = isErrorWithCause(error) ? error.rootCause : error;
+  if (typeof rootCause !== "object") return undefined;
+
+  const maybeAxios = rootCause as {
+    isAxiosError?: boolean;
+    response?: { headers?: unknown };
+  };
+
+  if (maybeAxios.isAxiosError !== true) return undefined;
+  return normalizeHeaders(maybeAxios.response?.headers);
+}
+
+/**
+ * Maps SAP AI Core error codes to HTTP status codes for standardized error handling.
+ *
+ * Validates that codes are in standard HTTP range (100-599) and falls back
+ * to 500 for custom SAP error codes outside this range.
+ *
+ * @param code - SAP error code
+ * @returns HTTP status code (100-599)
+ * @internal
+ */
+function getStatusCodeFromSAPError(code?: number): number {
+  if (!code) return 500;
+
+  // Validate the code is a standard HTTP status code (100-599)
+  if (code >= 100 && code < 600) {
+    return code;
+  }
+
+  // If code is outside HTTP range (custom SAP codes), map to generic server error
+  return 500;
 }
 
 /**
@@ -176,6 +284,18 @@ function isOrchestrationErrorResponse(
 }
 
 /**
+ * Determines if an error should be retryable based on status code.
+ * Following the AI SDK pattern: 429 (rate limit) and 5xx (server errors) are retryable.
+ *
+ * @param statusCode - HTTP status code
+ * @returns True if error should be retried
+ * @internal
+ */
+function isRetryable(statusCode: number): boolean {
+  return statusCode === 429 || (statusCode >= 500 && statusCode < 600);
+}
+
+/**
  * Normalizes various header formats to Record<string, string>.
  *
  * @param headers - Raw headers object
@@ -206,125 +326,6 @@ function normalizeHeaders(
 
   if (entries.length === 0) return undefined;
   return Object.fromEntries(entries) as Record<string, string>;
-}
-
-/**
- * Extracts response headers from Axios errors.
- *
- * @param error - Error object
- * @returns Response headers or undefined
- * @internal
- */
-function getAxiosResponseHeaders(
-  error: unknown,
-): Record<string, string> | undefined {
-  if (!(error instanceof Error)) return undefined;
-
-  const rootCause = isErrorWithCause(error) ? error.rootCause : error;
-  if (typeof rootCause !== "object") return undefined;
-
-  const maybeAxios = rootCause as {
-    isAxiosError?: boolean;
-    response?: { headers?: unknown };
-  };
-
-  if (maybeAxios.isAxiosError !== true) return undefined;
-  return normalizeHeaders(maybeAxios.response?.headers);
-}
-
-/**
- * Converts a generic error to an appropriate AI SDK error.
- *
- * @param error - The error to convert
- * @param context - Optional context about where the error occurred
- * @returns APICallError or LoadAPIKeyError
- *
- * @example
- * **Basic Usage**
- * ```typescript
- * catch (error) {
- *   throw convertToAISDKError(error, { operation: 'doGenerate' });
- * }
- * ```
- */
-export function convertToAISDKError(
-  error: unknown,
-  context?: {
-    operation?: string;
-    url?: string;
-    requestBody?: unknown;
-    responseHeaders?: Record<string, string>;
-  },
-): APICallError | LoadAPIKeyError {
-  if (error instanceof APICallError || error instanceof LoadAPIKeyError) {
-    return error;
-  }
-
-  if (isOrchestrationErrorResponse(error)) {
-    return convertSAPErrorToAPICallError(error, {
-      ...context,
-      responseHeaders:
-        context?.responseHeaders ?? getAxiosResponseHeaders(error),
-    });
-  }
-
-  const responseHeaders =
-    context?.responseHeaders ?? getAxiosResponseHeaders(error);
-
-  if (error instanceof Error) {
-    const errorMsg = error.message.toLowerCase();
-    if (
-      errorMsg.includes("authentication") ||
-      errorMsg.includes("unauthorized") ||
-      errorMsg.includes("aicore_service_key") ||
-      errorMsg.includes("invalid credentials")
-    ) {
-      return new LoadAPIKeyError({
-        message:
-          `SAP AI Core authentication failed: ${error.message}\n\n` +
-          `Make sure your AICORE_SERVICE_KEY environment variable is set correctly.\n` +
-          `See: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-service-key`,
-      });
-    }
-
-    if (
-      errorMsg.includes("econnrefused") ||
-      errorMsg.includes("enotfound") ||
-      errorMsg.includes("network") ||
-      errorMsg.includes("timeout")
-    ) {
-      return new APICallError({
-        message: `Network error connecting to SAP AI Core: ${error.message}`,
-        url: context?.url ?? "",
-        requestBodyValues: context?.requestBody,
-        statusCode: 503,
-        isRetryable: true,
-        responseHeaders,
-        cause: error,
-      });
-    }
-  }
-
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "Unknown error occurred";
-
-  const fullMessage = context?.operation
-    ? `SAP AI Core ${context.operation} failed: ${message}`
-    : `SAP AI Core error: ${message}`;
-
-  return new APICallError({
-    message: fullMessage,
-    url: context?.url ?? "",
-    requestBodyValues: context?.requestBody,
-    statusCode: 500,
-    isRetryable: false,
-    responseHeaders,
-    cause: error,
-  });
 }
 
 export type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
