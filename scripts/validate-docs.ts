@@ -210,26 +210,28 @@ const MODEL_VALIDATION_RULES = [
 // Global State
 // ============================================================================
 
-const results: ValidationResult = {
-  errors: [],
-  passed: true,
-  warnings: [],
-};
-
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-interface CodeMetricsResult {
-  errors: string[];
-  testMetrics?: TestMetrics;
-  warnings: string[];
-}
 
 interface TestMetrics {
   coverage?: number;
   passed: boolean;
   totalTests: number;
+}
+
+/**
+ * Aggregates multiple validation results into a single result.
+ */
+function aggregateResults(results: ValidationResult[]): ValidationResult {
+  return results.reduce<ValidationResult>(
+    (acc, result) => ({
+      errors: [...acc.errors, ...result.errors],
+      passed: acc.passed && result.passed,
+      warnings: [...acc.warnings, ...result.warnings],
+    }),
+    { errors: [], passed: true, warnings: [] },
+  );
 }
 
 /**
@@ -615,35 +617,32 @@ function main(): void {
   console.log("=".repeat(60));
   console.log("");
 
+  const allResults: ValidationResult[] = [];
+
   try {
-    validatePublicExportsDocumented();
-    validateInternalLinks();
-    validateModelLists();
-    validateModelIdFormats();
-    validateDotenvImports();
-    validateLinkFormat();
-    validateRequiredFiles();
-    validateTableOfContents();
-    validateVersionConsistency();
-
-    // Validate code metrics against OpenSpec claims
-    const metricsResult = validateCodeMetrics();
-    results.errors.push(...metricsResult.errors);
-    results.warnings.push(...metricsResult.warnings);
-
-    // Validate source code comments
-    validateSourceCodeComments();
-
-    // New structural validations
-    validateHeadingHierarchySmart();
-    validateCodeBlockSyntax();
-    validateOrphanSections();
+    allResults.push(validatePublicExportsDocumented());
+    allResults.push(validateInternalLinks());
+    allResults.push(validateModelLists());
+    allResults.push(validateModelIdFormats());
+    allResults.push(validateDotenvImports());
+    allResults.push(validateLinkFormat());
+    allResults.push(validateRequiredFiles());
+    allResults.push(validateTableOfContents());
+    allResults.push(validateVersionConsistency());
+    allResults.push(validateCodeMetrics());
+    allResults.push(validateSourceCodeComments());
+    allResults.push(validateHeadingHierarchySmart());
+    allResults.push(validateCodeBlockSyntax());
+    allResults.push(validateOrphanSections());
   } catch (error) {
-    results.errors.push(
-      `Validation error: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    results.passed = false;
+    allResults.push({
+      errors: [`Validation error: ${error instanceof Error ? error.message : String(error)}`],
+      passed: false,
+      warnings: [],
+    });
   }
+
+  const results = aggregateResults(allResults);
 
   // Print summary
   console.log("");
@@ -692,10 +691,8 @@ function readJsonFile(filePath: string): null | PackageJson {
   try {
     const content = readFileSync(filePath, "utf-8");
     return JSON.parse(content) as PackageJson;
-  } catch (error) {
-    results.warnings.push(
-      `Failed to parse JSON file ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
-    );
+  } catch {
+    // Silently return null on error - caller will handle
     return null;
   }
 }
@@ -814,7 +811,9 @@ function trackCodeBlocks(lines: string[]): boolean[] {
  *
  * Algorithm: Proper parser with context detection for meta-documentation.
  */
-function validateCodeBlockSyntax(): void {
+function validateCodeBlockSyntax(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n1️⃣3️⃣  Checking code block syntax...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
@@ -856,7 +855,7 @@ function validateCodeBlockSyntax(): void {
           const isValidContext = isMetaDocFile || isMetaLanguage;
 
           if (!isValidContext) {
-            results.warnings.push(
+            warnings.push(
               `${file}:${String(i + 1)} - Unusual code fence: ${String(backticks)} backticks (expected 3). May be syntax error.`,
             );
             issuesFound++;
@@ -865,7 +864,7 @@ function validateCodeBlockSyntax(): void {
       } else if (backticks === openingBackticks) {
         // Closing fence
         if (language) {
-          results.warnings.push(
+          warnings.push(
             `${file}:${String(i + 1)} - Language identifier on closing fence: \`\`\`${language} (should be just \`\`\`)`,
           );
           issuesFound++;
@@ -879,10 +878,10 @@ function validateCodeBlockSyntax(): void {
 
     // Check for unclosed code blocks
     if (inCodeBlock) {
-      results.errors.push(
+      errors.push(
         `${file}:${String(openingLine)} - Unclosed code block (opened with ${String(openingBackticks)} backticks)`,
       );
-      results.passed = false;
+      // Error tracked in errors array
       issuesFound++;
     }
   }
@@ -892,27 +891,31 @@ function validateCodeBlockSyntax(): void {
   } else {
     console.log("  ✅ All code blocks have valid syntax");
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 /**
  * Check 10: Validates code metrics against OpenSpec claims
  */
-function validateCodeMetrics(): CodeMetricsResult {
+function validateCodeMetrics(): ValidationResult {
   console.log("\n🔟 Checking code metrics against OpenSpec documents...");
 
-  const result: CodeMetricsResult = {
-    errors: [],
-    warnings: [],
-  };
+  const errors: string[] = [];
+  const warnings: string[] = [];
 
   // Read OpenSpec files
   const auditFile = "openspec/changes/migrate-languagemodelv3/IMPLEMENTATION_AUDIT.md";
   const releaseNotesFile = "openspec/changes/migrate-languagemodelv3/RELEASE_NOTES.md";
 
   if (!existsSync(auditFile) || !existsSync(releaseNotesFile)) {
-    result.warnings.push("OpenSpec files not found, skipping code metrics validation");
+    warnings.push("OpenSpec files not found, skipping code metrics validation");
     console.log("  ⚠️  OpenSpec files not found, skipping");
-    return result;
+    return { errors, passed: errors.length === 0, warnings };
   }
 
   const auditContent = readFileSync(auditFile, "utf-8");
@@ -945,12 +948,10 @@ function validateCodeMetrics(): CodeMetricsResult {
   const testMetrics = runCoverageCheck();
 
   if (!testMetrics) {
-    result.warnings.push("Could not extract test metrics from npm test output");
+    warnings.push("Could not extract test metrics from npm test output");
     console.log("  ⚠️  Could not extract test metrics");
-    return result;
+    return { errors, passed: errors.length === 0, warnings };
   }
-
-  result.testMetrics = testMetrics;
 
   console.log("\n  ✅ Actual Metrics:");
   console.log(`    • Test count: ${String(testMetrics.totalTests)}`);
@@ -961,13 +962,13 @@ function validateCodeMetrics(): CodeMetricsResult {
 
   // Validate test count consistency
   if (claimedTestsAudit !== null && claimedTestsAudit !== testMetrics.totalTests) {
-    result.errors.push(
+    errors.push(
       `IMPLEMENTATION_AUDIT.md claims ${String(claimedTestsAudit)} tests, but actual count is ${String(testMetrics.totalTests)}`,
     );
   }
 
   if (claimedTestsRelease !== null && claimedTestsRelease !== testMetrics.totalTests) {
-    result.errors.push(
+    errors.push(
       `RELEASE_NOTES.md claims ${String(claimedTestsRelease)} tests, but actual count is ${String(testMetrics.totalTests)}`,
     );
   }
@@ -976,7 +977,7 @@ function validateCodeMetrics(): CodeMetricsResult {
   if (claimedCoverage !== null && testMetrics.coverage !== undefined) {
     const diff = Math.abs(claimedCoverage - testMetrics.coverage);
     if (diff > COVERAGE_TOLERANCE_PERCENT) {
-      result.errors.push(
+      errors.push(
         `OpenSpec claims ${String(claimedCoverage)}% coverage, but actual is ${testMetrics.coverage.toFixed(2)}%`,
       );
     }
@@ -984,7 +985,7 @@ function validateCodeMetrics(): CodeMetricsResult {
 
   // Validate all tests pass
   if (!testMetrics.passed) {
-    result.errors.push("Test suite has failing tests, but OpenSpec claims all tests passing");
+    errors.push("Test suite has failing tests, but OpenSpec claims all tests passing");
   }
 
   // Check version consistency between package.json and OpenSpec
@@ -992,31 +993,29 @@ function validateCodeMetrics(): CodeMetricsResult {
   if (pkg?.version) {
     const version = pkg.version;
     if (!auditContent.includes(version)) {
-      result.warnings.push(
-        `package.json version (${version}) not found in IMPLEMENTATION_AUDIT.md`,
-      );
+      warnings.push(`package.json version (${version}) not found in IMPLEMENTATION_AUDIT.md`);
     }
   }
 
   // Print validation results
   console.log("");
-  if (result.errors.length === 0) {
+  if (errors.length === 0) {
     console.log("  ✅ Code metrics match OpenSpec claims");
   } else {
     console.log("  ❌ Code metrics validation failed:");
-    result.errors.forEach((err) => {
+    errors.forEach((err) => {
       console.log(`    • ${err}`);
     });
   }
 
-  if (result.warnings.length > 0) {
+  if (warnings.length > 0) {
     console.log("  ⚠️  Warnings:");
-    result.warnings.forEach((warn) => {
+    warnings.forEach((warn) => {
       console.log(`    • ${warn}`);
     });
   }
 
-  return result;
+  return { errors, passed: errors.length === 0, warnings };
 }
 
 // ============================================================================
@@ -1026,7 +1025,9 @@ function validateCodeMetrics(): CodeMetricsResult {
 /**
  * Check 5: Validates dotenv imports in code examples
  */
-function validateDotenvImports(): void {
+function validateDotenvImports(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n5️⃣  Checking dotenv imports in documentation...");
 
   let issuesFound = 0;
@@ -1058,7 +1059,7 @@ function validateDotenvImports(): void {
         code.includes("via AICORE_SERVICE_KEY");
 
       if (!hasDotenvImport && !hasEnvComment) {
-        results.warnings.push(
+        warnings.push(
           `${file}: Code example with createSAPAIProvider missing dotenv import or env setup comment`,
         );
         issuesFound++;
@@ -1072,6 +1073,12 @@ function validateDotenvImports(): void {
   } else {
     console.log("  ✅ All code examples have proper environment setup");
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 /**
@@ -1083,7 +1090,9 @@ function validateDotenvImports(): void {
  * Algorithm: Uses state machine to track heading levels outside code blocks.
  * Validates that each heading is at most one level deeper than previous.
  */
-function validateHeadingHierarchySmart(): void {
+function validateHeadingHierarchySmart(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n1️⃣2️⃣  Checking heading hierarchy (context-aware)...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
@@ -1111,10 +1120,10 @@ function validateHeadingHierarchySmart(): void {
 
         // Allow backward jumps (H4 → H2 is OK), only check forward jumps
         if (level > previousLevel + 1) {
-          results.errors.push(
+          errors.push(
             `${file}:${String(i + 1)} - Invalid heading jump: H${String(previousLevel)} → H${String(level)} (line ${String(previousLine)} → ${String(i + 1)}). Insert H${String(previousLevel + 1)} level first.`,
           );
-          results.passed = false;
+          // Error tracked in errors array
           issuesFound++;
         }
 
@@ -1129,12 +1138,20 @@ function validateHeadingHierarchySmart(): void {
   } else {
     console.log("  ✅ Heading hierarchy is valid");
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 /**
  * Check 2: Detects broken internal markdown links
  */
-function validateInternalLinks(): void {
+function validateInternalLinks(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n2️⃣  Checking for broken internal links...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
@@ -1174,8 +1191,8 @@ function validateInternalLinks(): void {
         const resolvedPath = join(sourceDir, fullPath);
 
         if (!existsSync(resolvedPath)) {
-          results.errors.push(`${file}:${String(i + 1)} - Broken link to ${targetFile}`);
-          results.passed = false;
+          errors.push(`${file}:${String(i + 1)} - Broken link to ${targetFile}`);
+          // Error tracked in errors array
           brokenCount++;
         }
       }
@@ -1187,12 +1204,20 @@ function validateInternalLinks(): void {
   } else {
     console.log("  ✅ No broken internal links");
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 /**
  * Check 6: Validates link format consistency (./file.md vs file.md)
  */
-function validateLinkFormat(): void {
+function validateLinkFormat(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n6️⃣  Checking link format consistency...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
@@ -1215,9 +1240,7 @@ function validateLinkFormat(): void {
       const matches = Array.from(line.matchAll(badLinkPattern));
 
       for (const match of matches) {
-        results.warnings.push(
-          `${file}:${String(i + 1)} - Relative link without ./ prefix: ${match[2]}`,
-        );
+        warnings.push(`${file}:${String(i + 1)} - Relative link without ./ prefix: ${match[2]}`);
         badLinksCount++;
       }
     }
@@ -1228,6 +1251,12 @@ function validateLinkFormat(): void {
   } else {
     console.log("  ✅ All links use correct format");
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 /**
@@ -1236,7 +1265,9 @@ function validateLinkFormat(): void {
  * Detects model IDs without required vendor prefixes in markdown lists.
  * Uses MODEL_VALIDATION_RULES to check for incorrect formats.
  */
-function validateModelIdFormats(): void {
+function validateModelIdFormats(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n4️⃣  Checking model ID format consistency...");
 
   const filesToCheck = ["README.md", "API_REFERENCE.md"];
@@ -1272,10 +1303,10 @@ function validateModelIdFormats(): void {
 
         for (const match of matches) {
           const incorrect = match[1];
-          results.errors.push(
+          errors.push(
             `${file}:${String(i + 1)} - Model ID format error (${rule.vendor}): "${incorrect}" should be "${correctFormat}"`,
           );
-          results.passed = false;
+          // Error tracked in errors array
           issuesFound++;
         }
       }
@@ -1287,12 +1318,20 @@ function validateModelIdFormats(): void {
   } else {
     console.log("  ✅ All model IDs use correct format with vendor prefixes");
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 /**
  * Check 3: Detects excessive hardcoded model ID lists
  */
-function validateModelLists(): void {
+function validateModelLists(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n3️⃣  Checking for excessive hardcoded model lists...");
 
   for (const { file, threshold } of MODEL_CHECK_FILES) {
@@ -1314,7 +1353,7 @@ function validateModelLists(): void {
     }
 
     if (modelMentions > threshold) {
-      results.warnings.push(
+      warnings.push(
         `${file}: ${String(modelMentions)} model IDs (threshold: ${String(threshold)}). ` +
           `Consider using representative examples instead of exhaustive lists.`,
       );
@@ -1323,6 +1362,12 @@ function validateModelLists(): void {
       console.log(`  ✅ ${file}: ${String(modelMentions)} model mentions (within threshold)`);
     }
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 /**
@@ -1333,7 +1378,9 @@ function validateModelLists(): void {
  *
  * Algorithm: Track line count between consecutive headers, warn if < 2 lines.
  */
-function validateOrphanSections(): void {
+function validateOrphanSections(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n1️⃣4️⃣  Checking for orphan sections...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
@@ -1381,7 +1428,7 @@ function validateOrphanSections(): void {
 
       // Orphan section: no content between headers (or only whitespace/code blocks)
       if (contentLines === 0) {
-        results.warnings.push(
+        warnings.push(
           `${file}:${String(current.line)} - Orphan section: "${"#".repeat(current.level)} ${current.text}" has no content before next header`,
         );
         issuesFound++;
@@ -1394,22 +1441,30 @@ function validateOrphanSections(): void {
   } else {
     console.log("  ✅ No orphan sections detected");
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 /**
  * Check 1: Verifies that all public exports are documented in API_REFERENCE.md
  */
-function validatePublicExportsDocumented(): void {
+function validatePublicExportsDocumented(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("1️⃣  Checking public exports are documented...");
 
   const indexPath = "src/index.ts";
   const apiRefPath = "API_REFERENCE.md";
 
   if (!existsSync(indexPath) || !existsSync(apiRefPath)) {
-    results.errors.push("Missing src/index.ts or API_REFERENCE.md");
-    results.passed = false;
+    errors.push("Missing src/index.ts or API_REFERENCE.md");
+    // Error tracked in errors array
     console.log("  ❌ Critical files missing");
-    return;
+    return { errors, passed: false, warnings };
   }
 
   const indexContent = readFileSync(indexPath, "utf-8");
@@ -1446,7 +1501,7 @@ function validatePublicExportsDocumented(): void {
   let undocumented = 0;
   for (const exportName of CRITICAL_EXPORTS) {
     if (!exports.has(exportName)) {
-      results.warnings.push(`Critical export '${exportName}' not found in src/index.ts`);
+      warnings.push(`Critical export '${exportName}' not found in src/index.ts`);
       continue;
     }
 
@@ -1460,7 +1515,7 @@ function validatePublicExportsDocumented(): void {
     const isDocumented = patterns.some((p) => p.test(apiRefContent));
 
     if (!isDocumented) {
-      results.warnings.push(`Export '${exportName}' not documented in API_REFERENCE.md`);
+      warnings.push(`Export '${exportName}' not documented in API_REFERENCE.md`);
       undocumented++;
     }
   }
@@ -1472,20 +1527,28 @@ function validatePublicExportsDocumented(): void {
   } else {
     console.log(`  ✅ All ${String(CRITICAL_EXPORTS.length)} critical exports documented`);
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 /**
  * Check 7: Verifies required documentation files exist
  */
-function validateRequiredFiles(): void {
+function validateRequiredFiles(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n7️⃣  Checking required documentation files...");
 
   let missingCount = 0;
 
   for (const file of REQUIRED_FILES) {
     if (!existsSync(file)) {
-      results.errors.push(`Missing required file: ${file}`);
-      results.passed = false;
+      errors.push(`Missing required file: ${file}`);
+      // Error tracked in errors array
       missingCount++;
     }
   }
@@ -1495,6 +1558,12 @@ function validateRequiredFiles(): void {
   } else {
     console.log(`  ✅ All ${String(REQUIRED_FILES.length)} required files present`);
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 // ============================================================================
@@ -1504,7 +1573,9 @@ function validateRequiredFiles(): void {
 /**
  * Check 11: Validates links and model IDs in TypeScript source code comments
  */
-function validateSourceCodeComments(): void {
+function validateSourceCodeComments(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n1️⃣1️⃣  Checking source code comments (JSDoc, inline)...");
 
   const sourceFiles = [
@@ -1556,7 +1627,7 @@ function validateSourceCodeComments(): void {
           const resolvedPath = join(".", targetPath);
 
           if (!existsSync(resolvedPath)) {
-            results.warnings.push(
+            warnings.push(
               `${file}:${String(absoluteLine)} - Comment contains broken link: ${targetPath}`,
             );
             brokenLinksCount++;
@@ -1573,7 +1644,7 @@ function validateSourceCodeComments(): void {
             const resolvedPath = join(".", target);
 
             if (!existsSync(resolvedPath)) {
-              results.warnings.push(
+              warnings.push(
                 `${file}:${String(absoluteLine)} - JSDoc @link to non-existent file: ${target}`,
               );
               brokenLinksCount++;
@@ -1602,7 +1673,7 @@ function validateSourceCodeComments(): void {
             }
 
             const incorrect = match[1];
-            results.warnings.push(
+            warnings.push(
               `${file}:${String(absoluteLine)} - Comment mentions model without vendor prefix: "${incorrect}" should be "${correctFormat}"`,
             );
             modelIdIssues++;
@@ -1625,12 +1696,20 @@ function validateSourceCodeComments(): void {
   } else {
     console.log("  ✅ Model IDs in comments use correct format");
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 /**
  * Check 8: Validates Table of Contents in all markdown files
  */
-function validateTableOfContents(): void {
+function validateTableOfContents(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n8️⃣  Checking Table of Contents consistency...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
@@ -1654,7 +1733,7 @@ function validateTableOfContents(): void {
     const tocEntries = extractTocEntries(lines, startLine, endLine);
 
     if (tocEntries.length === 0) {
-      results.warnings.push(`${file}: ToC section found but no entries detected`);
+      warnings.push(`${file}: ToC section found but no entries detected`);
       issuesFound++;
       continue;
     }
@@ -1671,10 +1750,10 @@ function validateTableOfContents(): void {
     // Report missing entries
     if (validation.missing.length > 0) {
       for (const header of validation.missing) {
-        results.errors.push(
+        errors.push(
           `${file}:${String(header.lineNumber)} - Missing in ToC: "${"#".repeat(header.level)} ${header.text}" (anchor: #${header.anchor})`,
         );
-        results.passed = false;
+        // Error tracked in errors array
         issuesFound++;
       }
     }
@@ -1682,7 +1761,7 @@ function validateTableOfContents(): void {
     // Report extra entries
     if (validation.extra.length > 0) {
       for (const entry of validation.extra) {
-        results.warnings.push(
+        warnings.push(
           `${file}:${String(entry.lineNumber)} - Extra in ToC (no matching header): "${entry.text}" -> #${entry.anchor}`,
         );
         issuesFound++;
@@ -1693,14 +1772,14 @@ function validateTableOfContents(): void {
     if (validation.mismatched.length > 0) {
       for (const { actual, expected } of validation.mismatched) {
         if (actual.text !== expected.text) {
-          results.errors.push(
+          errors.push(
             `${file}:${String(actual.lineNumber)} - ToC text mismatch: "${actual.text}" should be "${expected.text}"`,
           );
-          results.passed = false;
+          // Error tracked in errors array
           issuesFound++;
         }
         if (actual.level !== expected.level) {
-          results.warnings.push(
+          warnings.push(
             `${file}:${String(actual.lineNumber)} - ToC level mismatch: "${actual.text}" is level ${String(actual.level)} but should be ${String(expected.level)}`,
           );
           issuesFound++;
@@ -1716,6 +1795,12 @@ function validateTableOfContents(): void {
   } else {
     console.log(`  ❌ ${String(issuesFound)} ToC issues found in ${String(filesWithToc)} files`);
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 /**
@@ -1788,20 +1873,22 @@ function validateTocEntries(
 /**
  * Check 9: Validates version consistency across documentation
  */
-function validateVersionConsistency(): void {
+function validateVersionConsistency(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   console.log("\n9️⃣  Checking version consistency...");
 
   if (!existsSync("package.json")) {
-    results.warnings.push("package.json not found");
+    warnings.push("package.json not found");
     console.log("  ⚠️  package.json not found");
-    return;
+    return { errors, passed: true, warnings };
   }
 
   const pkg = readJsonFile("package.json");
   if (!pkg?.version) {
-    results.warnings.push("Unable to read version from package.json");
+    warnings.push("Unable to read version from package.json");
     console.log("  ⚠️  Unable to read version");
-    return;
+    return { errors, passed: true, warnings };
   }
 
   const version = pkg.version;
@@ -1826,13 +1913,19 @@ function validateVersionConsistency(): void {
   }
 
   if (mentionedCount === 0) {
-    results.warnings.push(`Version ${version} not mentioned in key documentation files`);
+    warnings.push(`Version ${version} not mentioned in key documentation files`);
     console.log(`  ⚠️  Version not mentioned in docs (may need update)`);
   } else {
     console.log(
       `  ✅ Version mentioned in ${String(mentionedCount)}/${String(VERSION_CHECK_FILES.length)} key files`,
     );
   }
+
+  return {
+    errors,
+    passed: errors.length === 0,
+    warnings,
+  };
 }
 
 // Run main function

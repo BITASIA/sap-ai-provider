@@ -53,5 +53,5 @@ coverage/
 # Serena
 .serena/
 
-# Test files
-scripts/__tests__/
+# Documentation and analysis files (temporary)
+scripts/docs/
