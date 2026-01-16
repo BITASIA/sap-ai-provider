@@ -56,7 +56,7 @@ consistently:
   - [`SAPAILanguageModel`](#sapailanguagemodel)
     - [`doGenerate(options)`](#dogenerateoptions)
     - [`doStream(options)`](#dostreamoptions)
-  - [Error Handling & Reference](#error-handling-reference)
+  - [Error Handling & Reference](#error-handling--reference)
     - [Error Types](#error-types)
     - [SAP-Specific Error Details](#sap-specific-error-details)
     - [Error Handling Examples](#error-handling-examples)
@@ -948,7 +948,12 @@ async doStream(
 
 ```typescript
 const { stream } = await model.doStream({
-  prompt: [{ role: "user", content: [{ type: "text", text: "Write a story" }] }],
+  prompt: [
+    {
+      role: "user",
+      content: [{ type: "text", text: "Write a story" }],
+    },
+  ],
 });
 ```
 

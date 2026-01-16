@@ -235,6 +235,8 @@ Version bumping is handled by maintainers during release process.
 When adding new features or changing APIs, follow these guidelines to maintain
 documentation quality:
 
+<!-- markdownlint-disable MD036 -->
+
 **1. Single Source of Truth**
 
 Each piece of information should have ONE authoritative location:
@@ -287,6 +289,8 @@ Before submitting a PR, run:
 npm run build         # Ensures TypeScript compiles
 npm test             # Runs test suite
 ```
+
+<!-- markdownlint-enable MD036 -->
 
 ## Testing Guidelines
 

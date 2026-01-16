@@ -50,7 +50,7 @@ Guide for migrating between versions of the SAP AI Core Provider.
     - [3. Content Filtering](#3-content-filtering)
     - [4. Response Format Control](#4-response-format-control)
     - [5. Default Settings](#5-default-settings)
-    - [6. Enhanced Streaming & Error Handling](#6-enhanced-streaming-error-handling)
+    - [6. Enhanced Streaming & Error Handling](#6-enhanced-streaming--error-handling)
 - [API Changes](#api-changes)
   - [Added APIs (v2.0+)](#added-apis-v20)
   - [Modified APIs](#modified-apis)
@@ -70,7 +70,9 @@ Guide for migrating between versions of the SAP AI Core Provider.
 
 ## Overview
 
-This guide helps you migrate your application when upgrading to newer versions of the SAP AI Core Provider. It covers breaking changes, deprecations, and new features.
+This guide helps you migrate your application when upgrading to newer versions
+of the SAP AI Core Provider. It covers breaking changes, deprecations, and new
+features.
 
 ---
 
@@ -207,7 +209,8 @@ console.log("  - Text:", result.usage.outputTokens.text);
 console.log("  - Reasoning:", result.usage.outputTokens.reasoning);
 ```
 
-> **Note**: SAP AI Core currently doesn't provide the detailed breakdown fields, so nested values may be `undefined`.
+> **Note**: SAP AI Core currently doesn't provide the detailed breakdown fields,
+> so nested values may be `undefined`.
 
 #### 6. Update Warning Handling (If Checking Warnings)
 
@@ -305,7 +308,8 @@ chunk.delta;
 
 #### Issue: "Cannot read property 'total' of undefined"
 
-**Cause**: Trying to access nested usage structure that doesn't exist in your version.
+**Cause**: Trying to access nested usage structure that doesn't exist in your
+version.
 
 **Fix**: Optional chaining or fallback:
 
@@ -330,31 +334,38 @@ import type { LanguageModelV3 } from "@ai-sdk/provider";
 
 ### FAQ
 
-**Q: Do I need to change my code if I only use `generateText()` and `streamText()`?**
+**Q: Do I need to change my code if I only use `generateText()` and
+`streamText()`?**
 
-A: Probably not! The high-level APIs abstract most V2/V3 differences. Test your code to confirm.
+A: Probably not! The high-level APIs abstract most V2/V3 differences. Test your
+code to confirm.
 
 **Q: Why did the finish reason become an object?**
 
-A: V3 separates the standardized finish reason (`unified`) from provider-specific values (`raw`), improving consistency across providers.
+A: V3 separates the standardized finish reason (`unified`) from
+provider-specific values (`raw`), improving consistency across providers.
 
 **Q: Will SAP AI Core support file generation or reasoning mode in the future?**
 
-A: We don't have information about SAP's roadmap. The provider is designed to add support when SAP AI Core makes these features available.
+A: We don't have information about SAP's roadmap. The provider is designed to
+add support when SAP AI Core makes these features available.
 
 **Q: Can I use v3.x and v4.x in the same project?**
 
-A: No, you can only use one version at a time. Choose based on your needs and migrate when ready.
+A: No, you can only use one version at a time. Choose based on your needs and
+migrate when ready.
 
 **Q: How long will v3.x be supported?**
 
-A: Version 3.x will receive security and critical bug fixes for 6 months after v4.0.0 release.
+A: Version 3.x will receive security and critical bug fixes for 6 months after
+v4.0.0 release.
 
 ---
 
 ## Version 2.x to 3.x (Breaking Changes)
 
-**Version 3.0 standardizes error handling to use Vercel AI SDK native error types.**
+**Version 3.0 standardizes error handling to use Vercel AI SDK native error
+types.**
 
 ### Summary of Changes
 
@@ -416,7 +427,8 @@ try {
 
 #### 3. SAP Error Metadata Access
 
-SAP AI Core error metadata (request ID, code, location) is preserved in the `responseBody` field:
+SAP AI Core error metadata (request ID, code, location) is preserved in the
+`responseBody` field:
 
 ```typescript
 catch (error) {
@@ -435,20 +447,24 @@ catch (error) {
 
 #### 4. Automatic Retries
 
-V3 now leverages AI SDK's built-in retry mechanism for transient errors (429, 500, 503). No code changes needed - retries happen automatically with exponential backoff.
+V3 now leverages AI SDK's built-in retry mechanism for transient errors (429,
+500, 503). No code changes needed - retries happen automatically with
+exponential backoff.
 
 ---
 
 ## Version 1.x to 2.x (Breaking Changes)
 
-**Version 2.0 is a complete rewrite using the official SAP AI SDK (@sap-ai-sdk/orchestration).**
+**Version 2.0 is a complete rewrite using the official SAP AI SDK
+(@sap-ai-sdk/orchestration).**
 
 ### Summary of Changes
 
 **Breaking Changes:**
 
 - Provider creation is now **synchronous** (no more `await`)
-- Authentication via `AICORE_SERVICE_KEY` environment variable (no more `serviceKey` option)
+- Authentication via `AICORE_SERVICE_KEY` environment variable (no more
+  `serviceKey` option)
 - Uses official SAP AI SDK for authentication and API communication
 - Requires Vercel AI SDK v6.0+
 
@@ -458,7 +474,8 @@ V3 now leverages AI SDK's built-in retry mechanism for transient errors (429, 50
 - Data masking with SAP Data Privacy Integration (DPI)
 - Content filtering (Azure Content Safety, Llama Guard)
 - Grounding and translation modules support
-- Helper functions for configuration (`buildDpiMaskingProvider`, `buildAzureContentSafetyFilter`, etc.)
+- Helper functions for configuration (`buildDpiMaskingProvider`,
+  `buildAzureContentSafetyFilter`, etc.)
 - `responseFormat` configuration for structured outputs
 - Enhanced streaming support
 - Better error messages with detailed context
@@ -486,7 +503,9 @@ npm install @mymediset/sap-ai-provider@latest ai@latest
 - Provider creation: Now synchronous (remove `await`)
 - Token management: Automatic (SAP AI SDK handles OAuth2)
 
-**Complete setup instructions:** [Environment Setup Guide](./ENVIRONMENT_SETUP.md)
+**Complete setup instructions:**
+
+[Environment Setup Guide](./ENVIRONMENT_SETUP.md)
 
 #### 3. Update Code (Remove await)
 
@@ -506,18 +525,25 @@ const result = await generateText({ model, prompt: "Hello!" });
 
 #### 4. Verify Functionality
 
-After updating authentication and removing `await` from provider creation, run your tests and basic examples (`examples/`) to verify generation and streaming work as expected.
+After updating authentication and removing `await` from provider creation, run
+your tests and basic examples (`examples/`) to verify generation and streaming
+work as expected.
 
 #### 5. Optional: Adopt New Features
 
-V2.0 introduces powerful features. See [API_REFERENCE.md](./API_REFERENCE.md) for complete documentation and [examples/](./examples/) for working code.
+V2.0 introduces powerful features. See [API_REFERENCE.md](./API_REFERENCE.md)
+for complete documentation and [examples/](./examples/) for working code.
 
 **Key new capabilities:**
 
-- **Data Masking (DPI)**: Anonymize sensitive data (emails, names, phone numbers) - see [example-data-masking.ts](./examples/example-data-masking.ts)
-- **Content Filtering**: Azure Content Safety, Llama Guard - see [API_REFERENCE.md#content-filtering](./API_REFERENCE.md#content-filtering)
-- **Response Format**: Structured outputs with JSON schema - see [API_REFERENCE.md#response-format](./API_REFERENCE.md#response-format)
-- **Default Settings**: Apply consistent settings across all models - see [API_REFERENCE.md#default-settings](./API_REFERENCE.md#default-settings)
+- **Data Masking (DPI)**: Anonymize sensitive data (emails, names, phone
+  numbers) - see [example-data-masking.ts](./examples/example-data-masking.ts)
+- **Content Filtering**: Azure Content Safety, Llama Guard - see
+  [API_REFERENCE.md#content-filtering](./API_REFERENCE.md#content-filtering)
+- **Response Format**: Structured outputs with JSON schema - see
+  [API_REFERENCE.md#response-format](./API_REFERENCE.md#response-format)
+- **Default Settings**: Apply consistent settings across all models - see
+  [API_REFERENCE.md#default-settings](./API_REFERENCE.md#default-settings)
 - **Grounding & Translation**: Document grounding, language translation modules
 
 For detailed examples, see the [New Features](#new-features) section below.
@@ -549,9 +575,11 @@ For detailed examples, see the [New Features](#new-features) section below.
 
 ### Manual OAuth2 Token Management (Removed in v2.0)
 
-**Status:** Removed in v2.0  
-**Replacement:** Automatic authentication via SAP AI SDK with `AICORE_SERVICE_KEY` environment variable  
-**Migration:** See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) for setup instructions
+**Status:** Removed in v2.0\
+**Replacement:** Automatic authentication via SAP AI SDK with
+`AICORE_SERVICE_KEY` environment variable\
+**Migration:** See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) for setup
+instructions
 
 ---
 
@@ -559,11 +587,15 @@ For detailed examples, see the [New Features](#new-features) section below.
 
 ### 2.0.x Features
 
-V2.0 introduces several powerful features built on top of the official SAP AI SDK. For detailed API documentation and complete examples, see [API_REFERENCE.md](./API_REFERENCE.md).
+V2.0 introduces several powerful features built on top of the official SAP AI
+SDK. For detailed API documentation and complete examples, see
+[API_REFERENCE.md](./API_REFERENCE.md).
 
 #### 1. SAP AI SDK Integration
 
-Full integration with `@sap-ai-sdk/orchestration` for authentication and API communication. Authentication is now automatic via `AICORE_SERVICE_KEY` environment variable or `VCAP_SERVICES` service binding.
+Full integration with `@sap-ai-sdk/orchestration` for authentication and API
+communication. Authentication is now automatic via `AICORE_SERVICE_KEY`
+environment variable or `VCAP_SERVICES` service binding.
 
 ```typescript
 const provider = createSAPAIProvider({
@@ -572,11 +604,13 @@ const provider = createSAPAIProvider({
 });
 ```
 
-**See:** [API_REFERENCE.md - SAPAIProviderSettings](./API_REFERENCE.md#sapaiprovidersettings)
+**See:**
+[API_REFERENCE.md - SAPAIProviderSettings](./API_REFERENCE.md#sapaiprovidersettings)
 
 #### 2. Data Masking (DPI)
 
-Automatically anonymize or pseudonymize sensitive information (emails, phone numbers, names) using SAP's Data Privacy Integration:
+Automatically anonymize or pseudonymize sensitive information (emails, phone
+numbers, names) using SAP's Data Privacy Integration:
 
 ```typescript
 import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
@@ -587,11 +621,14 @@ const dpiConfig = buildDpiMaskingProvider({
 });
 ```
 
-**Full documentation:** [API_REFERENCE.md - Data Masking](./API_REFERENCE.md#builddpimaskingproviderconfig), [example-data-masking.ts](./examples/example-data-masking.ts)
+**Full documentation:**
+[API_REFERENCE.md - Data Masking](./API_REFERENCE.md#builddpimaskingproviderconfig),
+[example-data-masking.ts](./examples/example-data-masking.ts)
 
 #### 3. Content Filtering
 
-Filter harmful content using Azure Content Safety or Llama Guard for input/output safety:
+Filter harmful content using Azure Content Safety or Llama Guard for
+input/output safety:
 
 ```typescript
 import { buildAzureContentSafetyFilter } from "@mymediset/sap-ai-provider";
@@ -612,11 +649,13 @@ const provider = createSAPAIProvider({
 });
 ```
 
-**Full documentation:** [API_REFERENCE.md - Content Filtering](./API_REFERENCE.md#buildazurecontentsafetyfiltertype-config)
+**Full documentation:**
+[API_REFERENCE.md - Content Filtering](./API_REFERENCE.md#buildazurecontentsafetyfiltertype-config)
 
 #### 4. Response Format Control
 
-Specify structured output formats including JSON schema for deterministic responses:
+Specify structured output formats including JSON schema for deterministic
+responses:
 
 ```typescript
 // JSON object response
@@ -644,7 +683,8 @@ const model2 = provider("gpt-4o", {
 });
 ```
 
-**See:** [API_REFERENCE.md - Response Format](./API_REFERENCE.md#response-format)
+**See:**
+[API_REFERENCE.md - Response Format](./API_REFERENCE.md#response-format)
 
 #### 5. Default Settings
 
@@ -667,13 +707,16 @@ const model2 = provider("gpt-4o", {
 });
 ```
 
-**See:** [API_REFERENCE.md - Default Settings](./API_REFERENCE.md#default-settings)
+**See:**
+[API_REFERENCE.md - Default Settings](./API_REFERENCE.md#default-settings)
 
 #### 6. Enhanced Streaming & Error Handling
 
-Improved streaming support with better error recovery and detailed error messages including request IDs and error locations for debugging.
+Improved streaming support with better error recovery and detailed error
+messages including request IDs and error locations for debugging.
 
-**See:** [README.md - Streaming](./README.md#streaming), [API_REFERENCE.md - Error Handling](./API_REFERENCE.md#error-handling)
+**See:** [README.md - Streaming](./README.md#streaming),
+[API_REFERENCE.md - Error Handling](./API_REFERENCE.md#error-handling)
 
 ---
 
@@ -733,18 +776,23 @@ createSAPAIProvider({
 
 - [ ] Update package: `npm install @mymediset/sap-ai-provider@3.0.0`
 - [ ] Replace `SAPAIError` imports with `APICallError` from `@ai-sdk/provider`
-- [ ] Update error handling code to use `error.statusCode` instead of `error.code`
-- [ ] Update error metadata access to parse `error.responseBody` JSON for SAP details
+- [ ] Update error handling code to use `error.statusCode` instead of
+      `error.code`
+- [ ] Update error metadata access to parse `error.responseBody` JSON for SAP
+      details
 - [ ] Remove any custom retry logic (now automatic with AI SDK)
 - [ ] Run tests to verify error handling works correctly
-- [ ] Test automatic retry behavior with rate limits (429) and server errors (500, 503)
+- [ ] Test automatic retry behavior with rate limits (429) and server errors
+      (500, 503)
 
 ### Upgrading from 1.x to 2.x
 
 - [ ] Update packages: `npm install @mymediset/sap-ai-provider@latest ai@latest`
-- [ ] Set `AICORE_SERVICE_KEY` environment variable (remove `serviceKey` from code)
+- [ ] Set `AICORE_SERVICE_KEY` environment variable (remove `serviceKey` from
+      code)
 - [ ] Remove `await` from `createSAPAIProvider()` calls (now synchronous)
-- [ ] Remove `serviceKey`, `token`, `baseURL`, `completionPath` options from provider settings
+- [ ] Remove `serviceKey`, `token`, `baseURL`, `completionPath` options from
+      provider settings
 - [ ] Update masking configuration to use `buildDpiMaskingProvider()` helper
 - [ ] Update filtering configuration to use helper functions if applicable
 - [ ] Run tests to verify existing functionality
@@ -799,7 +847,8 @@ npm install @mymediset/sap-ai-provider@2.1.0
 npm install @mymediset/sap-ai-provider@1.0.3 ai@5
 ```
 
-> **Note:** Version 1.x uses a different authentication approach and async provider creation.
+> **Note:** Version 1.x uses a different authentication approach and async
+> provider creation.
 
 ### Verify Installation
 
@@ -843,6 +892,8 @@ If you encounter issues during migration:
 
 - [README.md](./README.md) - Getting started and feature overview
 - [API_REFERENCE.md](./API_REFERENCE.md) - Complete API documentation for v2.x
-- [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) - Authentication setup for both v1 and v2
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Technical architecture (v2 implementation)
+- [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) - Authentication setup for both
+  v1 and v2
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - Technical architecture (v2
+  implementation)
 - [CONTRIBUTING.md](./CONTRIBUTING.md) - Development and contribution guidelines

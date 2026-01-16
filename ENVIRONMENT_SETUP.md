@@ -10,6 +10,8 @@ the SAP AI Core Provider.
 
 ## Table of Contents
 
+<!-- markdownlint-disable MD051 -->
+
 - [Quick Setup (Local Development)](#quick-setup-local-development)
   - [1️⃣ Get Your Service Key](#1-get-your-service-key)
   - [2️⃣ Configure Environment](#2-configure-environment)
@@ -27,6 +29,8 @@ the SAP AI Core Provider.
   - [✅ Verify Configuration](#verify-configuration)
 - [Security Best Practices](#security-best-practices)
 - [Related Documentation](#related-documentation)
+
+<!-- markdownlint-enable MD051 -->
 
 ## Quick Setup (Local Development)
 

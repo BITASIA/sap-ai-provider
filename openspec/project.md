@@ -2,13 +2,18 @@
 
 ## Purpose
 
-This project provides a community-developed provider for SAP AI Core that integrates seamlessly with the Vercel AI SDK. Built on top of the official `@sap-ai-sdk/orchestration` package, it enables developers to use SAP's enterprise-grade AI models (GPT-4, Claude, Gemini, Nova, Llama, etc.) through the familiar Vercel AI SDK interface.
+This project provides a community-developed provider for SAP AI Core that
+integrates seamlessly with the Vercel AI SDK. Built on top of the official
+`@sap-ai-sdk/orchestration` package, it enables developers to use SAP's
+enterprise-grade AI models (GPT-4, Claude, Gemini, Nova, Llama, etc.) through
+the familiar Vercel AI SDK interface.
 
 **Key Goals:**
 
 - Simplify SAP AI Core integration with Vercel AI SDK
 - Provide type-safe, production-ready AI provider implementation
-- Support advanced features: tool calling, streaming, multi-modal inputs, data masking, content filtering
+- Support advanced features: tool calling, streaming, multi-modal inputs, data
+  masking, content filtering
 - Maintain compatibility with both Node.js and edge runtime environments
 
 ## Tech Stack
@@ -24,7 +29,8 @@ This project provides a community-developed provider for SAP AI Core that integr
 - **tsup** - TypeScript bundler (dual ESM/CJS output)
 - **vitest** - Unit testing framework with Node.js and Edge runtime configs
 - **tsx** - TypeScript execution for examples
-  **Dependencies:**
+
+**Dependencies:**
 
 - **@ai-sdk/provider** (^3.0.2) - Vercel AI SDK provider interfaces
 - **@ai-sdk/provider-utils** (^4.0.5) - Vercel AI SDK utilities
@@ -44,11 +50,14 @@ This project provides a community-developed provider for SAP AI Core that integr
 
 **Naming Conventions:**
 
-- **Files**: kebab-case (e.g., `sap-ai-provider.ts`, `convert-to-sap-messages.ts`)
+- **Files**: kebab-case (e.g., `sap-ai-provider.ts`,
+  `convert-to-sap-messages.ts`)
 - **Classes**: PascalCase (e.g., `SAPAIProvider`, `SAPAILanguageModel`)
 - **Functions**: camelCase (e.g., `createSAPAIProvider`, `convertToSAPMessages`)
-- **Constants**: UPPER_SNAKE_CASE for true constants, camelCase for config objects
-- **Types/Interfaces**: PascalCase with descriptive names (e.g., `SAPAIProviderSettings`, `SAPAIModelId`)
+- **Constants**: UPPER_SNAKE_CASE for true constants, camelCase for config
+  objects
+- **Types/Interfaces**: PascalCase with descriptive names (e.g.,
+  `SAPAIProviderSettings`, `SAPAIModelId`)
 
 **File Organization:**
 
@@ -88,7 +97,8 @@ This project provides a community-developed provider for SAP AI Core that integr
 **Message Conversion:**
 
 - Transform Vercel AI SDK messages to SAP AI Core format
-- Filter out assistant `reasoning` parts by default (opt-in with `includeReasoning`)
+- Filter out assistant `reasoning` parts by default (opt-in with
+  `includeReasoning`)
 - Support multi-modal content (text + images)
 - Handle tool calls and tool results bidirectionally
 
@@ -167,8 +177,10 @@ npm run prepublishOnly  # Runs before npm publish
 
 - **Resource Group**: Logical grouping of AI deployments (default: 'default')
 - **Deployment ID**: Unique identifier for a model deployment
-- **Service Key**: JSON credential containing authentication details (`AICORE_SERVICE_KEY`)
-- **Orchestration Service**: SAP's LLM orchestration layer supporting multiple model providers
+- **Service Key**: JSON credential containing authentication details
+  (`AICORE_SERVICE_KEY`)
+- **Orchestration Service**: SAP's LLM orchestration layer supporting multiple
+  model providers
 
 **Model Providers:**
 

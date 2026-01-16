@@ -72,7 +72,7 @@ below.
   - [Problem: Tool execution errors](#problem-tool-execution-errors)
 - [Performance Issues](#performance-issues)
   - [Problem: Slow response times](#problem-slow-response-times)
-  - [Problem: High token usage / costs](#problem-high-token-usage-costs)
+  - [Problem: High token usage / costs](#problem-high-token-usage--costs)
 - [Debugging Tools](#debugging-tools)
   - [Enable Verbose Logging](#enable-verbose-logging)
   - [Use cURL for Direct API Testing](#use-curl-for-direct-api-testing)

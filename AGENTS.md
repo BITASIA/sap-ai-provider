@@ -20,7 +20,11 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->
 
+<!-- markdownlint-disable MD025 -->
+
 # AI Agent Instructions
+
+<!-- markdownlint-enable MD025 -->
 
 This file provides the entry point for AI coding assistants working with this codebase.
 

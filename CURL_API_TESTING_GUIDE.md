@@ -18,6 +18,7 @@ testing and debugging. For production code, use the SAP AI SDK with
   - [Basic Structure](#basic-structure)
   - [Request Structure](#request-structure)
 - [Tool Calling Example](#tool-calling-example)
+  <!-- markdownlint-disable-next-line MD051 -->
   - [⚠️ Model-Specific Limitations](#model-specific-limitations)
 - [Complete Working Example](#complete-working-example)
 - [Response Format](#response-format)

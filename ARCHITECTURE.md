@@ -251,7 +251,7 @@ graph TB
 
 ### Detailed Component Flow
 
-```
+```text
 src/
 ├── index.ts                           # Public API exports
 ├── sap-ai-provider.ts                 # Main provider factory
@@ -449,13 +449,13 @@ capabilities:
 
 **Default Path:**
 
-```
+```text
 ${baseURL}/inference/deployments/{deploymentId}/v2/completion
 ```
 
 **Top-level v2 endpoint:**
 
-```
+```http
 POST /v2/completion
 ```
 
