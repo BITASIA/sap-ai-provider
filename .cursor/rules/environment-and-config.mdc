@@ -1,48 +1,53 @@
 ---
 description: Environment variables, credentials, and configuration guidance
 ---
+
 # Environment and Configuration
 
 ## Credentials
 
-The SAP AI SDK (`@sap-ai-sdk/orchestration`) handles authentication automatically:
+The SAP AI SDK (`@sap-ai-sdk/orchestration`) handles authentication
+automatically:
 
 1. **On SAP BTP**: Uses service binding from `VCAP_SERVICES`
-2. **Locally**: Uses `AICORE_SERVICE_KEY` environment variable containing the full JSON service key
+2. **Locally**: Uses `AICORE_SERVICE_KEY` environment variable containing the
+   full JSON service key
 
 ## Provider Configuration
 
 Configure the provider using `createSAPAIProvider(options)`:
 
 ```typescript
-import { createSAPAIProvider } from '@mymediset/sap-ai-provider';
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 
 // Default configuration (auto-detects authentication)
 const provider = createSAPAIProvider();
 
 // With specific resource group
 const provider = createSAPAIProvider({
-  resourceGroup: 'production'
+  resourceGroup: "production",
 });
 
 // With specific deployment ID
 const provider = createSAPAIProvider({
-  deploymentId: 'd65d81e7c077e583'
+  deploymentId: "d65d81e7c077e583",
 });
 
 // With custom destination
 const provider = createSAPAIProvider({
   destination: {
-    url: 'https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com'
-  }
+    url: "https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com",
+  },
 });
 ```
 
 ## Environment Variables
 
-- `AICORE_SERVICE_KEY` — Full JSON string of your SAP AI Core service key (used by SAP AI SDK)
+- `AICORE_SERVICE_KEY` — Full JSON string of your SAP AI Core service key (used
+  by SAP AI SDK)
 
-Do not commit secrets. Prefer local `.env` and CI secrets. `dotenv` is available for local development.
+Do not commit secrets. Prefer local `.env` and CI secrets. `dotenv` is available
+for local development.
 
 ## Deployment and Resource Group
 
@@ -52,4 +57,5 @@ Both `resourceGroup` and `deploymentId` can be configured in provider settings.
 
 ## SAP BTP (VCAP_SERVICES)
 
-For BTP environments, the SAP AI SDK automatically reads credentials from `VCAP_SERVICES` when the application is bound to an AI Core service instance.
+For BTP environments, the SAP AI SDK automatically reads credentials from
+`VCAP_SERVICES` when the application is bound to an AI Core service instance.

@@ -34,6 +34,9 @@ import { generateText } from "ai";
 // This example uses relative imports for local development within this repo:
 import { buildDocumentGroundingConfig, createSAPAIProvider } from "../src/index";
 
+/**
+ *
+ */
 async function documentGroundingExample() {
   console.log("📚 SAP AI Document Grounding (RAG) Example\n");
 

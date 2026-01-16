@@ -1,6 +1,8 @@
 # SAP AI Core API - Manual curl Testing Guide
 
-This guide shows how to make direct API calls to SAP AI Core using curl for testing and debugging. For production code, use the SAP AI SDK with `AICORE_SERVICE_KEY`.
+This guide shows how to make direct API calls to SAP AI Core using curl for
+testing and debugging. For production code, use the SAP AI SDK with
+`AICORE_SERVICE_KEY`.
 
 ---
 
@@ -9,10 +11,18 @@ This guide shows how to make direct API calls to SAP AI Core using curl for test
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
 - [Step-by-Step Guide](#step-by-step-guide)
+  - [Step 1: Prepare Credentials](#step-1-prepare-credentials)
+  - [Step 2: Get OAuth Token](#step-2-get-oauth-token)
+  - [Step 3: Call SAP AI Core API](#step-3-call-sap-ai-core-api)
 - [Request Body Structure (Orchestration v2)](#request-body-structure-orchestration-v2)
+  - [Basic Structure](#basic-structure)
+  - [Request Structure](#request-structure)
 - [Tool Calling Example](#tool-calling-example)
+  - [⚠️ Model-Specific Limitations](#model-specific-limitations)
 - [Complete Working Example](#complete-working-example)
 - [Response Format](#response-format)
+  - [Success Response (HTTP 200)](#success-response-http-200)
+  - [Error Response (HTTP 400)](#error-response-http-400)
 - [Common Issues](#common-issues)
 - [Debugging Tips](#debugging-tips)
 - [Security Best Practices](#security-best-practices)
@@ -36,7 +46,8 @@ Complete OAuth2 authentication → API call → Tool calling flow.
 
 ### Step 1: Prepare Credentials
 
-Service key contains: `clientid`, `clientsecret`, `url` (auth server), `serviceurls.AI_API_URL`
+Service key contains: `clientid`, `clientsecret`, `url` (auth server),
+`serviceurls.AI_API_URL`
 
 ⚠️ **Important:** Never commit credentials. Use environment variables.
 
@@ -74,11 +85,13 @@ fi
 echo "✅ OAuth token obtained"
 ```
 
-**Key Points:** Use `printf` (not `echo`) for special characters. Tokens expire after 12h.
+**Key Points:** Use `printf` (not `echo`) for special characters. Tokens expire
+after 12h.
 
 ### Step 3: Call SAP AI Core API
 
-**Endpoint:** `https://{AI_API_URL}/v2/inference/deployments/{DEPLOYMENT_ID}/v2/completion`
+**Endpoint:**
+`https://{AI_API_URL}/v2/inference/deployments/{DEPLOYMENT_ID}/v2/completion`
 
 > **Note:** The `/v2` appears **twice** (base path + completion endpoint).
 
@@ -148,15 +161,20 @@ curl --request POST \
 
 ### Request Structure
 
-The SAP AI Core v2 API uses a modular configuration structure with `prompt` (messages, tools, response_format) and `model` (name, version, params) sections. See complete working examples below for the full structure.
+The SAP AI Core v2 API uses a modular configuration structure with `prompt`
+(messages, tools, response_format) and `model` (name, version, params) sections.
+See complete working examples below for the full structure.
 
-> 💡 For detailed parameter documentation, see [API_REFERENCE.md](./API_REFERENCE.md#modelparams)
+> 💡 For detailed parameter documentation, see
+> [API_REFERENCE.md](./API_REFERENCE.md#modelparams)
 
 ---
 
 ## Tool Calling Example
 
-For complete tool calling documentation including all models, parallel execution, error handling, and best practices, see [API Reference - Tool Calling](./API_REFERENCE.md#tool-calling-function-calling).
+For complete tool calling documentation including all models, parallel
+execution, error handling, and best practices, see
+[API Reference - Tool Calling](./API_REFERENCE.md#tool-calling-function-calling).
 
 ### ⚠️ Model-Specific Limitations
 
@@ -168,7 +186,8 @@ For complete tool calling documentation including all models, parallel execution
 | **gemini-1.5-pro**   | ⚠️ Limited             | Only 1 tool per request              |
 | **claude-3-sonnet**  | ✅ Yes                 | Multiple tools, sequential execution |
 
-**Gemini Note**: Multiple tools supported in future. Currently: 1 tool per request.
+**Gemini Note**: Multiple tools supported in future. Currently: 1 tool per
+request.
 
 ---
 
@@ -401,8 +420,12 @@ Check: `exp` (expiration), `subaccountid`, `scope`
 
 ## TypeScript Examples
 
-See `examples/` directory: `example-generate-text.ts`, `example-streaming-chat.ts`, `example-chat-completion-tool.ts`, `example-image-recognition.ts`, `example-data-masking.ts`. More in [README](./README.md#basic-usage).
+See `examples/` directory: `example-generate-text.ts`,
+`example-streaming-chat.ts`, `example-chat-completion-tool.ts`,
+`example-image-recognition.ts`, `example-data-masking.ts`. More in
+[README](./README.md#basic-usage).
 
 ---
 
-For production, use the TypeScript provider package for better error handling and type safety.
+For production, use the TypeScript provider package for better error handling
+and type safety.

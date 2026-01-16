@@ -29,16 +29,12 @@ import { Buffer } from "node:buffer";
  *
  * **Behavior:**
  * - Reasoning parts are dropped by default; when enabled via `includeReasoning`, they are preserved inline as `<reasoning>...</reasoning>` markers
- *
  * @see {@link https://sdk.vercel.ai/docs/ai-sdk-core/prompt-engineering Vercel AI SDK Prompt Engineering}
  * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/orchestration SAP AI Core Orchestration}
- *
  * @param prompt - The AI SDK prompt to convert
  * @param options - Optional conversion settings
  * @returns Array of SAP AI SDK compatible ChatMessage objects
- *
  * @throws {UnsupportedFunctionalityError} When unsupported message types are encountered
- *
  * @example
  * ```typescript
  * const prompt = [
@@ -52,7 +48,6 @@ import { Buffer } from "node:buffer";
  * //   { role: 'user', content: 'Hello!' }
  * // ]
  * ```
- *
  * @example
  * **Multi-modal with Image**
  * ```typescript
@@ -85,7 +80,6 @@ export interface ConvertToSAPMessagesOptions {
 /**
  * User chat message content item for multi-modal messages.
  * Maps to SAP AI SDK format for user message content.
- *
  * @internal
  */
 interface UserContentItem {
@@ -96,6 +90,12 @@ interface UserContentItem {
   type: "image_url" | "text";
 }
 
+/**
+ * Converts AI SDK prompt format to SAP AI SDK ChatMessage format.
+ * @param prompt - The AI SDK prompt to convert
+ * @param options - Optional conversion settings
+ * @returns Array of SAP AI SDK compatible ChatMessage objects
+ */
 export function convertToSAPMessages(
   prompt: LanguageModelV3Prompt,
   options: ConvertToSAPMessagesOptions = {},

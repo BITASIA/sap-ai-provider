@@ -324,7 +324,16 @@ describe("SAPAILanguageModel", () => {
   /**
    * Mock response builder for chat completion.
    * Creates a mock response with sensible defaults that can be overridden.
-   *
+   * @param overrides - Optional overrides for the mock response
+   * @param overrides.content - The response content text
+   * @param overrides.finishReason - The reason the response finished
+   * @param overrides.headers - HTTP response headers
+   * @param overrides.toolCalls - Array of tool calls in the response
+   * @param overrides.usage - Token usage information
+   * @param overrides.usage.completion_tokens - Number of tokens in the completion
+   * @param overrides.usage.prompt_tokens - Number of tokens in the prompt
+   * @param overrides.usage.total_tokens - Total number of tokens used
+   * @returns Mock chat response object
    * @example
    * ```typescript
    * const response = createMockChatResponse({
@@ -376,7 +385,12 @@ describe("SAPAILanguageModel", () => {
   /**
    * Mock stream chunk builder.
    * Creates stream chunks with sensible defaults.
-   *
+   * @param overrides - Optional overrides for the mock stream chunk
+   * @param overrides.deltaContent - Incremental content in this chunk
+   * @param overrides.deltaToolCalls - Incremental tool call data in this chunk
+   * @param overrides.finishReason - The reason the stream finished (if applicable)
+   * @param overrides.usage - Token usage information for this chunk
+   * @returns Mock stream chunk object
    * @example
    * ```typescript
    * const chunks = [
@@ -1022,6 +1036,11 @@ describe("SAPAILanguageModel", () => {
       const streamStart = parts.find((part) => part.type === "stream-start");
       expect(streamStart?.warnings).toHaveLength(0);
     });
+    /**
+     * Reads all parts from a stream and returns them as an array.
+     * @param stream - The readable stream to read from
+     * @returns Promise that resolves to an array of all stream parts
+     */
     async function readAllParts(stream: ReadableStream<LanguageModelV3StreamPart>) {
       const parts: LanguageModelV3StreamPart[] = [];
       const reader = stream.getReader();

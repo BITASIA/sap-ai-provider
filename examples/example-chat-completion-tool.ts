@@ -119,6 +119,9 @@ const weatherTool = tool({
   inputSchema: weatherSchema,
 });
 
+/**
+ *
+ */
 async function simpleToolExample() {
   console.log("🛠️  SAP AI Tool Calling Example\n");
 

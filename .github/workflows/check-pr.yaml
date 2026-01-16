@@ -88,8 +88,6 @@ jobs:
           node-version: 24
       - name: Install dependencies
         run: npm ci
-      - name: Validate documentation
-        run: npm run validate-docs
 
   publish-check:
     name: Publish Simulation

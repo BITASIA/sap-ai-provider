@@ -13,7 +13,6 @@ import type {
  * These models are available through the SAP AI Core Orchestration service.
  * **Note:** The models listed here are representative examples. Actual model availability
  * depends on your SAP AI Core tenant configuration, region, and subscription.
- *
  * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/models-and-scenarios SAP AI Core Models Documentation}
  *
  * **Azure OpenAI Models:**
@@ -43,7 +42,6 @@ export type SAPAIModelId = ChatModel;
  * These settings control model parameters, data masking, content filtering,
  * and tool usage. Settings can be provided at provider-level (defaults) or
  * per-model call (overrides).
- *
  * @example
  * **Basic usage with model parameters**
  * ```typescript
@@ -54,7 +52,6 @@ export type SAPAIModelId = ChatModel;
  *   }
  * });
  * ```
- *
  * @example
  * **With data masking (DPI)**
  * ```typescript
@@ -71,7 +68,6 @@ export type SAPAIModelId = ChatModel;
  *   }
  * });
  * ```
- *
  * @example
  * **With content filtering**
  * ```typescript
@@ -90,9 +86,7 @@ export interface SAPAISettings {
   /**
    * Filtering configuration for input and output content safety.
    * Supports Azure Content Safety and Llama Guard filters.
-   *
    * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/content-filtering SAP Content Filtering Documentation}
-   *
    * @example
    * ```typescript
    * import { buildAzureContentSafetyFilter } from '@sap-ai-sdk/orchestration';
@@ -118,9 +112,7 @@ export interface SAPAISettings {
    * Enables retrieval-augmented generation using SAP Document Grounding Service.
    *
    * Use `buildDocumentGroundingConfig()` to create the configuration.
-   *
    * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/document-grounding SAP Document Grounding Documentation}
-   *
    * @example
    * ```typescript
    * import { buildDocumentGroundingConfig } from '@mymediset/sap-ai-provider';
@@ -163,7 +155,6 @@ export interface SAPAISettings {
    * - Production applications
    * - User-facing chatbots
    * - When storing conversation history
-   *
    * @example
    * ```typescript
    * // Enable for debugging (see model's reasoning)
@@ -185,9 +176,7 @@ export interface SAPAISettings {
    * Masking configuration for SAP AI Core orchestration.
    * When provided, sensitive information in prompts can be anonymized or
    * pseudonymized by SAP Data Privacy Integration (DPI).
-   *
    * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/data-privacy-integration SAP DPI Documentation}
-   *
    * @example
    * ```typescript
    * import { buildDpiMaskingProvider } from '@sap-ai-sdk/orchestration';
@@ -270,8 +259,6 @@ export interface SAPAISettings {
   /**
    * Response format for templating prompt (OpenAI-compatible)
    * Allows specifying structured output formats
-   *
-
    * @example
    * ```typescript
    * const model = provider('gpt-4o', {
@@ -301,13 +288,12 @@ export interface SAPAISettings {
   /**
    * Tool definitions in SAP AI SDK format
    *
-
+   *
    * Use this to pass tools directly with proper JSON Schema definitions.
    * This bypasses the AI SDK's Zod conversion which may have issues.
    *
    * Note: This should be used in conjunction with AI SDK's tool handling
    * to provide the actual tool implementations (execute functions).
-   *
    * @example
    * ```typescript
    * const model = provider('gpt-4o', {
@@ -337,9 +323,7 @@ export interface SAPAISettings {
    * Enables automatic translation using SAP Document Translation service.
    *
    * Use `buildTranslationConfig()` to create input/output configurations.
-   *
    * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/translation SAP Translation Documentation}
-   *
    * @example
    * ```typescript
    * import { buildTranslationConfig } from '@mymediset/sap-ai-provider';

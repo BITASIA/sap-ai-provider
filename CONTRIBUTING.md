@@ -1,6 +1,7 @@
 # Contributing to SAP AI Provider
 
-We love your input! We want to make contributing to SAP AI Provider as easy and transparent as possible, whether it's:
+We love your input! We want to make contributing to SAP AI Provider as easy and
+transparent as possible, whether it's:
 
 - Reporting a bug
 - Discussing the current state of the code
@@ -44,7 +45,8 @@ We love your input! We want to make contributing to SAP AI Provider as easy and 
 
 ## Development Process
 
-We use GitHub to host code, to track issues and feature requests, as well as accept pull requests.
+We use GitHub to host code, to track issues and feature requests, as well as
+accept pull requests.
 
 1. Fork the repo and create your branch from `main`
 2. If you've added code that should be tested, add tests
@@ -87,6 +89,7 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
    ```
 
 4. **Verify installation**
+
    ```bash
    npm run build
    npm test
@@ -138,6 +141,7 @@ Our development workflow follows these steps:
    ```
 
 7. **Test with examples** (requires SAP credentials)
+
    ```bash
    npx tsx examples/example-generate-text.ts
    ```
@@ -161,8 +165,10 @@ This validation takes approximately 15 seconds and ensures CI will pass.
 
 ## Pull Request Process
 
-1. **Update documentation** - Update README.md, API_REFERENCE.md, or other docs if you've changed the API
-2. **Follow commit conventions** - Use [Conventional Commits](https://www.conventionalcommits.org/) format:
+1. **Update documentation** - Update README.md, API_REFERENCE.md, or other docs
+   if you've changed the API
+2. **Follow commit conventions** - Use
+   [Conventional Commits](https://www.conventionalcommits.org/) format:
    - `feat:` for new features
    - `fix:` for bug fixes
    - `docs:` for documentation changes
@@ -170,7 +176,8 @@ This validation takes approximately 15 seconds and ensures CI will pass.
    - `refactor:` for code refactoring
    - `chore:` for maintenance tasks
 3. **Add tests** - All new features and bug fixes must include tests
-4. **Request review** - The PR will be merged once you have the sign-off of at least one maintainer
+4. **Request review** - The PR will be merged once you have the sign-off of at
+   least one maintainer
 
 ### Versioning
 
@@ -222,11 +229,11 @@ Version bumping is handled by maintainers during release process.
 - Update README.md for user-facing changes
 - Update API_REFERENCE.md for API changes
 - Keep documentation concise and precise
-- **Run documentation verification before committing**: `npm run validate-docs`
 
 #### Documentation Guidelines
 
-When adding new features or changing APIs, follow these guidelines to maintain documentation quality:
+When adding new features or changing APIs, follow these guidelines to maintain
+documentation quality:
 
 **1. Single Source of Truth**
 
@@ -250,7 +257,8 @@ To set up authentication, create a service key in SAP BTP...
 
 <!-- ✅ GOOD: Linking to source of truth -->
 
-See [Environment Setup Guide](./ENVIRONMENT_SETUP.md#authentication) for authentication setup.
+See [Environment Setup Guide](./ENVIRONMENT_SETUP.md#authentication) for
+authentication setup.
 ```
 
 **3. Update Checklist for New Features**
@@ -259,13 +267,13 @@ See [Environment Setup Guide](./ENVIRONMENT_SETUP.md#authentication) for authent
 - [ ] Update `README.md` if user-facing (keep concise, link to API_REFERENCE)
 - [ ] Create example in `examples/` directory if significant feature
 - [ ] Update `MIGRATION_GUIDE.md` if breaking change
-- [ ] Run `npm run validate-docs` to check consistency
 - [ ] Run `npm run build` to ensure TypeScript compiles
 
 **4. Example Code Guidelines**
 
 - Use relative imports (`../src/index`) for repo examples
 - Add comment explaining production import path:
+
   ```typescript
   // NOTE: This example uses relative imports for local development
   // In your project, use: import { ... } from "@mymediset/sap-ai-provider"
@@ -276,20 +284,9 @@ See [Environment Setup Guide](./ENVIRONMENT_SETUP.md#authentication) for authent
 Before submitting a PR, run:
 
 ```bash
-npm run validate-docs  # Comprehensive documentation checks
 npm run build         # Ensures TypeScript compiles
 npm test             # Runs test suite
 ```
-
-The `validate-docs` script checks:
-
-- All public exports are documented in API_REFERENCE.md
-- No broken internal markdown links
-- No excessive hardcoded model lists
-- Dotenv imports in code examples
-- Link format consistency (./path vs path)
-- Required documentation files exist
-- Version consistency across docs
 
 ## Testing Guidelines
 
@@ -337,7 +334,9 @@ The `validate-docs` script checks:
 
 ## Advanced: Detailed Developer Instructions
 
-For comprehensive developer workflow and best practices, see [`.github/copilot-instructions.md`](./.github/copilot-instructions.md). This file contains:
+For comprehensive developer workflow and best practices, see
+[`.github/copilot-instructions.md`](./.github/copilot-instructions.md). This
+file contains:
 
 - Detailed build and test procedures
 - CI/CD pipeline information
@@ -346,7 +345,8 @@ For comprehensive developer workflow and best practices, see [`.github/copilot-i
 
 ## Report Bugs
 
-We use GitHub issues to track bugs. Report a bug by [opening a new issue](https://github.com/BITASIA/sap-ai-provider/issues/new?template=bug_report.md).
+We use GitHub issues to track bugs. Report a bug by
+[opening a new issue](https://github.com/BITASIA/sap-ai-provider/issues/new?template=bug_report.md).
 
 **Great Bug Reports** include:
 
@@ -358,7 +358,8 @@ We use GitHub issues to track bugs. Report a bug by [opening a new issue](https:
 
 ## Request Features
 
-Request features by [opening a feature request](https://github.com/BITASIA/sap-ai-provider/issues/new?template=feature_report.md).
+Request features by
+[opening a feature request](https://github.com/BITASIA/sap-ai-provider/issues/new?template=feature_report.md).
 
 **Good Feature Requests** include:
 
@@ -369,7 +370,8 @@ Request features by [opening a feature request](https://github.com/BITASIA/sap-a
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
+By contributing, you agree that your contributions will be licensed under the
+Apache License 2.0.
 
 ## Code of Conduct
 
@@ -390,9 +392,12 @@ By contributing, you agree that your contributions will be licensed under the Ap
 
 ## Getting Help
 
-- 📖 Read the documentation: [README](./README.md), [API Reference](./API_REFERENCE.md)
-- 💬 Ask questions in [GitHub Discussions](https://github.com/BITASIA/sap-ai-provider/discussions)
-- 🐛 Report issues: [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues)
+- 📖 Read the documentation: [README](./README.md),
+  [API Reference](./API_REFERENCE.md)
+- 💬 Ask questions in
+  [GitHub Discussions](https://github.com/BITASIA/sap-ai-provider/discussions)
+- 🐛 Report issues:
+  [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues)
 - 👥 Join the community and share your experience
 
 ## Recognition
@@ -407,4 +412,5 @@ Thank you for contributing to SAP AI Provider! 🎉
 
 ---
 
-This document was adapted from open-source contribution guidelines and is licensed under CC-BY-4.0.
+This document was adapted from open-source contribution guidelines and is
+licensed under CC-BY-4.0.

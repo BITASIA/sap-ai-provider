@@ -1,27 +1,38 @@
 ---
 description: How to use the provider and where to find examples
 ---
+
 # Usage and Examples
 
-Start with the README’s Quick Start and Advanced sections: [README.md](mdc:README.md).
+Start with the README’s Quick Start and Advanced sections:
+[README.md](mdc:README.md).
 
 ## Examples
 
-- Simple chat completion: [examples/example-simple-chat-completion.ts](mdc:examples/example-simple-chat-completion.ts)
-- Tool calling: [examples/example-chat-completion-tool.ts](mdc:examples/example-chat-completion-tool.ts)
-- Image recognition: [examples/example-image-recognition.ts](mdc:examples/example-image-recognition.ts)
-- Text generation: [examples/example-generate-text.ts](mdc:examples/example-generate-text.ts)
-- Data masking: [examples/example-data-masking.ts](mdc:examples/example-data-masking.ts)
-- Streaming chat: [examples/example-streaming-chat.ts](mdc:examples/example-streaming-chat.ts)
-- Document grounding (RAG): [examples/example-document-grounding.ts](mdc:examples/example-document-grounding.ts)
-- Translation: [examples/example-translation.ts](mdc:examples/example-translation.ts)
+- Simple chat completion:
+  [examples/example-simple-chat-completion.ts](mdc:examples/example-simple-chat-completion.ts)
+- Tool calling:
+  [examples/example-chat-completion-tool.ts](mdc:examples/example-chat-completion-tool.ts)
+- Image recognition:
+  [examples/example-image-recognition.ts](mdc:examples/example-image-recognition.ts)
+- Text generation:
+  [examples/example-generate-text.ts](mdc:examples/example-generate-text.ts)
+- Data masking:
+  [examples/example-data-masking.ts](mdc:examples/example-data-masking.ts)
+- Streaming chat:
+  [examples/example-streaming-chat.ts](mdc:examples/example-streaming-chat.ts)
+- Document grounding (RAG):
+  [examples/example-document-grounding.ts](mdc:examples/example-document-grounding.ts)
+- Translation:
+  [examples/example-translation.ts](mdc:examples/example-translation.ts)
 
 ## Common Patterns
 
-- Create provider: `createSAPAIProvider()` (auto-detects AICORE_SERVICE_KEY from environment)
-- With options: `createSAPAIProvider({ resourceGroup: 'production', deploymentId: 'abc123' })`
+- Create provider: `createSAPAIProvider()` (auto-detects AICORE_SERVICE_KEY from
+  environment)
+- With options:
+  `createSAPAIProvider({ resourceGroup: 'production', deploymentId: 'abc123' })`
 - Default instance: `sapai("gpt-4o")` (uses default configuration)
 - Use with Vercel AI SDK: `generateText`, `streamText`, `generateObject`
 
 See exported APIs: [src/index.ts](mdc:src/index.ts)
-

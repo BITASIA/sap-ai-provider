@@ -1,6 +1,7 @@
 # Troubleshooting Guide
 
-This guide helps diagnose and resolve common issues when using the SAP AI Core Provider.
+This guide helps diagnose and resolve common issues when using the SAP AI Core
+Provider.
 
 ## Quick Reference
 
@@ -45,7 +46,8 @@ Quick solutions for the most frequent issues:
    - **Fix:** [Tool Calling Guide](#problem-tools-not-being-called)
    - **ETA:** 5 minutes
 
-**For other issues**, see the detailed [Table of Contents](#table-of-contents) below.
+**For other issues**, see the detailed [Table of Contents](#table-of-contents)
+below.
 
 ## Table of Contents
 
@@ -88,12 +90,14 @@ Quick solutions for the most frequent issues:
 
 **Solutions:**
 
-1. Verify `AICORE_SERVICE_KEY` environment variable is set and contains valid JSON
+1. Verify `AICORE_SERVICE_KEY` environment variable is set and contains valid
+   JSON
 2. **→ Complete setup guide:** [Environment Setup Guide](./ENVIRONMENT_SETUP.md)
 
 ### Problem: "Cannot find module 'dotenv'"
 
-**Solution:** `npm install dotenv` and add `import "dotenv/config";` at top of entry file
+**Solution:** `npm install dotenv` and add `import "dotenv/config";` at top of
+entry file
 
 ### Problem: 403 Forbidden
 
@@ -108,14 +112,17 @@ Quick solutions for the most frequent issues:
 
 ## API Errors
 
-For a complete error code reference, see [API Reference - Error Codes](./API_REFERENCE.md#error-codes).
+For a complete error code reference, see
+[API Reference - Error Codes](./API_REFERENCE.md#error-codes).
 
 ### Parsing SAP Error Metadata (v3.0.0+)
 
 > **Architecture Details:** For OAuth2 authentication flow and token management,
-> see [Architecture - Authentication System](./ARCHITECTURE.md#authentication-system).
+> see
+> [Architecture - Authentication System](./ARCHITECTURE.md#authentication-system).
 
-**v3.0.0 Breaking Change:** `SAPAIError` removed. Use `APICallError` from `@ai-sdk/provider`.
+**v3.0.0 Breaking Change:** `SAPAIError` removed. Use `APICallError` from
+`@ai-sdk/provider`.
 
 **Quick example:**
 
@@ -134,11 +141,14 @@ try {
 }
 ```
 
-**For complete error handling with all error properties and SAP metadata fields**, see [API Reference - Error Handling Examples](./API_REFERENCE.md#error-handling-examples).
+**For complete error handling with all error properties and SAP metadata
+fields**, see
+[API Reference - Error Handling Examples](./API_REFERENCE.md#error-handling-examples).
 
 ### Problem: 400 Bad Request
 
-**Common Causes:** Invalid model parameters (temperature, maxTokens), malformed request, incompatible features
+**Common Causes:** Invalid model parameters (temperature, maxTokens), malformed
+request, incompatible features
 
 **Solutions:**
 
@@ -170,15 +180,20 @@ try {
 
 **Solutions:**
 
-1. **Verify model availability** in your SAP AI Core tenant/region ([supported models](./API_REFERENCE.md#sapaimodelid))
+1. **Verify model availability** in your SAP AI Core tenant/region
+   ([supported models](./API_REFERENCE.md#sapaimodelid))
 2. **Check resource group:**
+
    ```typescript
    const provider = createSAPAIProvider({
      resourceGroup: "default", // Must match deployment
    });
    ```
-3. **Verify deployment status:** Ensure deployment is running, check deployment ID
-4. **Test with known model:** Try `gpt-4o` - if it works, issue is model-specific
+
+3. **Verify deployment status:** Ensure deployment is running, check deployment
+   ID
+4. **Test with known model:** Try `gpt-4o` - if it works, issue is
+   model-specific
 
 ### Problem: Model doesn't support features
 
@@ -187,13 +202,16 @@ try {
 **Solutions:**
 
 1. Check model-specific documentation for limitations
-2. Use `gpt-4o` or `gpt-4.1-mini` for full tool calling (Gemini limited to 1 tool)
-3. Remove unsupported features or use alternatives (JSON mode instead of structured outputs)
+2. Use `gpt-4o` or `gpt-4.1-mini` for full tool calling (Gemini limited to 1
+   tool)
+3. Remove unsupported features or use alternatives (JSON mode instead of
+   structured outputs)
 
 ## Streaming Issues
 
 > **Architecture Details:** For streaming implementation and SSE flow diagrams,
-> see [Architecture - Streaming Text Generation](./ARCHITECTURE.md#streaming-text-generation-sse-flow).
+> see
+> [Architecture - Streaming Text Generation](./ARCHITECTURE.md#streaming-text-generation-sse-flow).
 
 ### Problem: Streaming not working or incomplete
 
@@ -217,7 +235,8 @@ try {
    }
    ```
 
-2. **Don't mix:** Use `streamText` for streaming, `generateText` for complete responses
+2. **Don't mix:** Use `streamText` for streaming, `generateText` for complete
+   responses
 
 3. **Check buffering:** Set HTTP headers for streaming:
 
@@ -228,6 +247,7 @@ try {
    ```
 
 4. **Handle errors:**
+
    ```typescript
    try {
      for await (const chunk of result.textStream) {
@@ -246,7 +266,8 @@ try {
 
 **Solutions:**
 
-1. **Improve descriptions:** Be specific in tool descriptions and parameter descriptions
+1. **Improve descriptions:** Be specific in tool descriptions and parameter
+   descriptions
 
    ```typescript
    const weatherTool = tool({
@@ -257,16 +278,20 @@ try {
    });
    ```
 
-2. **Make prompt explicit:** "What's the weather in Tokyo? Use the weather tool to check."
+2. **Make prompt explicit:** "What's the weather in Tokyo? Use the weather tool
+   to check."
 
-3. **Check compatibility:** Gemini supports only 1 tool per request. Use `gpt-4o` for multiple tools. [Model limitations](./CURL_API_TESTING_GUIDE.md#tool-calling-example)
+3. **Check compatibility:** Gemini supports only 1 tool per request. Use
+   `gpt-4o` for multiple tools.
+   [Model limitations](./CURL_API_TESTING_GUIDE.md#tool-calling-example)
 
 ### Problem: Tool execution errors
 
 **Solutions:**
 
 1. **Validate arguments:** Use schema validation before executing
-2. **Handle errors gracefully:** Wrap execute in try-catch, return `{ error: message }`
+2. **Handle errors gracefully:** Wrap execute in try-catch, return
+   `{ error: message }`
 3. **Return structured data:** JSON-serializable only, avoid complex objects
 
 ## Performance Issues
@@ -276,15 +301,18 @@ try {
 **Solutions:**
 
 1. Use `streamText` for long outputs (faster perceived performance)
-2. Optimize params: Set `maxTokens` to expected size, lower `temperature`, use smaller models (`gpt-4o-mini`)
-3. Reduce prompt size: Concise history, remove unnecessary context, summarize periodically
+2. Optimize params: Set `maxTokens` to expected size, lower `temperature`, use
+   smaller models (`gpt-4o-mini`)
+3. Reduce prompt size: Concise history, remove unnecessary context, summarize
+   periodically
 
 ### Problem: High token usage / costs
 
 **Solutions:**
 
 1. Set appropriate `maxTokens` (estimate actual response length)
-2. Optimize prompts: Be concise, remove redundancy, use system messages effectively
+2. Optimize prompts: Be concise, remove redundancy, use system messages
+   effectively
 3. Monitor usage: `console.log(result.usage)`
 
 ## Debugging Tools
@@ -297,7 +325,8 @@ export DEBUG=sap-ai-provider:*
 
 ### Use cURL for Direct API Testing
 
-See [CURL_API_TESTING_GUIDE.md](./CURL_API_TESTING_GUIDE.md) for comprehensive direct API testing.
+See [CURL_API_TESTING_GUIDE.md](./CURL_API_TESTING_GUIDE.md) for comprehensive
+direct API testing.
 
 ### Check Token Validity
 
@@ -342,11 +371,16 @@ console.log("AI API URL:", key.serviceurls?.AI_API_URL);
 
 If issues persist:
 
-1. **Check documentation:** [README](./README.md), [API_REFERENCE](./API_REFERENCE.md), [ENVIRONMENT_SETUP](./ENVIRONMENT_SETUP.md)
+1. **Check documentation:** [README](./README.md),
+   [API_REFERENCE](./API_REFERENCE.md),
+   [ENVIRONMENT_SETUP](./ENVIRONMENT_SETUP.md)
 2. **Review examples:** Compare your code with `examples/` directory
 
-3. **Open an issue:** [GitHub Issues](https://github.com/BITASIA/sap-ai-provider/issues) - Include error messages, code snippets (redact credentials)
-4. **SAP Support:** For SAP AI Core service issues - [SAP AI Core Docs](https://help.sap.com/docs/ai-core)
+3. **Open an issue:**
+   [GitHub Issues](https://github.com/BITASIA/sap-ai-provider/issues) - Include
+   error messages, code snippets (redact credentials)
+4. **SAP Support:** For SAP AI Core service issues -
+   [SAP AI Core Docs](https://help.sap.com/docs/ai-core)
 
 ## Related Documentation
 

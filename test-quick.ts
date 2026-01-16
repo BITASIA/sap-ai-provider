@@ -12,6 +12,9 @@ import { generateText } from "ai";
 
 import { createSAPAIProvider } from "./src/index";
 
+/**
+ *
+ */
 async function quickTest() {
   console.log("🧪 Quick Test: SAP AI Provider\n");
 

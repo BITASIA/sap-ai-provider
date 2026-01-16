@@ -65,5 +65,6 @@ Paste error logs here
 
 - [ ] I've searched existing issues and this is not a duplicate
 - [ ] I've included a minimal code example that reproduces the issue
-- [ ] I've checked the [Troubleshooting Guide](https://github.com/BITASIA/sap-ai-provider/blob/main/TROUBLESHOOTING.md)
+- [ ] I've checked the
+      [Troubleshooting Guide](https://github.com/BITASIA/sap-ai-provider/blob/main/TROUBLESHOOTING.md)
 - [ ] I've included relevant error logs

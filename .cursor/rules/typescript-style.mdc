@@ -1,9 +1,11 @@
 ---
 globs: *.ts,*.tsx,*.mts,*.cts
 ---
+
 # TypeScript Style Guide
 
-Follow these conventions across TypeScript sources to align with the existing configuration and code style.
+Follow these conventions across TypeScript sources to align with the existing
+configuration and code style.
 
 ## Language and Types
 
@@ -20,17 +22,22 @@ Follow these conventions across TypeScript sources to align with the existing co
 
 ## Errors and Handling
 
-- Do not swallow errors. Propagate or wrap with context using Vercel AI SDK standard errors (`APICallError`, `LoadAPIKeyError` from `@ai-sdk/provider`).
-- Only use `try/catch` where meaningful recovery or re-throw with context is performed.
+- Do not swallow errors. Propagate or wrap with context using Vercel AI SDK
+  standard errors (`APICallError`, `LoadAPIKeyError` from `@ai-sdk/provider`).
+- Only use `try/catch` where meaningful recovery or re-throw with context is
+  performed.
 
 ## Formatting and Linting
 
-- Respect [eslint.config.mjs](mdc:eslint.config.mjs) and Prettier (see `prettier-*` scripts in [package.json](mdc:package.json)).
+- Respect [eslint.config.mjs](mdc:eslint.config.mjs) and Prettier (see
+  `prettier-*` scripts in [package.json](mdc:package.json)).
 - Keep lines readable; prefer multi-line over dense one-liners.
 - Avoid inline explanatory comments; add brief comments above non-obvious logic.
 
 ## Provider-specific Conventions
 
-- The provider function must not be invoked with `new` (explicitly guarded in [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)).
-- When adding model capabilities, ensure `SAPAILanguageModel` maintains the `LanguageModelV3` contract (see [src/sap-ai-language-model.ts](mdc:src/sap-ai-language-model.ts)).
-
+- The provider function must not be invoked with `new` (explicitly guarded in
+  [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)).
+- When adding model capabilities, ensure `SAPAILanguageModel` maintains the
+  `LanguageModelV3` contract (see
+  [src/sap-ai-language-model.ts](mdc:src/sap-ai-language-model.ts)).

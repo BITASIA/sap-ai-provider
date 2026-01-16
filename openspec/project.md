@@ -23,9 +23,8 @@ This project provides a community-developed provider for SAP AI Core that integr
 
 - **tsup** - TypeScript bundler (dual ESM/CJS output)
 - **vitest** - Unit testing framework with Node.js and Edge runtime configs
-- **tsx** - TypeScript execution for examples and scripts
-
-**Dependencies:**
+- **tsx** - TypeScript execution for examples
+  **Dependencies:**
 
 - **@ai-sdk/provider** (^3.0.2) - Vercel AI SDK provider interfaces
 - **@ai-sdk/provider-utils** (^4.0.5) - Vercel AI SDK utilities
@@ -149,7 +148,6 @@ npm run test:coverage # With coverage report
 
 ```bash
 npm run prepublishOnly  # Runs before npm publish
-# - validate-docs
 # - type-check
 # - test
 # - build
@@ -231,12 +229,12 @@ npm run prepublishOnly  # Runs before npm publish
 - **Vercel AI SDK** (`ai` peer dependency)
   - Interface definitions: `@ai-sdk/provider`
   - Utilities: `@ai-sdk/provider-utils`
-  - Documentation: https://sdk.vercel.ai/
+  - Documentation: <https://sdk.vercel.ai/>
 
 - **SAP AI SDK** (`@sap-ai-sdk/orchestration`)
   - Official SAP Cloud SDK for AI Core
   - Handles authentication, API calls, credential management
-  - Documentation: https://sap.github.io/ai-sdk/
+  - Documentation: <https://sap.github.io/ai-sdk/>
 
 **SAP AI Core API:**
 

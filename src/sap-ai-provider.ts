@@ -16,7 +16,6 @@ export type DeploymentConfig = DeploymentIdConfig | ResourceGroupConfig;
  *
  * This is the main interface for creating and configuring SAP AI Core models.
  * It extends the standard AI SDK ProviderV3 interface with SAP-specific functionality.
- *
  * @example
  * ```typescript
  * const provider = createSAPAIProvider({
@@ -38,7 +37,6 @@ export type DeploymentConfig = DeploymentIdConfig | ResourceGroupConfig;
 export interface SAPAIProvider extends ProviderV3 {
   /**
    * Create a language model instance.
-   *
    * @param modelId - The SAP AI Core model identifier (e.g., 'gpt-4o', 'anthropic--claude-3.5-sonnet')
    * @param settings - Optional model configuration settings
    * @returns Configured SAP AI chat language model instance
@@ -50,7 +48,6 @@ export interface SAPAIProvider extends ProviderV3 {
    *
    * This method is equivalent to calling the provider function directly,
    * but provides a more explicit API for chat-based interactions.
-   *
    * @param modelId - The SAP AI Core model identifier
    * @param settings - Optional model configuration settings
    * @returns Configured SAP AI chat language model instance
@@ -64,7 +61,6 @@ export interface SAPAIProvider extends ProviderV3 {
  * This interface defines all available options for configuring the SAP AI Core connection
  * using the official SAP AI SDK. The SDK handles authentication automatically when
  * running on SAP BTP (via service binding) or locally (via AICORE_SERVICE_KEY env var).
- *
  * @example
  * ```typescript
  * // Using default configuration (auto-detects service binding or env var)
@@ -95,7 +91,6 @@ export interface SAPAIProviderSettings {
    *
    * A specific deployment ID to use for orchestration requests.
    * If not provided, the SDK will resolve the deployment automatically.
-   *
    * @example
    * ```typescript
    * deploymentId: 'd65d81e7c077e583'
@@ -110,7 +105,6 @@ export interface SAPAIProviderSettings {
    * - Custom proxy configurations
    * - Non-standard SAP AI Core setups
    * - Testing environments
-   *
    * @example
    * ```typescript
    * destination: {
@@ -126,7 +120,6 @@ export interface SAPAIProviderSettings {
    * Logical grouping of AI resources in SAP AI Core.
    * Used for resource isolation and access control.
    * Different resource groups can have different permissions and quotas.
-   *
    * @default 'default'
    * @example
    * ```typescript
@@ -165,10 +158,8 @@ export interface SAPAIProviderSettings {
  * - Tool calling support
  * - Data masking (DPI)
  * - Content filtering
- *
  * @param options - Configuration options for the provider
  * @returns A configured SAP AI provider
- *
  * @example
  * **Basic Usage**
  * ```typescript
@@ -182,7 +173,6 @@ export interface SAPAIProviderSettings {
  *   prompt: 'Hello, world!'
  * });
  * ```
- *
  * @example
  * **With Resource Group**
  * ```typescript
@@ -197,7 +187,6 @@ export interface SAPAIProviderSettings {
  *   }
  * });
  * ```
- *
  * @example
  * **With Default Settings**
  * ```typescript
@@ -232,7 +221,6 @@ export function createSAPAIProvider(options: SAPAIProviderSettings = {}): SAPAIP
      * - Complex objects (masking, filtering, tools): Override - last value wins
      *
      * This design avoids unexpected behavior from merging complex configuration objects.
-     *
      * @example
      * **Model params are merged:**
      * ```typescript
@@ -249,7 +237,6 @@ export function createSAPAIProvider(options: SAPAIProviderSettings = {}): SAPAIP
      * // Result: { temperature: 0.7, maxTokens: 2000 }
      * // temperature from default, maxTokens overridden
      * ```
-     *
      * @example
      * **Complex objects are replaced (not merged):**
      * ```typescript
@@ -272,7 +259,6 @@ export function createSAPAIProvider(options: SAPAIProviderSettings = {}): SAPAIP
      * // Result: masking = { enabled: true, entities: ['PHONE'] }
      * // Completely replaced, not merged - PERSON and EMAIL are gone
      * ```
-     *
      * @example
      * **Tools override completely:**
      * ```typescript
@@ -330,7 +316,6 @@ export function createSAPAIProvider(options: SAPAIProviderSettings = {}): SAPAIP
  *
  * Uses the default configuration which auto-detects authentication
  * from service binding (SAP BTP) or AICORE_SERVICE_KEY environment variable.
- *
  * @example
  * ```typescript
  * import { sapai } from '@mymediset/sap-ai-provider';

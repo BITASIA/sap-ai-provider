@@ -1,8 +1,10 @@
 # SAP AI Core Provider Architecture
 
-This document provides a detailed overview of the SAP AI Core Provider's architecture, internal components, and integration patterns.
+This document provides a detailed overview of the SAP AI Core Provider's
+architecture, internal components, and integration patterns.
 
-**For general usage**, see [README.md](./README.md). **For API documentation**, see [API_REFERENCE.md](./API_REFERENCE.md).
+**For general usage**, see [README.md](./README.md). **For API documentation**,
+see [API_REFERENCE.md](./API_REFERENCE.md).
 
 ## TL;DR (Executive Summary)
 
@@ -14,7 +16,8 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
 - Transforms messages bidirectionally (AI SDK ↔ SAP format)
 - Supports streaming, tool calling, multi-modal, and data masking
 
-**Key Components:** Provider → OAuth Manager → Message Transformer → Error Handler → SAP AI Core API
+**Key Components:** Provider → OAuth Manager → Message Transformer → Error
+Handler → SAP AI Core API
 
 ## Table of Contents
 
@@ -70,11 +73,19 @@ This document provides a detailed overview of the SAP AI Core Provider's archite
 
 ## Overview
 
-The SAP AI Core Provider is designed as a bridge between the Vercel AI SDK and SAP AI Core services. It implements the Vercel AI SDK's `ProviderV2` interface while handling the complexities of SAP AI Core's API, authentication, and data formats.
+The SAP AI Core Provider is designed as a bridge between the Vercel AI SDK and
+SAP AI Core services. It implements the Vercel AI SDK's `ProviderV2` interface
+while handling the complexities of SAP AI Core's API, authentication, and data
+formats.
 
 ### High-Level Architecture
 
-The diagram below illustrates the complete architecture of the SAP AI Provider, showing how it integrates your application with SAP AI Core through the Vercel AI SDK. The provider layer handles OAuth2 authentication, message transformation between AI SDK and SAP formats, and error handling. SAP AI Core routes requests to various AI models (OpenAI GPT, Anthropic Claude, Google Gemini, Amazon Nova, and open-source models).
+The diagram below illustrates the complete architecture of the SAP AI Provider,
+showing how it integrates your application with SAP AI Core through the Vercel
+AI SDK. The provider layer handles OAuth2 authentication, message transformation
+between AI SDK and SAP formats, and error handling. SAP AI Core routes requests
+to various AI models (OpenAI GPT, Anthropic Claude, Google Gemini, Amazon Nova,
+and open-source models).
 
 ```mermaid
 graph TB
@@ -135,7 +146,12 @@ graph TB
 
 ### Component Interaction Flow
 
-This sequence diagram shows the complete request lifecycle from your application through the AI SDK and provider to SAP AI Core. The flow is divided into four phases: Authentication (OAuth2 token retrieval), Message Transformation (converting AI SDK format to SAP format), API Request & Response (communication with SAP AI Core and the AI model), and Response Processing (parsing and converting back to AI SDK format).
+This sequence diagram shows the complete request lifecycle from your application
+through the AI SDK and provider to SAP AI Core. The flow is divided into four
+phases: Authentication (OAuth2 token retrieval), Message Transformation
+(converting AI SDK format to SAP format), API Request & Response (communication
+with SAP AI Core and the AI model), and Response Processing (parsing and
+converting back to AI SDK format).
 
 ```mermaid
 sequenceDiagram
@@ -196,7 +212,11 @@ sequenceDiagram
 
 ### Component Interaction Map
 
-This diagram details the responsibilities of each major component in the provider architecture, including the SAPAIProvider (OAuth2 management, configuration), SAPAILanguageModel (request/response handling, tool calls), Authentication System (token management), Message Transformer (format conversion), API Client (HTTP communication), and Error Handling system.
+This diagram details the responsibilities of each major component in the
+provider architecture, including the SAPAIProvider (OAuth2 management,
+configuration), SAPAILanguageModel (request/response handling, tool calls),
+Authentication System (token management), Message Transformer (format
+conversion), API Client (HTTP communication), and Error Handling system.
 
 ```mermaid
 graph TB
@@ -281,7 +301,10 @@ src/
 
 ### Standard Text Generation (Complete Flow)
 
-This detailed sequence diagram shows the complete flow for a standard text generation request, including all steps from application call through authentication, message transformation, SAP AI Core API communication, and response processing back to the application.
+This detailed sequence diagram shows the complete flow for a standard text
+generation request, including all steps from application call through
+authentication, message transformation, SAP AI Core API communication, and
+response processing back to the application.
 
 ```mermaid
 sequenceDiagram
@@ -363,7 +386,10 @@ sequenceDiagram
 
 ### Streaming Text Generation (SSE Flow)
 
-This diagram illustrates the streaming text generation flow using Server-Sent Events (SSE). Unlike standard generation, streaming returns partial responses incrementally as the AI model generates content, enabling real-time display of results to users.
+This diagram illustrates the streaming text generation flow using Server-Sent
+Events (SSE). Unlike standard generation, streaming returns partial responses
+incrementally as the AI model generates content, enabling real-time display of
+results to users.
 
 ```mermaid
 sequenceDiagram
@@ -418,7 +444,8 @@ sequenceDiagram
 
 ### Orchestration v2 Endpoint
 
-SAP AI Core Orchestration v2 introduces a more structured API with improved capabilities:
+SAP AI Core Orchestration v2 introduces a more structured API with improved
+capabilities:
 
 **Default Path:**
 
@@ -638,11 +665,15 @@ const response = abortPromise ? await Promise.race([apiCall, abortPromise]) : aw
 
 #### Why This Happens
 
-The SAP AI SDK's `OrchestrationClient.chatCompletion()` method does not currently expose an `AbortSignal` parameter. Without this support, we cannot propagate the cancellation to the underlying HTTP client.
+The SAP AI SDK's `OrchestrationClient.chatCompletion()` method does not
+currently expose an `AbortSignal` parameter. Without this support, we cannot
+propagate the cancellation to the underlying HTTP client.
 
 #### Future Enhancement
 
-True request cancellation will be possible when SAP AI SDK adds AbortController support (tracked in https://github.com/SAP/ai-sdk-js/issues/1429). The implementation will be updated to:
+True request cancellation will be possible when SAP AI SDK adds AbortController
+support (tracked in <https://github.com/SAP/ai-sdk-js/issues/1429>). The
+implementation will be updated to:
 
 ```typescript
 // Future implementation
@@ -664,7 +695,10 @@ For production applications:
 
 ### Tool Calling Flow
 
-This diagram shows how tool calling (function calling) works. When the AI model needs to call a tool, it returns structured tool call requests. Your application executes the tools and provides results back, which the model uses to generate the final response.
+This diagram shows how tool calling (function calling) works. When the AI model
+needs to call a tool, it returns structured tool call requests. Your application
+executes the tools and provides results back, which the model uses to generate
+the final response.
 
 ```mermaid
 sequenceDiagram
@@ -735,7 +769,9 @@ sequenceDiagram
 
 ### Data Masking Flow (SAP DPI Integration)
 
-This diagram illustrates how SAP Data Privacy Integration (DPI) works. When enabled, sensitive data in prompts is automatically masked before being sent to AI models, and the masked entities are tracked and unmasked in responses.
+This diagram illustrates how SAP Data Privacy Integration (DPI) works. When
+enabled, sensitive data in prompts is automatically masked before being sent to
+AI models, and the masked entities are tracked and unmasked in responses.
 
 ```mermaid
 sequenceDiagram
@@ -784,7 +820,10 @@ sequenceDiagram
 
 ### OAuth2 Authentication Flow
 
-This diagram shows how OAuth2 authentication works with token caching. The provider checks for a valid cached token first; if expired or missing, it requests a new token using client credentials, caches it, and uses it for API requests.
+This diagram shows how OAuth2 authentication works with token caching. The
+provider checks for a valid cached token first; if expired or missing, it
+requests a new token using client credentials, caches it, and uses it for API
+requests.
 
 ```mermaid
 sequenceDiagram
@@ -859,7 +898,9 @@ The SDK manages credentials, token acquisition, caching, and refresh internally.
 
 ## Error Handling
 
-The provider implements robust error handling by converting SAP AI SDK errors to standard Vercel AI SDK error types for consistent error handling across providers.
+The provider implements robust error handling by converting SAP AI SDK errors to
+standard Vercel AI SDK error types for consistent error handling across
+providers.
 
 ### Error Conversion Architecture
 
@@ -880,14 +921,18 @@ try {
 
 ### Error Classification
 
-The `convertToAISDKError()` function handles error conversion with a clear priority:
+The `convertToAISDKError()` function handles error conversion with a clear
+priority:
 
 1. **Already AI SDK error?** → Return as-is (no conversion needed)
-2. **SAP Orchestration error?** → Convert to `APICallError` with details extracted from response
-3. **Network/auth errors?** → Classify as `LoadAPIKeyError` or `APICallError` with appropriate status code
+2. **SAP Orchestration error?** → Convert to `APICallError` with details
+   extracted from response
+3. **Network/auth errors?** → Classify as `LoadAPIKeyError` or `APICallError`
+   with appropriate status code
 4. **Unknown error?** → Generic `APICallError` with status 500
 
-All errors include helpful context (operation, URL, request body summary) for debugging.
+All errors include helpful context (operation, URL, request body summary) for
+debugging.
 
 ### Retry Mechanism
 
@@ -897,23 +942,30 @@ The provider marks errors as retryable based on HTTP status codes:
 - **500-504 (Server Errors)**: `isRetryable: true` → Exponential backoff
 - **400-404, 401-403**: `isRetryable: false` → Immediate failure
 
-The Vercel AI SDK handles retry logic automatically based on the `isRetryable` flag.
+The Vercel AI SDK handles retry logic automatically based on the `isRetryable`
+flag.
 
 ### User-Facing Error Handling (v3.0.0+)
 
-This provider converts all SAP Orchestration errors to standard Vercel AI SDK error types:
+This provider converts all SAP Orchestration errors to standard Vercel AI SDK
+error types:
 
 - Authentication issues → `LoadAPIKeyError`
 - API/HTTP errors → `APICallError` with SAP metadata in `responseBody`
 
-**Breaking change in v3.0.0:** The custom `SAPAIError` class was removed to ensure full compatibility with the AI SDK ecosystem and enable automatic retry mechanisms.
+**Breaking change in v3.0.0:** The custom `SAPAIError` class was removed to
+ensure full compatibility with the AI SDK ecosystem and enable automatic retry
+mechanisms.
 
 **For implementation details and code examples:**
 
-- [API Reference - Error Handling Examples](./API_REFERENCE.md#error-handling-examples) - Complete examples with all error types
-- [Troubleshooting Guide](./TROUBLESHOOTING.md#parsing-sap-error-metadata-v300) - Quick reference and common issues
+- [API Reference - Error Handling Examples](./API_REFERENCE.md#error-handling-examples) -
+  Complete examples with all error types
+- [Troubleshooting Guide](./TROUBLESHOOTING.md#parsing-sap-error-metadata-v300) -
+  Quick reference and common issues
 
-**For v2→v3 migration**, see [MIGRATION_GUIDE.md - v2 to v3](./MIGRATION_GUIDE.md#version-2x-to-3x-breaking-changes).
+**For v2→v3 migration**, see
+[MIGRATION_GUIDE.md - v2 to v3](./MIGRATION_GUIDE.md#version-2x-to-3x-breaking-changes).
 
 ## Type System
 
@@ -921,21 +973,25 @@ This provider converts all SAP Orchestration errors to standard Vercel AI SDK er
 
 Key types for model configuration:
 
-- **`SAPAIModelId`**: String union of supported models (e.g., "gpt-4o", "claude-3.5-sonnet", "gemini-1.5-pro") with flexibility for custom models
-- **`SAPAISettings`**: Interface with `modelVersion`, `modelParams` (maxTokens, temperature, topP, etc.), `safePrompt`, and `structuredOutputs` options
+- **`SAPAIModelId`**: String union of supported models (e.g., "gpt-4o",
+  "claude-3.5-sonnet", "gemini-1.5-pro") with flexibility for custom models
+- **`SAPAISettings`**: Interface with `modelVersion`, `modelParams` (maxTokens,
+  temperature, topP, etc.), `safePrompt`, and `structuredOutputs` options
 
 See `src/sap-ai-settings.ts` for complete type definitions.
 
 ### Request/Response Schemas
 
-All API interactions use types from `@sap-ai-sdk/orchestration` and are validated for type safety. Key types include:
+All API interactions use types from `@sap-ai-sdk/orchestration` and are
+validated for type safety. Key types include:
 
 - `ChatCompletionRequest`: Orchestration config and input parameters
 - `OrchestrationResponse`: API responses with module results
 - `ChatMessage`: Message format (role, content, tool calls)
 - `ChatCompletionTool`: Function definitions and parameters
 
-See `src/sap-ai-settings.ts` for the main settings interface and re-exported SAP AI SDK types.
+See `src/sap-ai-settings.ts` for the main settings interface and re-exported SAP
+AI SDK types.
 
 ## Integration Patterns
 
@@ -955,11 +1011,16 @@ interface SAPAIProvider extends ProviderV2 {
 
 ### Adapter Pattern
 
-The message conversion system adapts between Vercel AI SDK format and SAP AI Core format. The `convertToSAPMessages()` function transforms prompt arrays, handling text content, images, tool calls, and tool results across different message formats.
+The message conversion system adapts between Vercel AI SDK format and SAP AI
+Core format. The `convertToSAPMessages()` function transforms prompt arrays,
+handling text content, images, tool calls, and tool results across different
+message formats.
 
 ### Strategy Pattern
 
-Different AI models may require different handling strategies based on their specific requirements and formats. The implementation can adapt behavior based on model identifiers (e.g., `anthropic--*`, `gemini-*`, etc.).
+Different AI models may require different handling strategies based on their
+specific requirements and formats. The implementation can adapt behavior based
+on model identifiers (e.g., `anthropic--*`, `gemini-*`, etc.).
 
 ## Performance Considerations
 
@@ -990,9 +1051,12 @@ Consider tracking:
 1. **Horizontal Scaling**: Support for multiple instances
 2. **Load Balancing**: Distribute requests across deployments
 3. **Circuit Breaker**: Prevent cascade failures
-4. **Rate Limiting**: Client-side rate limiting to prevent 429s (e.g., token bucket or sliding window algorithm)
+4. **Rate Limiting**: Client-side rate limiting to prevent 429s (e.g., token
+   bucket or sliding window algorithm)
 
-This architecture ensures the SAP AI Core Provider is robust, scalable, and maintainable while providing a seamless integration experience with the Vercel AI SDK.
+This architecture ensures the SAP AI Core Provider is robust, scalable, and
+maintainable while providing a seamless integration experience with the Vercel
+AI SDK.
 
 ---
 
@@ -1002,5 +1066,7 @@ This architecture ensures the SAP AI Core Provider is robust, scalable, and main
 
 **Related Technical Documentation:**
 
-- [API Reference](./API_REFERENCE.md) - Complete type definitions and interfaces referenced in this architecture document
-- [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) - Low-level API debugging to understand request/response flows described above
+- [API Reference](./API_REFERENCE.md) - Complete type definitions and interfaces
+  referenced in this architecture document
+- [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) - Low-level API
+  debugging to understand request/response flows described above

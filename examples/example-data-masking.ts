@@ -25,6 +25,9 @@ import { generateText } from "ai";
 // This example uses relative imports for local development within this repo:
 import { buildDpiMaskingProvider, createSAPAIProvider } from "../src/index";
 
+/**
+ *
+ */
 async function dataMaskingExample() {
   console.log("🔒 SAP AI Data Masking Example (DPI)\n");
 

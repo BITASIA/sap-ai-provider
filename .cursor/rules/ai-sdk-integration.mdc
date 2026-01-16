@@ -1,16 +1,20 @@
 ---
 description: Guidance for integrating with the Vercel AI SDK
 ---
+
 # AI SDK Integration
 
-The provider implements the `LanguageModelV3` contract and is designed to work with the Vercel AI SDK 6.0+.
+The provider implements the `LanguageModelV3` contract and is designed to work
+with the Vercel AI SDK 6.0+.
 
 ## Key Points
 
 - Create models via the provider function: `const model = provider("gpt-4o")`.
-- Supported operations include `doGenerate` and `doStream` (see [src/sap-ai-language-model.ts](mdc:src/sap-ai-language-model.ts)).
+- Supported operations include `doGenerate` and `doStream` (see
+  [src/sap-ai-language-model.ts](mdc:src/sap-ai-language-model.ts)).
 - Tool calling is supported by passing `tools` in call options.
-- Structured outputs (JSON schema response_format) are enabled for most models except Anthropic and Amazon families.
+- Structured outputs (JSON schema response_format) are enabled for most models
+  except Anthropic and Amazon families.
 - `n` (multi-choice) is disabled for Amazon models.
 
 ## Recommended API Usage
@@ -20,4 +24,3 @@ The provider implements the `LanguageModelV3` contract and is designed to work w
 - Structured outputs: `generateObject` when the model supports JSON schema.
 
 Refer to examples in [README.md](mdc:README.md) and [examples/](mdc:examples/).
-

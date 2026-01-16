@@ -1,9 +1,12 @@
 # Environment Setup
 
-Complete guide for setting up authentication and environment configuration for the SAP AI Core Provider.
+Complete guide for setting up authentication and environment configuration for
+the SAP AI Core Provider.
 
-> **Quick Start:** For a shorter introduction, see the [README Quick Start](./README.md#quick-start).
-> **API Details:** For configuration options, see [API Reference - SAPAIProviderSettings](./API_REFERENCE.md#sapaiprovidersettings).
+> **Quick Start:** For a shorter introduction, see the
+> [README Quick Start](./README.md#quick-start). **API Details:** For
+> configuration options, see
+> [API Reference - SAPAIProviderSettings](./API_REFERENCE.md#sapaiprovidersettings).
 
 ## Table of Contents
 
@@ -27,7 +30,8 @@ Complete guide for setting up authentication and environment configuration for t
 
 ## Quick Setup (Local Development)
 
-> ⚠️ **v2.0+ Change:** Authentication uses `AICORE_SERVICE_KEY` environment variable (changed from `SAP_AI_SERVICE_KEY` in v1.x).
+> ⚠️ **v2.0+ Change:** Authentication uses `AICORE_SERVICE_KEY` environment
+> variable (changed from `SAP_AI_SERVICE_KEY` in v1.x).
 
 ### 1️⃣ Get Your Service Key
 
@@ -62,7 +66,8 @@ const provider = createSAPAIProvider();
 const model = provider("gpt-4o");
 ```
 
-> 💡 **Key v2.0 changes:** Provider creation is synchronous (no `await`), no `serviceKey` parameter needed.
+> 💡 **Key v2.0 changes:** Provider creation is synchronous (no `await`), no
+> `serviceKey` parameter needed.
 
 ### Running Examples
 
@@ -77,7 +82,8 @@ npx tsx examples/example-streaming-chat.ts
 
 ## SAP BTP Deployment
 
-When deployed on SAP BTP with service bindings, authentication is **fully automatic** via `VCAP_SERVICES`:
+When deployed on SAP BTP with service bindings, authentication is **fully
+automatic** via `VCAP_SERVICES`:
 
 ```typescript
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
@@ -173,7 +179,8 @@ console.log("OAuth URL:", key.url);
 console.log("AI API URL:", key.serviceurls?.AI_API_URL);
 ```
 
-**For complete troubleshooting guide:** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+**For complete troubleshooting guide:**
+[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 
 ---
 
@@ -183,7 +190,8 @@ console.log("AI API URL:", key.serviceurls?.AI_API_URL);
 
 - Never commit `.env` files to version control
 - Add `.env` to `.gitignore`
-- Use secrets management in production (AWS Secrets Manager, Azure Key Vault, etc.)
+- Use secrets management in production (AWS Secrets Manager, Azure Key Vault,
+  etc.)
 
 🔄 **Rotate Keys Regularly:**
 
@@ -205,5 +213,7 @@ console.log("AI API URL:", key.serviceurls?.AI_API_URL);
 ## Related Documentation
 
 - [README.md](./README.md#authentication) - Quick authentication overview
-- [API_REFERENCE.md](./API_REFERENCE.md#sapaiprovidersettings) - Configuration options
-- [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md#authentication-changes) - Authentication changes in v2.0
+- [API_REFERENCE.md](./API_REFERENCE.md#sapaiprovidersettings) - Configuration
+  options
+- [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md#authentication-changes) -
+  Authentication changes in v2.0

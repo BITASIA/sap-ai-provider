@@ -26,7 +26,6 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 /**
  * Extended function tool type that includes the raw parameters field
  * which may contain a Zod schema in some AI SDK versions.
- *
  * @internal
  */
 interface FunctionToolWithParameters extends LanguageModelV3FunctionTool {
@@ -50,7 +49,6 @@ interface SAPAIConfig {
 /**
  * Extended SAP model parameters including additional OpenAI-compatible options
  * beyond the base LlmModelParams from SAP AI SDK.
- *
  * @internal
  */
 type SAPModelParams = LlmModelParams & {
@@ -64,7 +62,6 @@ type SAPResponseFormat = Template["response_format"];
 
 /**
  * SAP tool parameters with required object type.
- *
  * @internal
  */
 type SAPToolParameters = Record<string, unknown> & {
@@ -73,13 +70,11 @@ type SAPToolParameters = Record<string, unknown> & {
 
 /**
  * Generates unique RFC 4122-compliant UUIDs for streaming responses.
- *
  * @internal
  */
 class StreamIdGenerator {
   /**
    * Generates a unique ID for a response stream.
-   *
    * @returns RFC 4122-compliant UUID
    */
   generateResponseId(): string {
@@ -88,7 +83,6 @@ class StreamIdGenerator {
 
   /**
    * Generates a unique ID for a text block.
-   *
    * @returns RFC 4122-compliant UUID
    */
   generateTextBlockId(): string {
@@ -115,10 +109,8 @@ class StreamIdGenerator {
  * - Google Vertex AI models (gemini-2.0-flash, gemini-2.5-pro, etc.)
  * - AWS Bedrock models (anthropic--claude-*, amazon--nova-*, etc.)
  * - AI Core open source models (mistralai--, cohere--, etc.)
- *
  * @see {@link https://sdk.vercel.ai/docs/ai-sdk-core/language-model-v3 Vercel AI SDK LanguageModelV3}
  * @see {@link https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/orchestration SAP AI Core Orchestration}
- *
  * @example
  * ```typescript
  * // Create via provider
@@ -131,8 +123,6 @@ class StreamIdGenerator {
  *   prompt: 'Hello, world!'
  * });
  * ```
- *
- * @implements {LanguageModelV3}
  */
 export class SAPAILanguageModel implements LanguageModelV3 {
   readonly modelId: SAPAIModelId;
@@ -162,45 +152,8 @@ export class SAPAILanguageModel implements LanguageModelV3 {
   readonly supportsToolCalls: boolean = true;
 
   /**
-   * Generates text completion using SAP AI Core's Orchestration API.
-   *
-   * This method implements the `LanguageModelV3.doGenerate` interface,
-   * providing synchronous (non-streaming) text generation with support for:
-   * - Multi-turn conversations with system/user/assistant messages
-   * - Tool calling (function calling) with structured outputs
-   * - Multi-modal inputs (text + images)
-   * - Data masking via SAP DPI
-   * - Content filtering via Azure Content Safety or Llama Guard
-   *
-   * **Return Structure:**
-   * - Finish reason: `{ unified: string, raw?: string }`
-   * - Usage: Nested structure with token breakdown `{ inputTokens: { total, ... }, outputTokens: { total, ... } }`
-   * - Warnings: Array of warnings with `type` and optional `feature` field
-   *
-   * @param options - Generation options including prompt, tools, temperature, etc.
-   * @returns Promise resolving to generation result with content, usage, and metadata
-   *
-   * @throws {InvalidPromptError} If prompt format is invalid
-   * @throws {InvalidArgumentError} If arguments are malformed
-   * @throws {APICallError} If the SAP AI Core API call fails
-   *
-   * @example
-   * ```typescript
-   * const result = await model.doGenerate({
-   *   prompt: [
-   *     { role: 'user', content: [{ type: 'text', text: 'Hello!' }] }
-   *   ],
-   *   temperature: 0.7,
-   *   maxTokens: 100
-   * });
-   *
-   * console.log(result.content); // Array of V3 content parts
-   * console.log(result.finishReason.unified); // "stop", "length", "tool-calls", etc.
-   * console.log(result.usage.inputTokens.total); // Total input tokens
-   * ```
-   *
-   * @since 1.0.0
-   * @since 4.0.0 Updated to LanguageModelV3 interface
+   * Returns the provider identifier.
+   * @returns The provider name
    */
   get provider(): string {
     return this.config.provider;
@@ -208,7 +161,6 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
   /**
    * Returns supported URL patterns for different content types.
-   *
    * @returns Record of content types to regex patterns
    */
   get supportedUrls(): Record<string, RegExp[]> {
@@ -223,13 +175,10 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
   /**
    * Creates a new SAP AI Chat Language Model instance.
-   *
+   * @internal
    * @param modelId - The model identifier
    * @param settings - Model-specific configuration settings
    * @param config - Internal configuration (deployment config, destination, etc.)
-   *
-   * @internal This constructor is not meant to be called directly.
-   * Use the provider function instead.
    */
   constructor(modelId: SAPAIModelId, settings: SAPAISettings, config: SAPAIConfig) {
     this.settings = settings;
@@ -255,12 +204,9 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * the signal is aborted. However, this does not cancel the underlying HTTP request
    * to SAP AI Core - the request continues executing on the server. This is a
    * limitation of the SAP AI SDK's chatCompletion API.
-   *
    * @see https://github.com/SAP/ai-sdk-js/issues/1429 for tracking true cancellation support
-   *
    * @param options - Generation options including prompt, tools, and settings
    * @returns Promise resolving to the generation result with content, usage, and metadata
-   *
    * @example
    * ```typescript
    * const result = await model.doGenerate({
@@ -470,12 +416,9 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * **Abort Signal:**
    * AbortSignal rejects the promise but does NOT cancel the HTTP request to SAP AI Core.
    * See https://github.com/SAP/ai-sdk-js/issues/1429
-   *
    * @see {@link https://sdk.vercel.ai/docs/ai-sdk-core/streaming Vercel AI SDK Streaming}
-   *
    * @param options - Streaming options including prompt, tools, and settings
    * @returns Promise resolving to stream and request metadata
-   *
    * @example
    * ```typescript
    * const { stream } = await model.doStream({
@@ -490,7 +433,6 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    *   }
    * }
    * ```
-   *
    * @since 4.0.0
    */
   async doStream(options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult> {
@@ -833,7 +775,6 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
   /**
    * Checks if a URL is supported for file/image uploads.
-   *
    * @param url - The URL to check
    * @returns True if the URL protocol is HTTPS or data with valid image format
    */
@@ -848,7 +789,6 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
   /**
    * Builds orchestration module config for SAP AI SDK.
-   *
    * @param options - Call options from the AI SDK
    * @returns Object containing orchestration config, messages, and warnings
    * @internal
@@ -1097,7 +1037,6 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
   /**
    * Creates an OrchestrationClient instance.
-   *
    * @param config - Orchestration module configuration
    * @returns OrchestrationClient instance
    * @internal
@@ -1110,7 +1049,6 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 /**
  * Build a SAPToolParameters object from a schema.
  * Ensures type: "object" is always present as required by SAP AI Core.
- *
  * @param schema - Input schema to convert
  * @returns SAPToolParameters with type: "object"
  * @internal
@@ -1152,6 +1090,8 @@ function buildSAPToolParameters(schema: Record<string, unknown>): SAPToolParamet
 
 /**
  * Creates a summary of the AI SDK request body for error reporting.
+ * @param options - The language model call options to summarize
+ * @returns Summary object with request details
  * @internal
  */
 function createAISDKRequestBodySummary(options: LanguageModelV3CallOptions): {
@@ -1188,7 +1128,6 @@ function createAISDKRequestBodySummary(options: LanguageModelV3CallOptions): {
 
 /**
  * Type guard helper to check if an object has a callable 'parse' property.
- *
  * @param obj - Object to check
  * @returns True if object has callable parse method
  * @internal
@@ -1202,7 +1141,6 @@ function hasCallableParse(
 /**
  * Type guard to check if an object is a Zod schema.
  * Used internally to detect Zod schemas passed via tool parameters.
- *
  * @param obj - Object to check
  * @returns True if object is a Zod schema
  * @internal
@@ -1217,7 +1155,6 @@ function isZodSchema(obj: unknown): obj is ZodType {
 
 /**
  * Maps SAP AI finish reason to Vercel AI SDK finish reason format.
- *
  * @param reason - SAP AI finish reason string
  * @returns Finish reason object with unified and raw values
  * @internal
@@ -1255,7 +1192,14 @@ function mapFinishReason(reason: string | undefined): LanguageModelV3FinishReaso
  *
  * Does not throw errors to allow API-side validation to be authoritative.
  * Warnings help developers catch configuration issues early during development.
- *
+ * @param params - Model parameters to validate
+ * @param params.frequencyPenalty - Frequency penalty parameter
+ * @param params.maxTokens - Maximum tokens parameter
+ * @param params.n - Number of completions parameter
+ * @param params.presencePenalty - Presence penalty parameter
+ * @param params.temperature - Temperature parameter
+ * @param params.topP - Top P parameter
+ * @param warnings - Array to add warnings to
  * @internal
  */
 function validateModelParameters(

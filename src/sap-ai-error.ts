@@ -8,11 +8,12 @@ import { isErrorWithCause } from "@sap-cloud-sdk/util";
  *
  * This ensures standardized error handling compatible with the AI SDK
  * error classification system (retryable vs non-retryable errors).
- *
  * @param errorResponse - The error response from SAP AI SDK
  * @param context - Optional context about where the error occurred
+ * @param context.requestBody - The request body that caused the error
+ * @param context.responseHeaders - Response headers from the failed request
+ * @param context.url - URL that was called when the error occurred
  * @returns APICallError compatible with AI SDK
- *
  * @example
  * **Basic Usage**
  * ```typescript
@@ -102,11 +103,13 @@ export function convertSAPErrorToAPICallError(
 
 /**
  * Converts a generic error to an appropriate AI SDK error.
- *
  * @param error - The error to convert
  * @param context - Optional context about where the error occurred
+ * @param context.operation - The operation that was being performed when the error occurred
+ * @param context.requestBody - The request body that caused the error
+ * @param context.responseHeaders - Response headers from the failed request
+ * @param context.url - URL that was called when the error occurred
  * @returns APICallError or LoadAPIKeyError
- *
  * @example
  * **Basic Usage**
  * ```typescript
@@ -195,7 +198,6 @@ export function convertToAISDKError(
 
 /**
  * Extracts response headers from Axios errors.
- *
  * @param error - Error object
  * @returns Response headers or undefined
  * @internal
@@ -220,7 +222,6 @@ function getAxiosResponseHeaders(error: unknown): Record<string, string> | undef
  *
  * Validates that codes are in standard HTTP range (100-599) and falls back
  * to 500 for custom SAP error codes outside this range.
- *
  * @param code - SAP error code
  * @returns HTTP status code (100-599)
  * @internal
@@ -244,7 +245,6 @@ function getStatusCodeFromSAPError(code?: number): number {
  * 1. Checks for object with 'error' property
  * 2. Validates error is object or array
  * 3. Checks for required 'message' property (string type)
- *
  * @param error - Error to check
  * @returns True if error is OrchestrationErrorResponse
  * @internal
@@ -280,7 +280,6 @@ function isOrchestrationErrorResponse(error: unknown): error is OrchestrationErr
 /**
  * Determines if an error should be retryable based on status code.
  * Following the AI SDK pattern: 429 (rate limit) and 5xx (server errors) are retryable.
- *
  * @param statusCode - HTTP status code
  * @returns True if error should be retried
  * @internal
@@ -291,7 +290,6 @@ function isRetryable(statusCode: number): boolean {
 
 /**
  * Normalizes various header formats to Record<string, string>.
- *
  * @param headers - Raw headers object
  * @returns Normalized headers or undefined
  * @internal

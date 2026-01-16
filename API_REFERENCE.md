@@ -4,12 +4,17 @@ Complete API documentation for the SAP AI Core Provider.
 
 ## Terminology
 
-To avoid confusion, this documentation uses the following terminology consistently:
+To avoid confusion, this documentation uses the following terminology
+consistently:
 
-- **SAP AI Core** - The SAP BTP service that provides AI model hosting and orchestration (the cloud service)
-- **SAP AI SDK** - The official `@sap-ai-sdk/orchestration` npm package used for API communication
-- **SAP AI Core Provider** or **this provider** - This npm package (`@mymediset/sap-ai-provider`)
-- **Tool calling** - The capability of models to invoke external functions (equivalent to "function calling")
+- **SAP AI Core** - The SAP BTP service that provides AI model hosting and
+  orchestration (the cloud service)
+- **SAP AI SDK** - The official `@sap-ai-sdk/orchestration` npm package used for
+  API communication
+- **SAP AI Core Provider** or **this provider** - This npm package
+  (`@mymediset/sap-ai-provider`)
+- **Tool calling** - The capability of models to invoke external functions
+  (equivalent to "function calling")
 
 ## Table of Contents
 
@@ -170,18 +175,25 @@ try {
 
 ## Models
 
-> **Architecture Context:** For model integration and message conversion details,
-> see [Architecture - Model Support](./ARCHITECTURE.md#model-support).
+> **Architecture Context:** For model integration and message conversion
+> details, see [Architecture - Model Support](./ARCHITECTURE.md#model-support).
 
 ### Supported Models
 
-The SAP AI Core Provider supports all models available through SAP AI Core's Orchestration service via the `@sap-ai-sdk/orchestration` package.
+The SAP AI Core Provider supports all models available through SAP AI Core's
+Orchestration service via the `@sap-ai-sdk/orchestration` package.
 
-> **Note:** The models listed below are representative examples. Actual model availability depends on your SAP AI Core tenant configuration, region, and subscription. Refer to your SAP AI Core configuration or the [SAP AI Core documentation](https://help.sap.com/docs/ai-core) for the definitive list of models available in your environment.
+> **Note:** The models listed below are representative examples. Actual model
+> availability depends on your SAP AI Core tenant configuration, region, and
+> subscription. Refer to your SAP AI Core configuration or the
+> [SAP AI Core documentation](https://help.sap.com/docs/ai-core) for the
+> definitive list of models available in your environment.
 
 **About Model Availability:**
 
-This library re-exports the `ChatModel` type from `@sap-ai-sdk/orchestration`, which is dynamically maintained by SAP AI SDK. The actual list of available models depends on:
+This library re-exports the `ChatModel` type from `@sap-ai-sdk/orchestration`,
+which is dynamically maintained by SAP AI SDK. The actual list of available
+models depends on:
 
 - Your SAP AI Core tenant configuration
 - Your region and subscription
@@ -203,12 +215,14 @@ This library re-exports the `ChatModel` type from `@sap-ai-sdk/orchestration`, w
 
 **Anthropic (AWS Bedrock):**
 
-- `anthropic--claude-3.5-sonnet`, `anthropic--claude-3.7-sonnet` - Enhanced Claude 3
+- `anthropic--claude-3.5-sonnet`, `anthropic--claude-3.7-sonnet` - Enhanced
+  Claude 3
 - `anthropic--claude-4-sonnet`, `anthropic--claude-4-opus` - Latest Claude 4
 
 **Amazon Bedrock:**
 
-- `amazon--nova-pro`, `amazon--nova-lite`, `amazon--nova-micro`, `amazon--nova-premier`
+- `amazon--nova-pro`, `amazon--nova-lite`, `amazon--nova-micro`,
+  `amazon--nova-premier`
 
 **Open Source (AI Core):**
 
@@ -247,9 +261,13 @@ Or use **SAP AI Launchpad UI**:
 
 **⚠️ Important Model Limitations:**
 
-- **Gemini models** (all versions): Support **only 1 tool per request**. For applications requiring multiple tools, use OpenAI models (gpt-4o, gpt-4.1) or Claude models instead.
+- **Gemini models** (all versions): Support **only 1 tool per request**. For
+  applications requiring multiple tools, use OpenAI models (gpt-4o, gpt-4.1) or
+  Claude models instead.
 - **Amazon models**: Do not support the `n` parameter (number of completions).
-- See [CURL_API_TESTING_GUIDE.md - Tool Calling](./CURL_API_TESTING_GUIDE.md#tool-calling-example) for complete model capabilities comparison.
+- See
+  [CURL_API_TESTING_GUIDE.md - Tool Calling](./CURL_API_TESTING_GUIDE.md#tool-calling-example)
+  for complete model capabilities comparison.
 
 ### Model Capabilities Comparison
 
@@ -277,7 +295,8 @@ Quick reference for choosing the right model for your use case:
 
 **Choosing a model:**
 
-- **Multiple tools required?** → Use GPT-4o, Claude, or Amazon Nova (avoid Gemini)
+- **Multiple tools required?** → Use GPT-4o, Claude, or Amazon Nova (avoid
+  Gemini)
 - **Vision needed?** → Use GPT-4o, Gemini, Claude, or Pixtral
 - **Cost-sensitive?** → Use GPT-4o-mini or Gemini Flash
 - **Maximum context?** → Use Gemini (32k tokens)
@@ -311,11 +330,15 @@ Quick reference for selecting models based on your application requirements:
 
 ## Tool Calling (Function Calling)
 
-Tool calling enables AI models to invoke functions and use external tools during text generation. This is essential for building agentic AI applications that can perform actions like database queries, API calls, calculations, or data retrieval.
+Tool calling enables AI models to invoke functions and use external tools during
+text generation. This is essential for building agentic AI applications that can
+perform actions like database queries, API calls, calculations, or data
+retrieval.
 
 ### Overview
 
-When you provide tools to the model, it can decide to call one or more tools based on the conversation context. The provider handles:
+When you provide tools to the model, it can decide to call one or more tools
+based on the conversation context. The provider handles:
 
 - Converting tool definitions to SAP AI Core format
 - Parsing tool call responses from the AI model
@@ -378,7 +401,8 @@ console.log(result.toolResults); // Array of tool results
 | Mistral        | ✅ Full      | Unlimited  | ✅ Yes         | Good tool calling support               |
 | o1/o3          | ⚠️ Limited   | Limited    | ❌ No          | Reasoning models have tool restrictions |
 
-**Key Takeaway:** For applications requiring multiple tools, use **GPT-4o**, **Claude**, or **Amazon Nova** models. Avoid Gemini for multi-tool scenarios.
+**Key Takeaway:** For applications requiring multiple tools, use **GPT-4o**,
+**Claude**, or **Amazon Nova** models. Avoid Gemini for multi-tool scenarios.
 
 ### Tool Definition Format
 
@@ -424,7 +448,8 @@ const calculatorTool = {
 
 ### Parallel Tool Calls
 
-Some models (GPT-4o, Claude, Amazon Nova) can call multiple tools simultaneously:
+Some models (GPT-4o, Claude, Amazon Nova) can call multiple tools
+simultaneously:
 
 ```typescript
 const result = await generateText({
@@ -439,11 +464,13 @@ const result = await generateText({
 // Model can call getWeather 3 times in parallel
 ```
 
-⚠️ **Important:** Set `parallel_tool_calls: false` when using Gemini models or when tool execution order matters.
+⚠️ **Important:** Set `parallel_tool_calls: false` when using Gemini models or
+when tool execution order matters.
 
 ### Multi-Turn Tool Conversations
 
-The AI SDK automatically handles multi-turn conversations when tools are involved:
+The AI SDK automatically handles multi-turn conversations when tools are
+involved:
 
 ```typescript
 const result = await generateText({
@@ -550,19 +577,26 @@ const result = await generateText({
 
 ### Best Practices
 
-1. **Model Selection:** Use GPT-4o, Claude, or Amazon Nova for multi-tool applications
-2. **Tool Descriptions:** Write clear, specific descriptions of what each tool does
+1. **Model Selection:** Use GPT-4o, Claude, or Amazon Nova for multi-tool
+   applications
+2. **Tool Descriptions:** Write clear, specific descriptions of what each tool
+   does
 3. **Parameter Schemas:** Use descriptive field names and include descriptions
-4. **Error Handling:** Return error objects that models can interpret, not just throw exceptions
+4. **Error Handling:** Return error objects that models can interpret, not just
+   throw exceptions
 5. **Tool Naming:** Use camelCase names (e.g., `getWeather`, not `get_weather`)
 6. **Parallel Calls:** Enable only when tool execution order doesn't matter
-7. **Testing:** Test with Gemini to ensure your app works with the 1-tool limitation
+7. **Testing:** Test with Gemini to ensure your app works with the 1-tool
+   limitation
 
 ### Related Documentation
 
-- [CURL_API_TESTING_GUIDE.md - Tool Calling Examples](./CURL_API_TESTING_GUIDE.md#tool-calling-example) - Direct API testing
-- [ARCHITECTURE.md - Tool Calling Flow](./ARCHITECTURE.md#tool-calling-flow) - Internal implementation details
-- [Vercel AI SDK - Tool Calling Docs](https://sdk.vercel.ai/docs/ai-sdk-core/tools-and-tool-calling) - Upstream documentation
+- [CURL_API_TESTING_GUIDE.md - Tool Calling Examples](./CURL_API_TESTING_GUIDE.md#tool-calling-example) -
+  Direct API testing
+- [ARCHITECTURE.md - Tool Calling Flow](./ARCHITECTURE.md#tool-calling-flow) -
+  Internal implementation details
+- [Vercel AI SDK - Tool Calling Docs](https://sdk.vercel.ai/docs/ai-sdk-core/tools-and-tool-calling) -
+  Upstream documentation
 
 ---
 
@@ -606,7 +640,8 @@ const model = provider("gpt-4o", {
 
 #### `provider.chat(modelId, settings?)`
 
-Explicit method for creating chat models (equivalent to calling provider function).
+Explicit method for creating chat models (equivalent to calling provider
+function).
 
 **Signature:**
 
@@ -697,7 +732,10 @@ const settings: SAPAISettings = {
 
 Fine-grained model behavior parameters.
 
-Note: Many parameters are model/provider-specific. Some models may ignore or only partially support certain options (e.g., Gemini tool calls limitations, Amazon models not supporting `n`). Always consult the model’s upstream documentation.
+Note: Many parameters are model/provider-specific. Some models may ignore or
+only partially support certain options (e.g., Gemini tool calls limitations,
+Amazon models not supporting `n`). Always consult the model’s upstream
+documentation.
 
 **Properties:**
 
@@ -717,7 +755,9 @@ Note: Many parameters are model/provider-specific. Some models may ignore or onl
 
 SAP BTP service key structure.
 
-> **Note:** In v2.0+, the service key is provided via the `AICORE_SERVICE_KEY` environment variable (as a JSON string), not as a parameter to `createSAPAIProvider()`.
+> **Note:** In v2.0+, the service key is provided via the `AICORE_SERVICE_KEY`
+> environment variable (as a JSON string), not as a parameter to
+> `createSAPAIProvider()`.
 
 **Properties:**
 
@@ -732,7 +772,8 @@ SAP BTP service key structure.
 | `appname`         | `string`                 | No       | Application name in SAP BTP                     |
 | `credential-type` | `string`                 | No       | Type of credential (typically "binding-secret") |
 
-**For setup instructions and examples, see [Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
+**For setup instructions and examples, see
+[Environment Setup Guide](./ENVIRONMENT_SETUP.md).**
 
 ---
 
@@ -806,9 +847,11 @@ export type SAPAIModelId = ChatModel; // Re-exported from @sap-ai-sdk/orchestrat
 
 **Description:**
 
-Re-exports the `ChatModel` type from `@sap-ai-sdk/orchestration`, which is dynamically maintained by SAP AI SDK.
+Re-exports the `ChatModel` type from `@sap-ai-sdk/orchestration`, which is
+dynamically maintained by SAP AI SDK.
 
-**For complete model information, see the [Models](#models) section above**, including:
+**For complete model information, see the [Models](#models) section above**,
+including:
 
 - Available model list (OpenAI, Google, Anthropic, Amazon, Open Source)
 - Model capabilities comparison
@@ -913,10 +956,12 @@ const { stream } = await model.doStream({
 
 ### Error Handling & Reference
 
-> **Architecture Details:** For internal error conversion logic and retry mechanisms,
-> see [Architecture - Error Handling](./ARCHITECTURE.md#error-handling).
+> **Architecture Details:** For internal error conversion logic and retry
+> mechanisms, see
+> [Architecture - Error Handling](./ARCHITECTURE.md#error-handling).
 
-The provider uses standard Vercel AI SDK error types for consistent error handling across providers.
+The provider uses standard Vercel AI SDK error types for consistent error
+handling across providers.
 
 #### Error Types
 
@@ -932,7 +977,8 @@ Properties:
 - `responseBody`: Raw response body (contains SAP error details)
 - `isRetryable`: Whether the error can be retried (true for 429, 5xx)
 
-**`LoadAPIKeyError`** - Thrown for authentication/configuration errors (from `@ai-sdk/provider`)
+**`LoadAPIKeyError`** - Thrown for authentication/configuration errors (from
+`@ai-sdk/provider`)
 
 Properties:
 
@@ -1003,9 +1049,12 @@ Complete reference for status codes returned by SAP AI Core:
 
 #### Error Handling Strategy
 
-The provider automatically handles retryable errors (429, 500-504) with exponential backoff. For non-retryable errors, your application should handle them appropriately.
+The provider automatically handles retryable errors (429, 500-504) with
+exponential backoff. For non-retryable errors, your application should handle
+them appropriately.
 
-**See also:** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for detailed solutions to each error type.
+**See also:** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for detailed solutions
+to each error type.
 
 ---
 
@@ -1033,7 +1082,8 @@ type OrchestrationErrorResponse = {
 };
 ```
 
-This type is primarily used internally for error conversion but is exported for advanced use cases.
+This type is primarily used internally for error conversion but is exported for
+advanced use cases.
 
 ---
 
@@ -1084,7 +1134,8 @@ const sapMessages = convertToSAPMessages(prompt);
 
 ### `buildDpiMaskingProvider(config)`
 
-Creates a DPI (Data Privacy Integration) masking provider configuration for anonymizing or pseudonymizing sensitive data.
+Creates a DPI (Data Privacy Integration) masking provider configuration for
+anonymizing or pseudonymizing sensitive data.
 
 **Signature:**
 
@@ -1095,13 +1146,15 @@ function buildDpiMaskingProvider(config: DpiMaskingConfig): DpiMaskingProviderCo
 **Parameters:**
 
 - `config.method`: Masking method - `"anonymization"` or `"pseudonymization"`
-- `config.entities`: Array of entity types to mask (strings or objects with replacement strategies)
+- `config.entities`: Array of entity types to mask (strings or objects with
+  replacement strategies)
 
 **Returns:** DPI masking provider configuration object
 
 **Example:**
 
-**Complete example:** [examples/example-data-masking.ts](./examples/example-data-masking.ts)
+**Complete example:**
+[examples/example-data-masking.ts](./examples/example-data-masking.ts)
 
 ```typescript
 const dpiMasking = buildDpiMaskingProvider({
@@ -1131,7 +1184,8 @@ const provider = createSAPAIProvider({
 
 ### `buildAzureContentSafetyFilter(type, config?)`
 
-Creates an Azure Content Safety filter configuration for input or output content filtering.
+Creates an Azure Content Safety filter configuration for input or output content
+filtering.
 
 **Signature:**
 
@@ -1142,13 +1196,15 @@ function buildAzureContentSafetyFilter(type: "input" | "output", config?: AzureC
 **Parameters:**
 
 - `type`: Filter type - `"input"` (before model) or `"output"` (after model)
-- `config`: Optional safety levels for each category (default: `ALLOW_SAFE_LOW` for all)
+- `config`: Optional safety levels for each category (default: `ALLOW_SAFE_LOW`
+  for all)
   - `hate`: Hate speech filter level
   - `violence`: Violence content filter level
   - `selfHarm`: Self-harm content filter level
   - `sexual`: Sexual content filter level
 
-**Filter Levels:** `ALLOW_SAFE`, `ALLOW_SAFE_LOW`, `ALLOW_SAFE_LOW_MEDIUM`, or block all
+**Filter Levels:** `ALLOW_SAFE`, `ALLOW_SAFE_LOW`, `ALLOW_SAFE_LOW_MEDIUM`, or
+block all
 
 **Returns:** Azure Content Safety filter configuration
 
@@ -1188,7 +1244,8 @@ function buildLlamaGuard38BFilter(type: "input" | "output", categories: [LlamaGu
 **Parameters:**
 
 - `type`: Filter type - `"input"` or `"output"`
-- `categories`: Array of at least one category to filter (e.g., `"hate"`, `"violence"`, `"elections"`)
+- `categories`: Array of at least one category to filter (e.g., `"hate"`,
+  `"violence"`, `"elections"`)
 
 **Returns:** Llama Guard 3 8B filter configuration
 
@@ -1210,7 +1267,8 @@ const provider = createSAPAIProvider({
 
 ### `buildDocumentGroundingConfig(config)`
 
-Creates a document grounding configuration for retrieval-augmented generation (RAG).
+Creates a document grounding configuration for retrieval-augmented generation
+(RAG).
 
 **Signature:**
 
@@ -1226,7 +1284,8 @@ function buildDocumentGroundingConfig(config: DocumentGroundingServiceConfig): G
 
 **Example:**
 
-**Complete example:** [examples/example-document-grounding.ts](./examples/example-document-grounding.ts)
+**Complete example:**
+[examples/example-document-grounding.ts](./examples/example-document-grounding.ts)
 
 ```typescript
 const groundingConfig = buildDocumentGroundingConfig({
@@ -1255,13 +1314,15 @@ const model = provider("gpt-4o");
 
 **Run it:** `npx tsx examples/example-document-grounding.ts`
 
-**See also:** [`examples/example-document-grounding.ts`](./examples/example-document-grounding.ts)
+**See also:**
+[`examples/example-document-grounding.ts`](./examples/example-document-grounding.ts)
 
 ---
 
 ### `buildTranslationConfig(type, config)`
 
-Creates a translation configuration for input/output translation using SAP Document Translation service.
+Creates a translation configuration for input/output translation using SAP
+Document Translation service.
 
 **Signature:**
 
@@ -1271,7 +1332,8 @@ function buildTranslationConfig(type: "input" | "output", config: TranslationCon
 
 **Parameters:**
 
-- `type`: Translation type - `"input"` (before model) or `"output"` (after model)
+- `type`: Translation type - `"input"` (before model) or `"output"` (after
+  model)
 - `config`: Translation configuration
   - `sourceLanguage`: Source language code (auto-detected if omitted)
   - `targetLanguage`: Target language code (required)
@@ -1281,7 +1343,8 @@ function buildTranslationConfig(type: "input" | "output", config: TranslationCon
 
 **Example:**
 
-**Complete example:** [examples/example-translation.ts](./examples/example-translation.ts)
+**Complete example:**
+[examples/example-translation.ts](./examples/example-translation.ts)
 
 ```typescript
 // Translate user input from German to English
@@ -1310,7 +1373,8 @@ const model = provider("gpt-4o");
 
 **Run it:** `npx tsx examples/example-translation.ts`
 
-**See also:** [`examples/example-translation.ts`](./examples/example-translation.ts)
+**See also:**
+[`examples/example-translation.ts`](./examples/example-translation.ts)
 
 ---
 
@@ -1406,15 +1470,21 @@ For the current package version, see [package.json](./package.json).
 - **SAP AI SDK:** ^2.4.0 (`@sap-ai-sdk/orchestration`)
 - **Node.js:** >= 18
 
-> **Note:** For exact dependency versions, always refer to `package.json` in the repository root.
+> **Note:** For exact dependency versions, always refer to `package.json` in the
+> repository root.
 
 ---
 
 ## Related Documentation
 
 - [README.md](./README.md) - Getting started, quick start, and feature overview
-- [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) - Authentication setup and environment configuration
-- [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) - Migration from v1.x with troubleshooting
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Internal architecture, component design, and request flows
-- [CURL_API_TESTING_GUIDE.md](./CURL_API_TESTING_GUIDE.md) - Low-level API testing and debugging
-- [CONTRIBUTING.md](./CONTRIBUTING.md) - Development setup and contribution guidelines
+- [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) - Authentication setup and
+  environment configuration
+- [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) - Migration from v1.x with
+  troubleshooting
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - Internal architecture, component
+  design, and request flows
+- [CURL_API_TESTING_GUIDE.md](./CURL_API_TESTING_GUIDE.md) - Low-level API
+  testing and debugging
+- [CONTRIBUTING.md](./CONTRIBUTING.md) - Development setup and contribution
+  guidelines

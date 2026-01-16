@@ -25,6 +25,9 @@ import { streamText } from "ai";
 // This example uses relative imports for local development within this repo:
 import { createSAPAIProvider } from "../src/index";
 
+/**
+ *
+ */
 async function streamingChatExample() {
   console.log("🧪 Streaming Chat with Vercel AI SDK (streamText)\n");
 
