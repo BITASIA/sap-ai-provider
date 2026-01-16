@@ -726,7 +726,7 @@ function validateLinkFormat(): ValidationResult {
         continue;
       }
 
-      const badLinkPattern = /\[([^\]]+)\]\((?!\.\/|https?:\/\/|#)([^)]+\.md[^)]*)\)/g;
+      const badLinkPattern = /\[([^\]]+)\]\((?!\.\.\/|\.\/|https?:\/\/|#)([^)]+\.md[^)]*)\)/g;
       const matches = Array.from(line.matchAll(badLinkPattern));
 
       for (const match of matches) {
@@ -739,7 +739,9 @@ function validateLinkFormat(): ValidationResult {
   }
 
   if (badLinksCount > 0) {
-    logWarning(`${String(badLinksCount)} links without ./ prefix (should be: ./FILE.md)`);
+    logWarning(
+      `${String(badLinksCount)} links without relative prefix (should be: ./FILE.md or ../FILE.md)`,
+    );
   } else {
     logSuccess("All links use correct format");
   }
