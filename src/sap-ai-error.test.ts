@@ -12,6 +12,16 @@ import { describe, expect, it } from "vitest";
 
 import { convertSAPErrorToAPICallError, convertToAISDKError } from "./sap-ai-error";
 
+/** Type for parsed responseBody in tests */
+interface ParsedResponseBody {
+  error: {
+    code?: number;
+    location?: string;
+    message?: string;
+    request_id?: string;
+  };
+}
+
 describe("convertSAPErrorToAPICallError", () => {
   it("should convert SAP error with single error object", () => {
     const errorResponse: OrchestrationErrorResponse = {
@@ -637,5 +647,153 @@ describe("convertToAISDKError", () => {
     const result = convertToAISDKError(primitiveError) as APICallError;
 
     expect(result.responseHeaders).toBeUndefined();
+  });
+});
+
+describe("SSE Error Handling", () => {
+  it("should extract SAP error from SSE message (wrapped format)", () => {
+    const sapError = {
+      error: {
+        code: 429,
+        location: "Rate Limiter",
+        message: "Too many requests",
+        request_id: "sse-error-123",
+      },
+    };
+
+    const error = new Error(`Error received from the server.\\n${JSON.stringify(sapError)}`);
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(429);
+    expect(result.message).toContain("Too many requests");
+    expect(result.isRetryable).toBe(true);
+
+    const responseBody = JSON.parse(result.responseBody ?? "{}") as ParsedResponseBody;
+    expect(responseBody.error.request_id).toBe("sse-error-123");
+  });
+
+  it("should extract SAP error from SSE message (direct format)", () => {
+    // Direct format: {"code":...} without "error" wrapper
+    const sapErrorDirect = {
+      code: 503,
+      message: "Service unavailable",
+      request_id: "sse-direct-123",
+    };
+
+    const error = new Error(`Error received from the server.\\n${JSON.stringify(sapErrorDirect)}`);
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(503);
+    expect(result.isRetryable).toBe(true);
+  });
+
+  it("should extract SAP error from ErrorWithCause rootCause", () => {
+    const sapError = {
+      error: { code: 500, message: "Model overloaded", request_id: "wrapped-123" },
+    };
+
+    const innerError = new Error(`Error received from the server.\n${JSON.stringify(sapError)}`);
+    const wrappedError = new Error("Error while iterating over SSE stream.");
+    Object.defineProperty(wrappedError, "name", { value: "ErrorWithCause" });
+    Object.defineProperty(wrappedError, "rootCause", { get: () => innerError });
+
+    const result = convertToAISDKError(wrappedError) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(500);
+    const responseBody = JSON.parse(result.responseBody ?? "{}") as ParsedResponseBody;
+    expect(responseBody.error.request_id).toBe("wrapped-123");
+  });
+
+  it("should handle SSE stream errors without JSON", () => {
+    const innerError = new Error("Could not parse message into JSON");
+    const wrappedError = new Error("Error while iterating over SSE stream.");
+    Object.defineProperty(wrappedError, "name", { value: "ErrorWithCause" });
+    Object.defineProperty(wrappedError, "rootCause", { get: () => innerError });
+
+    const result = convertToAISDKError(wrappedError) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.message).toContain("streaming error");
+    expect(result.isRetryable).toBe(true);
+  });
+
+  it("should handle malformed JSON gracefully", () => {
+    const error = new Error("Error received from the server.\n{invalid json}");
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(500);
+  });
+
+  it("should traverse nested ErrorWithCause chain", () => {
+    const rootError = new Error("Network timeout");
+    const middleError = new Error("HTTP request failed");
+    Object.defineProperty(middleError, "name", { value: "ErrorWithCause" });
+    const topError = new Error("SSE stream error");
+    Object.defineProperty(topError, "name", { value: "ErrorWithCause" });
+    Object.defineProperty(topError, "rootCause", { get: () => rootError });
+
+    const result = convertToAISDKError(topError) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.message).toContain("Network timeout");
+  });
+});
+
+describe("SDK-specific Error Handling", () => {
+  it("should handle destination resolution errors", () => {
+    const error = new Error("Could not resolve destination.");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(500);
+    expect(result.message).toContain("destination");
+  });
+
+  it("should handle deployment resolution errors", () => {
+    const error = new Error("Failed to resolve deployment ID");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(404);
+    expect(result.message).toContain("deployment");
+  });
+
+  it("should handle content filtering errors", () => {
+    const error = new Error("Content was filtered by the output filter.");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(400);
+    expect(result.isRetryable).toBe(false);
+  });
+
+  it("should extract status code from error message", () => {
+    const error = new Error("Request failed with status code 429.");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(429);
+    expect(result.isRetryable).toBe(true);
+  });
+
+  it("should handle ErrorWithCause chain with network error as root", () => {
+    const networkError = new Error("getaddrinfo ENOTFOUND api.ai.sap.com");
+    const outerError = new Error("Failed to fetch deployments");
+    Object.defineProperty(outerError, "name", { value: "ErrorWithCause" });
+    Object.defineProperty(outerError, "rootCause", { get: () => networkError });
+
+    const result = convertToAISDKError(outerError) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(503);
+    expect(result.isRetryable).toBe(true);
   });
 });

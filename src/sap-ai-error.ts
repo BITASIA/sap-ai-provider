@@ -131,31 +131,53 @@ export function convertToAISDKError(
     return error;
   }
 
-  if (isOrchestrationErrorResponse(error)) {
-    return convertSAPErrorToAPICallError(error, {
+  // Extract the root cause if this is an ErrorWithCause from SAP SDK
+  // ErrorWithCause chains: ErrorWithCause -> ErrorWithCause -> ... -> root Error
+  const rootError = error instanceof Error && isErrorWithCause(error) ? error.rootCause : error;
+
+  // First check if it's a direct OrchestrationErrorResponse
+  if (isOrchestrationErrorResponse(rootError)) {
+    return convertSAPErrorToAPICallError(rootError, {
       ...context,
       responseHeaders: context?.responseHeaders ?? getAxiosResponseHeaders(error),
     });
   }
 
+  // Extract SAP error JSON from SSE error message
+  if (rootError instanceof Error) {
+    const parsedError = tryExtractSAPErrorFromMessage(rootError.message);
+    if (parsedError && isOrchestrationErrorResponse(parsedError)) {
+      return convertSAPErrorToAPICallError(parsedError, {
+        ...context,
+        responseHeaders: context?.responseHeaders ?? getAxiosResponseHeaders(error),
+      });
+    }
+  }
+
   const responseHeaders = context?.responseHeaders ?? getAxiosResponseHeaders(error);
 
-  if (error instanceof Error) {
-    const errorMsg = error.message.toLowerCase();
+  if (rootError instanceof Error) {
+    const errorMsg = rootError.message.toLowerCase();
+    const originalMsg = rootError.message;
+
+    // Authentication errors -> LoadAPIKeyError
     if (
       errorMsg.includes("authentication") ||
       errorMsg.includes("unauthorized") ||
       errorMsg.includes("aicore_service_key") ||
-      errorMsg.includes("invalid credentials")
+      errorMsg.includes("invalid credentials") ||
+      errorMsg.includes("service credentials") ||
+      errorMsg.includes("service binding")
     ) {
       return new LoadAPIKeyError({
         message:
-          `SAP AI Core authentication failed: ${error.message}\n\n` +
+          `SAP AI Core authentication failed: ${originalMsg}\n\n` +
           `Make sure your AICORE_SERVICE_KEY environment variable is set correctly.\n` +
           `See: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-service-key`,
       });
     }
 
+    // Network errors -> retryable 503
     if (
       errorMsg.includes("econnrefused") ||
       errorMsg.includes("enotfound") ||
@@ -165,20 +187,102 @@ export function convertToAISDKError(
       return new APICallError({
         cause: error,
         isRetryable: true,
-        message: `Network error connecting to SAP AI Core: ${error.message}`,
+        message: `Network error connecting to SAP AI Core: ${originalMsg}`,
         requestBodyValues: context?.requestBody,
         responseHeaders,
         statusCode: 503,
         url: context?.url ?? "",
       });
     }
+
+    // Destination resolution errors
+    if (errorMsg.includes("could not resolve destination")) {
+      return new APICallError({
+        cause: error,
+        isRetryable: false,
+        message:
+          `SAP AI Core destination error: ${originalMsg}\n\n` +
+          `Check your destination configuration or provide a valid destinationName.`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 500,
+        url: context?.url ?? "",
+      });
+    }
+
+    // Deployment resolution errors
+    if (
+      errorMsg.includes("failed to resolve deployment") ||
+      errorMsg.includes("no deployment matched")
+    ) {
+      return new APICallError({
+        cause: error,
+        isRetryable: false,
+        message:
+          `SAP AI Core deployment error: ${originalMsg}\n\n` +
+          `Make sure you have a running orchestration deployment in your AI Core instance.\n` +
+          `See: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-deployment-for-orchestration`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 404,
+        url: context?.url ?? "",
+      });
+    }
+
+    // Content filtering errors
+    if (errorMsg.includes("filtered by the output filter")) {
+      return new APICallError({
+        cause: error,
+        isRetryable: false,
+        message:
+          `Content was filtered: ${originalMsg}\n\n` +
+          `The model's response was blocked by content safety filters. Try a different prompt.`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 400,
+        url: context?.url ?? "",
+      });
+    }
+
+    // Extract HTTP status code from error message
+    const statusMatch = /status code (\d+)/i.exec(originalMsg);
+    if (statusMatch) {
+      const extractedStatus = parseInt(statusMatch[1], 10);
+      return new APICallError({
+        cause: error,
+        isRetryable: isRetryable(extractedStatus),
+        message: `SAP AI Core request failed: ${originalMsg}`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: extractedStatus,
+        url: context?.url ?? "",
+      });
+    }
+
+    // SSE stream errors
+    if (
+      errorMsg.includes("iterate over") ||
+      errorMsg.includes("consumed stream") ||
+      errorMsg.includes("parse message into json") ||
+      errorMsg.includes("no body")
+    ) {
+      return new APICallError({
+        cause: error,
+        isRetryable: true,
+        message: `SAP AI Core streaming error: ${originalMsg}`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 500,
+        url: context?.url ?? "",
+      });
+    }
   }
 
   const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
+    rootError instanceof Error
+      ? rootError.message
+      : typeof rootError === "string"
+        ? rootError
         : "Unknown error occurred";
 
   const fullMessage = context?.operation
@@ -321,6 +425,35 @@ function normalizeHeaders(headers: unknown): Record<string, string> | undefined 
 
   if (entries.length === 0) return undefined;
   return Object.fromEntries(entries) as Record<string, string>;
+}
+
+/**
+ * Extracts SAP error JSON from an error message.
+ * @param message - Error message that may contain JSON
+ * @returns Parsed error in OrchestrationErrorResponse format, or null
+ * @internal
+ */
+function tryExtractSAPErrorFromMessage(message: string): unknown {
+  const jsonMatch = /\{[\s\S]*\}/.exec(message);
+  if (!jsonMatch) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(jsonMatch[0]);
+
+    // Already in OrchestrationErrorResponse format
+    if (parsed && typeof parsed === "object" && "error" in parsed) {
+      return parsed;
+    }
+
+    // Direct SSE format - wrap it
+    if (parsed && typeof parsed === "object" && "message" in parsed) {
+      return { error: parsed as Record<string, unknown> };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
