@@ -3,8 +3,10 @@
  * Used by validate-docs.ts and fix-docs-toc.ts to ensure consistency.
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+
+import { TOC_DEPTH_THRESHOLD_PERCENT } from "./validation-config.js";
 
 /** Markdown header with anchor and position. */
 export interface HeaderEntry {
@@ -28,6 +30,24 @@ export interface TocEntry {
   lineNumber: number;
   /** Header text. */
   text: string;
+}
+
+/**
+ * Checks if a file exists with caching support.
+ * Use for repeated existence checks on the same paths.
+ *
+ * @param cache - Optional cache map for repeated lookups
+ * @returns Function that checks file existence
+ */
+export function createFileExistsChecker(cache?: Map<string, boolean>): (path: string) => boolean {
+  const fileCache = cache ?? new Map<string, boolean>();
+
+  return (path: string): boolean => {
+    if (!fileCache.has(path)) {
+      fileCache.set(path, existsSync(path));
+    }
+    return fileCache.get(path) ?? false;
+  };
 }
 
 /**
@@ -106,6 +126,19 @@ export function detectTocIndentation(lines: string[], startLine: number, endLine
   }
 
   return 2;
+}
+
+/**
+ * Extracts code blocks from markdown content.
+ *
+ * @param content - Markdown content
+ * @param language - Optional language filter (e.g., "typescript", "javascript")
+ * @returns Array of code block contents (without fence markers)
+ */
+export function extractCodeBlocks(content: string, language?: string): string[] {
+  const lang = language ?? "\\w*";
+  const pattern = new RegExp(`\`\`\`${lang}\\n([\\s\\S]*?)\\n\`\`\``, "g");
+  return Array.from(content.matchAll(pattern)).map((m) => m[1]);
 }
 
 /**
@@ -189,6 +222,16 @@ export function extractTocEntries(lines: string[], startLine: number, endLine: n
 }
 
 /**
+ * Checks if a file exists.
+ *
+ * @param path - Path to check
+ * @returns True if file exists
+ */
+export function fileExists(path: string): boolean {
+  return existsSync(path);
+}
+
+/**
  * Finds all .md files recursively, excluding specified directories.
  *
  * @param dir - Root directory
@@ -205,7 +248,9 @@ export function findMarkdownFiles(dir: string, exclude: readonly string[] = []):
       const fullPath = join(currentDir, entry);
       const relativePath = relative(process.cwd(), fullPath);
 
-      if (exclude.some((ex) => relativePath.includes(ex))) {
+      // Use path segments for robust exclusion (avoids false positives like "node_modules_backup")
+      const pathSegments = relativePath.split("/");
+      if (exclude.some((ex) => pathSegments.includes(ex))) {
         continue;
       }
 
@@ -219,6 +264,31 @@ export function findMarkdownFiles(dir: string, exclude: readonly string[] = []):
 
   walk(dir);
   return files;
+}
+
+/**
+ * Generates ToC markdown from headers.
+ *
+ * @param headers - Headers to include
+ * @param maxDepth - Maximum header level
+ * @param indentSize - Spaces per level (default: 2)
+ * @returns Markdown list with anchors
+ */
+export function generateTocMarkdown(
+  headers: HeaderEntry[],
+  maxDepth: number,
+  indentSize = 2,
+): string {
+  const filteredHeaders = headers.filter((h) => h.level <= maxDepth);
+  const lines: string[] = [];
+
+  for (const header of filteredHeaders) {
+    const indent = " ".repeat((header.level - 2) * indentSize);
+    const line = `${indent}- [${header.text}](#${header.anchor})`;
+    lines.push(line);
+  }
+
+  return lines.join("\n");
 }
 
 /**
@@ -236,16 +306,48 @@ export function inferTocDepth(headers: HeaderEntry[]): number {
   }
 
   const totalHeaders = headers.length;
-  const threshold = 0.1;
   let maxDepth = 2;
 
   for (const [level, count] of levelCounts.entries()) {
-    if (count / totalHeaders >= threshold) {
+    if (count / totalHeaders >= TOC_DEPTH_THRESHOLD_PERCENT) {
       maxDepth = Math.max(maxDepth, level);
     }
   }
 
   return maxDepth;
+}
+
+/**
+ * Converts header text to GitHub-compatible anchor.
+ *
+ * @param text - Header text
+ * @returns Lowercase, hyphenated anchor
+ * @example
+ * textToAnchor("Hello World") // "hello-world"
+ * textToAnchor("🚀 Getting Started") // "getting-started"
+ * textToAnchor("API: `createProvider()`") // "api-createprovider"
+ * textToAnchor("`createSAPAIProvider(options?)`") // "createsapaiprovider"
+ */
+/**
+ * Checks if a file path matches any of the given patterns.
+ * Patterns can be directories (ending with /) or file names.
+ *
+ * @param file - File path to check
+ * @param patterns - Array of patterns to match against
+ * @returns True if file matches any pattern
+ * @example
+ * matchesFilePattern("openspec/foo.md", ["openspec/"]) // true
+ * matchesFilePattern("AGENTS.md", ["AGENTS.md"]) // true
+ * matchesFilePattern("src/index.ts", ["openspec/"]) // false
+ */
+export function matchesFilePattern(file: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => {
+    if (pattern.endsWith("/")) {
+      return file.startsWith(pattern) || file.includes(`/${pattern}`);
+    } else {
+      return file === pattern || file.endsWith(`/${pattern}`);
+    }
+  });
 }
 
 /**
@@ -264,16 +366,52 @@ export function readJsonFile(filePath: string): null | Record<string, unknown> {
 }
 
 /**
- * Converts header text to GitHub-compatible anchor.
+ * Reads a markdown file and returns content + lines.
  *
- * @param text - Header text
- * @returns Lowercase, hyphenated anchor
- * @example
- * textToAnchor("Hello World") // "hello-world"
- * textToAnchor("🚀 Getting Started") // "getting-started"
- * textToAnchor("API: `createProvider()`") // "api-createprovider"
- * textToAnchor("`createSAPAIProvider(options?)`") // "createsapaiprovider"
+ * @param filePath - Path to markdown file
+ * @returns File content and split lines
  */
+export function readMarkdownFile(filePath: string): {
+  content: string;
+  lines: string[];
+} {
+  const content = readFileSync(filePath, "utf-8");
+  return { content, lines: content.split("\n") };
+}
+
+/**
+ * Reads a markdown file and returns content, lines, and code block tracking.
+ * Combines readMarkdownFile() and trackCodeBlocks() for common use case.
+ *
+ * @param filePath - Path to markdown file
+ * @returns File content, split lines, and boolean array marking code block lines
+ */
+export function readMarkdownFileWithCodeBlocks(filePath: string): {
+  content: string;
+  inCodeBlock: boolean[];
+  lines: string[];
+} {
+  const content = readFileSync(filePath, "utf-8");
+  const lines = content.split("\n");
+  const inCodeBlock = trackCodeBlocks(lines);
+  return { content, inCodeBlock, lines };
+}
+
+/**
+ * Reads a text file and returns content + lines.
+ * Use for non-markdown text files (e.g., .ts, .js).
+ *
+ * @param filePath - Path to text file
+ * @returns File content and split lines
+ */
+export function readTextFile(filePath: string): {
+  content: string;
+  lines: string[];
+} {
+  const content = readFileSync(filePath, "utf-8");
+  return { content, lines: content.split("\n") };
+}
+
 export function textToAnchor(text: string): string {
   return (
     text

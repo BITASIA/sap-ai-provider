@@ -10,16 +10,26 @@
  *   npm run fix-docs-toc                 # Fix all files with existing ToC
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 
-import type { HeaderEntry } from "./markdown-utils.js";
-
+import { parseArgsWithHelp } from "./cli-utils.js";
+import {
+  logInfo,
+  logProcessing,
+  logSection,
+  logSuccess,
+  logSummary,
+  logWarning,
+} from "./console-utils.js";
 import {
   detectToc,
   detectTocIndentation,
   extractHeaders,
+  generateTocMarkdown,
   inferTocDepth,
+  readMarkdownFile,
 } from "./markdown-utils.js";
+import { DOC_FILES } from "./validation-config.js";
 
 /**
  * Fixes ToC in a file by regenerating entries from headers.
@@ -28,15 +38,14 @@ import {
  * @returns True if ToC was updated, false if skipped
  */
 function fixTocInFile(filePath: string): boolean {
-  console.log(`\n📄 Processing: ${filePath}`);
+  logProcessing(`Processing: ${filePath}`);
 
-  const content = readFileSync(filePath, "utf-8");
-  const lines = content.split("\n");
+  const { content, lines } = readMarkdownFile(filePath);
 
   const { endLine, hasToc, startLine } = detectToc(content);
 
   if (!hasToc) {
-    console.log(`  ℹ️  No existing ToC found - skipping`);
+    logInfo("No existing ToC found - skipping");
     console.log(`     (Use --force to add ToC to files without one)`);
     return false;
   }
@@ -50,7 +59,7 @@ function fixTocInFile(filePath: string): boolean {
   console.log(`  📋 Found ${String(headers.length)} headers in document`);
 
   if (headers.length === 0) {
-    console.log(`  ⚠️  No headers found - nothing to generate`);
+    logWarning("No headers found - nothing to generate");
     return false;
   }
 
@@ -61,14 +70,14 @@ function fixTocInFile(filePath: string): boolean {
   const newTocContent = generateTocMarkdown(headers, tocDepth, indentSize);
 
   if (!newTocContent || newTocContent.trim().length === 0) {
-    console.log(`  ⚠️  Generated ToC is empty - skipping update`);
+    logWarning("Generated ToC is empty - skipping update");
     return false;
   }
 
   const generatedLines = newTocContent.split("\n");
   if (generatedLines.length !== filteredHeaders.length) {
-    console.log(
-      `  ⚠️  Generated ToC mismatch: expected ${String(filteredHeaders.length)} lines, got ${String(generatedLines.length)}`,
+    logWarning(
+      `Generated ToC mismatch: expected ${String(filteredHeaders.length)} lines, got ${String(generatedLines.length)}`,
     );
   }
 
@@ -81,75 +90,45 @@ function fixTocInFile(filePath: string): boolean {
 
   writeFileSync(filePath, newContent, "utf-8");
 
-  console.log(`  ✅ ToC updated successfully (${String(filteredHeaders.length)} entries)`);
+  logSuccess(`ToC updated successfully (${String(filteredHeaders.length)} entries)`);
   return true;
-}
-
-/**
- * Generates ToC markdown from headers.
- *
- * @param headers - Headers to include
- * @param maxDepth - Maximum header level
- * @param indentSize - Spaces per level (default: 2)
- * @returns Markdown list with anchors
- */
-function generateTocMarkdown(headers: HeaderEntry[], maxDepth: number, indentSize = 2): string {
-  const filteredHeaders = headers.filter((h) => h.level <= maxDepth);
-  const lines: string[] = [];
-
-  for (const header of filteredHeaders) {
-    const indent = " ".repeat((header.level - 2) * indentSize);
-    const line = `${indent}- [${header.text}](#${header.anchor})`;
-    lines.push(line);
-  }
-
-  return lines.join("\n");
 }
 
 /** CLI entry point. Fixes ToC in specified file or all documentation files. */
 function main(): void {
-  const args = process.argv.slice(2);
+  const args = parseArgsWithHelp({
+    description: "SAP AI Provider - Documentation ToC Auto-Fix",
+    usageExamples: [
+      "npm run fix-docs-toc",
+      "npm run fix-docs-toc [file]",
+      "npm run fix-docs-toc -- --help",
+    ],
+  });
 
-  console.log("🔧 SAP AI Provider - Documentation ToC Auto-Fix");
-  console.log("=".repeat(60));
+  logSection("🔧 SAP AI Provider - Documentation ToC Auto-Fix");
 
-  if (args.length === 0) {
-    const files = [
-      "README.md",
-      "API_REFERENCE.md",
-      "ARCHITECTURE.md",
-      "ENVIRONMENT_SETUP.md",
-      "MIGRATION_GUIDE.md",
-      "TROUBLESHOOTING.md",
-      "CONTRIBUTING.md",
-    ];
+  const filesToProcess = args.files.length > 0 ? args.files : [...DOC_FILES];
 
-    let fixed = 0;
-    let skipped = 0;
+  let fixed = 0;
+  let skipped = 0;
 
-    for (const file of files) {
-      if (existsSync(file)) {
-        if (fixTocInFile(file)) {
-          fixed++;
-        } else {
-          skipped++;
-        }
+  for (const file of filesToProcess) {
+    if (existsSync(file)) {
+      if (fixTocInFile(file)) {
+        fixed++;
+      } else {
+        skipped++;
       }
     }
+  }
 
-    console.log("\n" + "=".repeat(60));
-    console.log(`\n📊 Summary:`);
-    console.log(`  Fixed:   ${String(fixed)}`);
-    console.log(`  Skipped: ${String(skipped)}`);
-    console.log("");
+  console.log("");
+  console.log("=".repeat(60));
+  logSummary({ Fixed: fixed, Skipped: skipped });
 
-    if (fixed > 0) {
-      console.log("✅ ToC fixes applied successfully!");
-      console.log("   Run 'npm run validate-docs' to verify.\n");
-    }
-  } else {
-    const file = args[0];
-    fixTocInFile(file);
+  if (fixed > 0) {
+    logSuccess("ToC fixes applied successfully!");
+    console.log("   Run 'npm run validate-docs' to verify.\n");
   }
 }
 

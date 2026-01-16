@@ -16,8 +16,8 @@ The SAP AI Provider implementation demonstrates **exceptional quality** and **st
 ### Key Metrics
 
 - **Specification Compliance**: 100% ✅
-- **Test Coverage**: 249/249 tests passing (100%) ✅
-- **Coverage**: 91.13% overall ✅
+- **Test Coverage**: 267/267 tests passing (100%) ✅
+- **Coverage**: 91.37% overall ✅
 - **Critical Issues**: 1 found and FIXED (StreamIdGenerator hardcoded IDs - commit 3ca38c6) ✅
 - **OpenSpec Errors**: 2 found and corrected ✅
 - **Code Quality**: Excellent (comprehensive JSDoc, type safety, defensive programming)
@@ -28,7 +28,7 @@ The SAP AI Provider implementation demonstrates **exceptional quality** and **st
 
 **Test Coverage Enhancements** (Commit b54ee5a):
 
-- ✅ Test coverage improved: 184 → 249 tests (+65 tests)
+- ✅ Test coverage improved: 184 → 267 tests (+83 tests: +65 from RC2, +18 from scripts refactoring)
 - ✅ Overall coverage: 90.30% (current)
 - ✅ Message conversion coverage: 77.27% → 93.93% (+16.66%)
 - ✅ Added 5 edge case tests (Uint8Array, Buffer, null data, invalid roles)
@@ -956,7 +956,7 @@ The **SAP AI Provider v4.0.0** implementation is **production-ready** and demons
 1. **✅ 100% V3 Specification Compliance**: All required features implemented correctly
 2. **✅ Superior Error Handling**: Enhanced messages with SAP-specific guidance
 3. **✅ Excellent Developer Experience**: Non-blocking validation, comprehensive JSDoc
-4. **✅ Robust Testing**: 249/249 tests passing with comprehensive edge case coverage (+65 tests from RC1 to final)
+4. **✅ Robust Testing**: 267/267 tests passing with comprehensive edge case coverage (+83 tests from RC1 to final)
 5. **✅ Performance Optimized**: Efficient streaming, minimal memory footprint
 6. **✅ Platform-Aware**: Transparent disclosure of SAP AI Core limitations
 7. **✅ OpenSpec Compliance**: Automated validator prevents documentation drift (introduced in RC2, maintained in v4.0.0)
@@ -974,7 +974,7 @@ The **SAP AI Provider v4.0.0** implementation is **production-ready** and demons
 1. **Best-in-class warning system**: Non-blocking parameter validation
 2. **Enhanced error messages**: SAP-specific guidance with documentation links
 3. **Superior abort handling**: Detailed documentation of platform limitations
-4. **Comprehensive tests**: 100% pass rate with 249 tests (improved from RC1 to v4.0.0)
+4. **Comprehensive tests**: 100% pass rate with 267 tests (improved from RC1 to v4.0.0, +18 from scripts refactoring)
 5. **OpenSpec automation**: Automatic validation of code metrics vs documentation claims (v4.0.0)
 
 ### Recommendation

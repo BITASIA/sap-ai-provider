@@ -7,14 +7,81 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createFileExistsChecker,
   detectToc,
   detectTocIndentation,
+  extractCodeBlocks,
   extractHeaders,
   extractTocEntries,
+  findMarkdownFiles,
+  generateTocMarkdown,
   inferTocDepth,
+  matchesFilePattern,
+  readMarkdownFile,
+  readMarkdownFileWithCodeBlocks,
   textToAnchor,
   trackCodeBlocks,
 } from "../scripts/markdown-utils.js";
+
+// =============================================================================
+// createFileExistsChecker
+// =============================================================================
+
+describe("createFileExistsChecker", () => {
+  // Nominal cases
+  it("returns true for existing files", () => {
+    const checker = createFileExistsChecker();
+    expect(checker("README.md")).toBe(true);
+    expect(checker("package.json")).toBe(true);
+  });
+
+  it("returns false for non-existing files", () => {
+    const checker = createFileExistsChecker();
+    expect(checker("non-existent-file.md")).toBe(false);
+    expect(checker("fake/path/file.ts")).toBe(false);
+  });
+
+  // Variations: caching behavior
+  it("caches results for repeated calls on same path", () => {
+    const cache = new Map<string, boolean>();
+    const checker = createFileExistsChecker(cache);
+
+    checker("README.md");
+    expect(cache.has("README.md")).toBe(true);
+    expect(cache.get("README.md")).toBe(true);
+
+    checker("non-existent.md");
+    expect(cache.has("non-existent.md")).toBe(true);
+    expect(cache.get("non-existent.md")).toBe(false);
+  });
+
+  it("uses provided cache when supplied", () => {
+    const cache = new Map<string, boolean>();
+    cache.set("pre-cached-file.md", true);
+
+    const checker = createFileExistsChecker(cache);
+    // Should return cached value without checking filesystem
+    expect(checker("pre-cached-file.md")).toBe(true);
+  });
+
+  it("creates internal cache when none provided", () => {
+    const checker1 = createFileExistsChecker();
+    const checker2 = createFileExistsChecker();
+
+    // Each checker has its own cache (isolation)
+    checker1("README.md");
+    checker2("README.md");
+    // Both work independently (no shared state)
+    expect(checker1("README.md")).toBe(true);
+    expect(checker2("README.md")).toBe(true);
+  });
+
+  // Edge cases
+  it("handles empty path", () => {
+    const checker = createFileExistsChecker();
+    expect(checker("")).toBe(false);
+  });
+});
 
 // =============================================================================
 // detectToc
@@ -296,6 +363,56 @@ describe("extractTocEntries", () => {
 });
 
 // =============================================================================
+// findMarkdownFiles
+// =============================================================================
+
+describe("findMarkdownFiles", () => {
+  // Nominal cases
+  it("finds .md files in current directory", () => {
+    const files = findMarkdownFiles(".");
+    expect(files.length).toBeGreaterThan(0);
+    expect(files.some((f) => f === "README.md")).toBe(true);
+  });
+
+  it("returns only .md files", () => {
+    const files = findMarkdownFiles(".");
+    expect(files.every((f) => f.endsWith(".md"))).toBe(true);
+  });
+
+  // Variations: exclusion
+  it("excludes specified directories", () => {
+    const filesWithoutNode = findMarkdownFiles(".", ["node_modules"]);
+
+    // Exclusion should filter out node_modules paths
+    expect(filesWithoutNode.every((f) => !f.includes("node_modules"))).toBe(true);
+  });
+
+  it("excludes multiple directories", () => {
+    const files = findMarkdownFiles(".", ["node_modules", ".git", "openspec"]);
+    // Exclusion is based on exact path segments, not substring matching
+    // e.g., ".git" excludes ".git/" but not ".github/"
+    expect(files.every((f) => !f.split("/").includes("node_modules"))).toBe(true);
+    expect(files.every((f) => !f.split("/").includes(".git"))).toBe(true);
+    expect(files.every((f) => !f.split("/").includes("openspec"))).toBe(true);
+  });
+
+  // Variations: subdirectories
+  it("recurses into subdirectories", () => {
+    const files = findMarkdownFiles(".", ["node_modules"]);
+    // Project has .md files in subdirectories (e.g., openspec/, .github/)
+    const hasNestedFiles = files.some((f) => f.includes("/"));
+    expect(hasNestedFiles).toBe(true);
+  });
+
+  // Edge cases
+  it("returns empty array for directory with no .md files", () => {
+    const files = findMarkdownFiles("src");
+    // src/ contains .ts files, not .md files
+    expect(files).toEqual([]);
+  });
+});
+
+// =============================================================================
 // inferTocDepth
 // =============================================================================
 
@@ -375,6 +492,61 @@ describe("inferTocDepth", () => {
   it("returns header level when single header present", () => {
     const headers = [{ anchor: "a", level: 4, lineNumber: 1, text: "A" }];
     expect(inferTocDepth(headers)).toBe(4);
+  });
+});
+
+// =============================================================================
+// matchesFilePattern
+// =============================================================================
+
+describe("matchesFilePattern", () => {
+  // Nominal cases
+  it("matches exact file name", () => {
+    expect(matchesFilePattern("AGENTS.md", ["AGENTS.md"])).toBe(true);
+    expect(matchesFilePattern("README.md", ["README.md"])).toBe(true);
+  });
+
+  it("matches directory pattern with trailing slash", () => {
+    expect(matchesFilePattern("openspec/foo.md", ["openspec/"])).toBe(true);
+    expect(matchesFilePattern("openspec/changes/bar.md", ["openspec/"])).toBe(true);
+  });
+
+  // Variations: nested paths
+  it("matches file in nested path", () => {
+    expect(matchesFilePattern("src/utils/AGENTS.md", ["AGENTS.md"])).toBe(true);
+    expect(matchesFilePattern(".github/copilot-instructions.md", ["copilot-instructions.md"])).toBe(
+      true,
+    );
+  });
+
+  it("matches directory pattern in nested path", () => {
+    expect(matchesFilePattern("foo/openspec/bar.md", ["openspec/"])).toBe(true);
+  });
+
+  it("matches with multiple patterns", () => {
+    expect(matchesFilePattern("openspec/spec.md", ["node_modules/", "openspec/"])).toBe(true);
+    expect(matchesFilePattern("AGENTS.md", ["README.md", "AGENTS.md"])).toBe(true);
+  });
+
+  // Edge cases: non-matching
+  it("returns false for non-matching file", () => {
+    expect(matchesFilePattern("src/index.ts", ["openspec/"])).toBe(false);
+    expect(matchesFilePattern("README.md", ["AGENTS.md"])).toBe(false);
+  });
+
+  it("returns false for partial match without proper boundary", () => {
+    // "openspec" without trailing slash should not match as directory
+    expect(matchesFilePattern("openspec-backup/file.md", ["openspec/"])).toBe(false);
+  });
+
+  it("returns false for empty patterns array", () => {
+    expect(matchesFilePattern("README.md", [])).toBe(false);
+  });
+
+  it("handles file pattern that looks like directory", () => {
+    // Pattern without trailing slash is treated as file name
+    expect(matchesFilePattern("openspec", ["openspec"])).toBe(true);
+    expect(matchesFilePattern("path/to/openspec", ["openspec"])).toBe(true);
   });
 });
 
@@ -506,5 +678,200 @@ describe("trackCodeBlocks", () => {
 
   it("returns empty array for empty input", () => {
     expect(trackCodeBlocks([])).toEqual([]);
+  });
+});
+
+// =============================================================================
+// extractCodeBlocks
+// =============================================================================
+
+describe("extractCodeBlocks", () => {
+  // Nominal cases
+  it("extracts single code block without language filter", () => {
+    const content = "# Title\n\n```typescript\nconst x = 1;\n```\n\nText";
+    const result = extractCodeBlocks(content);
+    expect(result).toEqual(["const x = 1;"]);
+  });
+
+  it("extracts code block with specific language filter", () => {
+    const content = "```typescript\nconst x = 1;\n```\n\n```javascript\nvar y = 2;\n```";
+    const result = extractCodeBlocks(content, "typescript");
+    expect(result).toEqual(["const x = 1;"]);
+  });
+
+  it("extracts multiple code blocks", () => {
+    const content = "```typescript\ncode1\n```\n\ntext\n\n```typescript\ncode2\n```";
+    const result = extractCodeBlocks(content, "typescript");
+    expect(result).toEqual(["code1", "code2"]);
+  });
+
+  // Variations
+  it("extracts code blocks with different languages", () => {
+    const content = "```javascript\njs code\n```\n\n```typescript\nts code\n```";
+    expect(extractCodeBlocks(content, "javascript")).toEqual(["js code"]);
+    expect(extractCodeBlocks(content, "typescript")).toEqual(["ts code"]);
+  });
+
+  it("extracts multiline code blocks", () => {
+    const content = "```typescript\nline1\nline2\nline3\n```";
+    const result = extractCodeBlocks(content, "typescript");
+    expect(result).toEqual(["line1\nline2\nline3"]);
+  });
+
+  // Edge cases
+  it("returns empty array when no code blocks found", () => {
+    const content = "# Title\n\nJust text, no code blocks.";
+    expect(extractCodeBlocks(content)).toEqual([]);
+  });
+
+  it("returns empty array for empty content", () => {
+    expect(extractCodeBlocks("")).toEqual([]);
+  });
+
+  it("handles code blocks with no language specified", () => {
+    const content = "```\nplain code\n```";
+    const result = extractCodeBlocks(content);
+    expect(result).toEqual(["plain code"]);
+  });
+});
+
+// =============================================================================
+// generateTocMarkdown
+// =============================================================================
+
+describe("generateTocMarkdown", () => {
+  // Nominal cases
+  it("generates ToC markdown from headers", () => {
+    const headers = [
+      { anchor: "section-1", level: 2, lineNumber: 1, text: "Section 1" },
+      { anchor: "section-2", level: 2, lineNumber: 5, text: "Section 2" },
+      { anchor: "subsection", level: 3, lineNumber: 10, text: "Subsection" },
+    ];
+    const result = generateTocMarkdown(headers, 3);
+    expect(result).toBe(
+      "- [Section 1](#section-1)\n- [Section 2](#section-2)\n  - [Subsection](#subsection)",
+    );
+  });
+
+  it("respects maxDepth parameter", () => {
+    const headers = [
+      { anchor: "h2", level: 2, lineNumber: 1, text: "H2" },
+      { anchor: "h3", level: 3, lineNumber: 3, text: "H3" },
+      { anchor: "h4", level: 4, lineNumber: 5, text: "H4" },
+    ];
+    const result = generateTocMarkdown(headers, 3);
+    expect(result).toBe("- [H2](#h2)\n  - [H3](#h3)");
+  });
+
+  it("uses custom indent size", () => {
+    const headers = [
+      { anchor: "h2", level: 2, lineNumber: 1, text: "H2" },
+      { anchor: "h3", level: 3, lineNumber: 3, text: "H3" },
+    ];
+    const result = generateTocMarkdown(headers, 3, 4);
+    expect(result).toBe("- [H2](#h2)\n    - [H3](#h3)");
+  });
+
+  // Variations
+  it("handles only H2 headers", () => {
+    const headers = [
+      { anchor: "a", level: 2, lineNumber: 1, text: "A" },
+      { anchor: "b", level: 2, lineNumber: 3, text: "B" },
+    ];
+    const result = generateTocMarkdown(headers, 2);
+    expect(result).toBe("- [A](#a)\n- [B](#b)");
+  });
+
+  it("handles deeply nested headers", () => {
+    const headers = [
+      { anchor: "h2", level: 2, lineNumber: 1, text: "H2" },
+      { anchor: "h3", level: 3, lineNumber: 3, text: "H3" },
+      { anchor: "h4", level: 4, lineNumber: 5, text: "H4" },
+      { anchor: "h5", level: 5, lineNumber: 7, text: "H5" },
+    ];
+    const result = generateTocMarkdown(headers, 5);
+    expect(result).toContain("      - [H5](#h5)"); // 3 levels deep = 6 spaces
+  });
+
+  // Edge cases
+  it("returns empty string for empty headers", () => {
+    expect(generateTocMarkdown([], 3)).toBe("");
+  });
+
+  it("filters out all headers when maxDepth is too low", () => {
+    const headers = [
+      { anchor: "h3", level: 3, lineNumber: 1, text: "H3" },
+      { anchor: "h4", level: 4, lineNumber: 3, text: "H4" },
+    ];
+    expect(generateTocMarkdown(headers, 2)).toBe("");
+  });
+});
+
+// =============================================================================
+// readMarkdownFile
+// =============================================================================
+
+describe("readMarkdownFile", () => {
+  // Note: These tests require actual file I/O, so we test with existing files
+
+  it("reads file and returns content and lines", () => {
+    // Using a known existing file in the project
+    const result = readMarkdownFile("README.md");
+    expect(result).toHaveProperty("content");
+    expect(result).toHaveProperty("lines");
+    expect(typeof result.content).toBe("string");
+    expect(Array.isArray(result.lines)).toBe(true);
+    expect(result.content.length).toBeGreaterThan(0);
+    expect(result.lines.length).toBeGreaterThan(0);
+  });
+
+  it("splits content correctly into lines", () => {
+    const result = readMarkdownFile("README.md");
+    const manualSplit = result.content.split("\n");
+    expect(result.lines).toEqual(manualSplit);
+  });
+
+  it("handles files with multiple lines", () => {
+    const result = readMarkdownFile("README.md");
+    expect(result.lines.length).toBeGreaterThan(1);
+    expect(result.lines.join("\n")).toBe(result.content);
+  });
+});
+
+// =============================================================================
+// readMarkdownFileWithCodeBlocks
+// =============================================================================
+
+describe("readMarkdownFileWithCodeBlocks", () => {
+  it("reads file and returns content, lines, and code block tracking", () => {
+    const result = readMarkdownFileWithCodeBlocks("README.md");
+    expect(result).toHaveProperty("content");
+    expect(result).toHaveProperty("lines");
+    expect(result).toHaveProperty("inCodeBlock");
+    expect(typeof result.content).toBe("string");
+    expect(Array.isArray(result.lines)).toBe(true);
+    expect(Array.isArray(result.inCodeBlock)).toBe(true);
+  });
+
+  it("returns inCodeBlock array matching lines length", () => {
+    const result = readMarkdownFileWithCodeBlocks("README.md");
+    expect(result.inCodeBlock.length).toBe(result.lines.length);
+  });
+
+  it("correctly tracks code blocks in file", () => {
+    const result = readMarkdownFileWithCodeBlocks("README.md");
+    // README.md contains code blocks, so some lines should be marked as inside code blocks
+    const hasCodeBlocks = result.inCodeBlock.some((inBlock) => inBlock);
+    expect(hasCodeBlocks).toBe(true);
+  });
+
+  it("is consistent with calling readMarkdownFile and trackCodeBlocks separately", () => {
+    const combined = readMarkdownFileWithCodeBlocks("README.md");
+    const separate = readMarkdownFile("README.md");
+    const separateCodeBlocks = trackCodeBlocks(separate.lines);
+
+    expect(combined.content).toBe(separate.content);
+    expect(combined.lines).toEqual(separate.lines);
+    expect(combined.inCodeBlock).toEqual(separateCodeBlocks);
   });
 });

@@ -49,7 +49,7 @@ All CI/CD checks defined in `.github/workflows/check-pr.yaml` are passing:
 
 - ✅ **format-check**: ESLint (0 errors) + Prettier (all files formatted)
 - ✅ **type-check**: TypeScript compilation with strict mode
-- ✅ **test**: 249/249 tests passing (194 package + 55 scripts: unit + node + edge runtimes)
+- ✅ **test**: 267/267 tests passing (194 package + 73 scripts: unit + node + edge runtimes)
 - ✅ **build**: Package compilation + output validation
 - ✅ **docs-validation**: Documentation structure and links verified
 
@@ -773,7 +773,7 @@ A full audit against Vercel AI SDK v6 LanguageModelV3 specification and referenc
 1. Best-in-class warning system (non-blocking parameter validation)
 2. Enhanced error messages with SAP-specific guidance and documentation links
 3. Superior abort signal handling with detailed platform limitation docs
-4. Comprehensive test suite (249 tests: 194 package + 55 scripts, covering all edge cases)
+4. Comprehensive test suite (267 tests: 194 package + 73 scripts, covering all edge cases)
 
 **Audit Recommendation**: **APPROVE FOR PRODUCTION RELEASE** - Implementation exceeds industry standards.
 
@@ -787,7 +787,7 @@ Following RC1 feedback and enhancements, the audit score improved to **9.8/10**:
   - Check 10: Automatic code metrics validation (prevents OpenSpec drift)
   - Check 11: Source code comments validation (links, model IDs)
   - Fixed 4 critical bugs in comment extraction
-- ✅ **Improved Test Coverage**: 184 → 249 tests (+65 tests: +10 package tests, +55 script tests)
+- ✅ **Improved Test Coverage**: 184 → 267 tests (+83 tests: +10 package tests, +73 script tests)
 - ✅ **Better Coverage**: 90.49% → 91.13% overall (+0.64% net, src/ reached 92.87%)
 - ✅ **Refactoring**: Extracted constants, improved maintainability
 

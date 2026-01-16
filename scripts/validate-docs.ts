@@ -5,32 +5,50 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { HeaderEntry, TocEntry } from "./markdown-utils.js";
+import type { ValidationResult } from "./validation-utils.js";
 
+import { parseArgsWithHelp } from "./cli-utils.js";
+import { logError, logSection, logSuccess, logSummary, logWarning } from "./console-utils.js";
 import {
+  createFileExistsChecker,
   detectToc,
+  extractCodeBlocks,
   extractHeaders,
   extractTocEntries,
+  fileExists,
   findMarkdownFiles,
   inferTocDepth,
+  matchesFilePattern,
   readJsonFile,
-  trackCodeBlocks,
+  readMarkdownFile,
+  readMarkdownFileWithCodeBlocks,
+  readTextFile,
 } from "./markdown-utils.js";
+import {
+  COVERAGE_TOLERANCE_PERCENT,
+  CRITICAL_EXPORTS,
+  DEFAULT_EXCLUDED_DIRS,
+  DOTENV_CHECK_FILES,
+  MODEL_CHECK_FILES,
+  MODEL_VALIDATION_RULES,
+  REGEX_PATTERNS,
+  REQUIRED_FILES,
+  SOURCE_FILES,
+  VERSION_CHECK_FILES,
+} from "./validation-config.js";
+import {
+  aggregateValidationResults,
+  createValidationResult,
+  finalizeValidationResult,
+} from "./validation-utils.js";
 
 // ============================================================================
 // Types and Interfaces
 // ============================================================================
-
-/** File path with validation threshold. */
-interface FileThreshold {
-  /** File path. */
-  file: string;
-  /** Threshold count. */
-  threshold: number;
-}
 
 /** package.json structure. */
 interface PackageJson {
@@ -57,116 +75,12 @@ interface TocValidationResult {
   tocDepth: number;
 }
 
-/** Validation check result. */
-interface ValidationResult {
-  /** Error messages. */
-  errors: string[];
-  /** Whether check passed. */
-  passed: boolean;
-  /** Warning messages. */
-  warnings: string[];
-}
-
 // ============================================================================
 // Constants
 // ============================================================================
 
-const CRITICAL_EXPORTS = [
-  "createSAPAIProvider",
-  "sapai",
-  "buildDpiMaskingProvider",
-  "buildAzureContentSafetyFilter",
-  "buildLlamaGuard38BFilter",
-] as const;
-
-const MODEL_CHECK_FILES: FileThreshold[] = [
-  { file: "README.md", threshold: 15 },
-  { file: "API_REFERENCE.md", threshold: 20 },
-];
-
-const DOTENV_CHECK_FILES = [
-  "README.md",
-  "API_REFERENCE.md",
-  "MIGRATION_GUIDE.md",
-  "ENVIRONMENT_SETUP.md",
-  "TROUBLESHOOTING.md",
-] as const;
-
-const REQUIRED_FILES = [
-  "README.md",
-  "LICENSE.md",
-  "CONTRIBUTING.md",
-  "API_REFERENCE.md",
-  "ARCHITECTURE.md",
-  "ENVIRONMENT_SETUP.md",
-  "TROUBLESHOOTING.md",
-  "MIGRATION_GUIDE.md",
-  ".env.example",
-] as const;
-
-const VERSION_CHECK_FILES = ["README.md", "MIGRATION_GUIDE.md"] as const;
-
-const DEFAULT_EXCLUDED_DIRS = ["node_modules", ".git"] as const;
-
-/** Extended via CLI args if needed */
-const EXCLUDED_DIRS: string[] = [...DEFAULT_EXCLUDED_DIRS];
-
-const COVERAGE_TOLERANCE_PERCENT = 0.5;
-
-const REGEX_PATTERNS = {
-  // eslint-disable-next-line no-control-regex
-  ANSI_COLORS: /\x1b\[[0-9;]*m/g,
-  BLOCK_COMMENT_START: /\/\*\*?/,
-  INLINE_COMMENT: /\/\/(.*)$/,
-  JSDOC_ONE_LINER: /\/\*\*(?!\*)(?:[^*]|\*(?!\/))*\*\//,
-  URL_PATTERN: /https?:\/\//,
-} as const;
-
-/** Model ID validation rules: count patterns and format checks */
-const MODEL_VALIDATION_RULES = [
-  {
-    countPatterns: [/"gpt-[\d.]+[a-z0-9-]*"/gi, /"o[\d]+-?[a-z]*"/gi],
-    incorrectPattern: null,
-    vendor: "OpenAI",
-  },
-  {
-    countPatterns: [/"gemini-[\d.]+-[a-z]+"/gi],
-    incorrectPattern: null,
-    vendor: "Google",
-  },
-  {
-    countPatterns: [/"anthropic--claude-[^"]+"/gi],
-    incorrectPattern: {
-      correctFormat: "anthropic--claude-*",
-      pattern: /(?<!anthropic--)(\bclaude-[\d.]+-(sonnet|opus|haiku)\b)/g,
-    },
-    vendor: "Anthropic",
-  },
-  {
-    countPatterns: [/"amazon--[a-z0-9-]+"/gi],
-    incorrectPattern: {
-      correctFormat: "amazon--nova-*",
-      pattern: /(?<!amazon--)(\bnova-(pro|lite|micro|premier)\b)/g,
-    },
-    vendor: "Amazon",
-  },
-  {
-    countPatterns: [/"meta--llama[^"]+"/gi],
-    incorrectPattern: {
-      correctFormat: "meta--llama*-instruct",
-      pattern: /(?<!meta--)(\bllama[\d.]+(?!-instruct\b)[a-z\d.]*)\b/g,
-    },
-    vendor: "Meta",
-  },
-  {
-    countPatterns: [/"mistralai--[a-z0-9-]+"/gi],
-    incorrectPattern: {
-      correctFormat: "mistralai--mistral-*-instruct",
-      pattern: /(?<!mistralai--)(\bmistralai-mistral-\w+)(?!-instruct\b)/g,
-    },
-    vendor: "Mistral",
-  },
-] as const;
+/** Excluded directories, initialized from defaults and extended via CLI args */
+let EXCLUDED_DIRS: string[] = [...DEFAULT_EXCLUDED_DIRS];
 
 // ============================================================================
 // Helper Functions
@@ -180,23 +94,6 @@ interface TestMetrics {
   passed: boolean;
   /** Total test count. */
   totalTests: number;
-}
-
-/**
- * Combines multiple validation results.
- *
- * @param results - Validation results
- * @returns Aggregated result
- */
-function aggregateResults(results: ValidationResult[]): ValidationResult {
-  return results.reduce<ValidationResult>(
-    (acc, result) => ({
-      errors: [...acc.errors, ...result.errors],
-      passed: acc.passed && result.passed,
-      warnings: [...acc.warnings, ...result.warnings],
-    }),
-    { errors: [], passed: true, warnings: [] },
-  );
 }
 
 /**
@@ -234,18 +131,6 @@ function extractTestCount(output: string): null | number {
   }
 
   return null;
-}
-
-/**
- * Extracts TypeScript code blocks from markdown.
- *
- * @param content - Markdown content
- * @returns Code block contents
- */
-function extractTypeScriptCodeBlocks(content: string): string[] {
-  const codeBlockPattern = /```typescript\n([\s\S]*?)\n```/g;
-  const matches = Array.from(content.matchAll(codeBlockPattern));
-  return matches.map((match) => match[1]);
 }
 
 // ============================================================================
@@ -339,8 +224,7 @@ function hasInlineCodeExample(line: string): boolean {
  * Runs all 14 validation checks and reports results with exit codes.
  */
 function main(): void {
-  console.log("📚 SAP AI Provider - Documentation Validation");
-  console.log("=".repeat(60));
+  logSection("📚 SAP AI Provider - Documentation Validation");
   console.log("");
 
   const allResults: ValidationResult[] = [];
@@ -368,23 +252,21 @@ function main(): void {
     });
   }
 
-  const results = aggregateResults(allResults);
+  const results = aggregateValidationResults(allResults);
 
   console.log("");
   console.log("=".repeat(60));
-  console.log("\n📊 Summary:");
-  console.log(`  Errors:   ${String(results.errors.length)}`);
-  console.log(`  Warnings: ${String(results.warnings.length)}`);
+  logSummary({ Errors: results.errors.length, Warnings: results.warnings.length });
 
   if (results.errors.length > 0) {
-    console.log("\n❌ ERRORS:");
+    logError("ERRORS:");
     results.errors.forEach((err) => {
       console.log(`  • ${err}`);
     });
   }
 
   if (results.warnings.length > 0) {
-    console.log("\n⚠️  WARNINGS:");
+    logWarning("WARNINGS:");
     results.warnings.forEach((warn) => {
       console.log(`  • ${warn}`);
     });
@@ -392,63 +274,16 @@ function main(): void {
 
   console.log("");
   if (results.errors.length === 0 && results.warnings.length === 0) {
-    console.log("✅ Documentation validation PASSED - No issues found!\n");
+    logSuccess("Documentation validation PASSED - No issues found!\n");
     process.exit(0);
   } else if (results.errors.length === 0) {
-    console.log("✅ Documentation validation PASSED with warnings");
+    logSuccess("Documentation validation PASSED with warnings");
     console.log("   Consider addressing warnings before release.\n");
     process.exit(0);
   } else {
-    console.log("❌ Documentation validation FAILED");
+    logError("Documentation validation FAILED");
     console.log("   Fix errors before proceeding with release.\n");
     process.exit(1);
-  }
-}
-
-/**
- * Parses CLI arguments.
- * Supports: --exclude-dirs dir1,dir2 --help
- */
-function parseCliArgs(): void {
-  const args = process.argv.slice(2);
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    if (arg === "--exclude-dirs" || arg === "--exclude-dir") {
-      const nextArg = args[i + 1];
-      if (!nextArg || nextArg.startsWith("--")) {
-        console.error(`Error: ${arg} requires a comma-separated list of directories`);
-        console.error("Usage: npm run validate-docs -- --exclude-dirs dir1,dir2,dir3");
-        process.exit(1);
-      }
-
-      const additionalDirs = nextArg
-        .split(",")
-        .map((d) => d.trim())
-        .filter(Boolean);
-      EXCLUDED_DIRS.push(...additionalDirs);
-      i++; // Skip next arg since we consumed it
-    } else if (arg === "--help" || arg === "-h") {
-      console.log("SAP AI Provider - Documentation Validation");
-      console.log("");
-      console.log("Usage:");
-      console.log("  npm run validate-docs");
-      console.log("  npm run validate-docs -- --exclude-dirs dir1,dir2");
-      console.log("");
-      console.log("Options:");
-      console.log(
-        "  --exclude-dirs <dirs>  Comma-separated list of additional directories to exclude",
-      );
-      console.log("  --help, -h             Show this help message");
-      console.log("");
-      console.log("Default excluded directories:", DEFAULT_EXCLUDED_DIRS.join(", "));
-      process.exit(0);
-    } else {
-      console.error(`Unknown option: ${arg}`);
-      console.error("Use --help for usage information");
-      process.exit(1);
-    }
   }
 }
 
@@ -489,8 +324,7 @@ function runCoverageCheck(): null | TestMetrics {
  * @returns Validation result with errors for unclosed blocks and warnings for syntax issues
  */
 function validateCodeBlockSyntax(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n1️⃣3️⃣  Checking code block syntax...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
@@ -499,21 +333,10 @@ function validateCodeBlockSyntax(): ValidationResult {
   const metaDocFiles = ["openspec/", "AGENTS.md", ".github/copilot-instructions.md"];
   const metaLanguages = new Set(["javascript", "js", "markdown", "md", "ts", "typescript"]);
 
-  const isMetaDocFile = (file: string, patterns: string[]): boolean => {
-    return patterns.some((pattern) => {
-      if (pattern.endsWith("/")) {
-        return file.startsWith(pattern) || file.includes(`/${pattern}`);
-      } else {
-        return file === pattern || file.endsWith(`/${pattern}`);
-      }
-    });
-  };
-
   for (const file of mdFiles) {
-    const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
+    const { lines } = readMarkdownFile(file);
 
-    const isMetaDoc = isMetaDocFile(file, metaDocFiles);
+    const isMetaDoc = matchesFilePattern(file, metaDocFiles);
     let inCodeBlock = false;
     let openingBackticks = 0;
     let openingLine = 0;
@@ -539,7 +362,7 @@ function validateCodeBlockSyntax(): ValidationResult {
           const isValidContext = isMetaDoc || isMetaLanguage;
 
           if (!isValidContext) {
-            warnings.push(
+            result.warnings.push(
               `${file}:${String(i + 1)} - Unusual code fence: ${String(backticks)} backticks (expected 3). May be syntax error.`,
             );
             issuesFound++;
@@ -547,7 +370,7 @@ function validateCodeBlockSyntax(): ValidationResult {
         }
       } else if (backticks === openingBackticks) {
         if (language) {
-          warnings.push(
+          result.warnings.push(
             `${file}:${String(i + 1)} - Language identifier on closing fence: \`\`\`${language} (should be just \`\`\`)`,
           );
           issuesFound++;
@@ -560,7 +383,7 @@ function validateCodeBlockSyntax(): ValidationResult {
     }
 
     if (inCodeBlock) {
-      errors.push(
+      result.errors.push(
         `${file}:${String(openingLine)} - Unclosed code block (opened with ${String(openingBackticks)} backticks)`,
       );
       issuesFound++;
@@ -568,16 +391,12 @@ function validateCodeBlockSyntax(): ValidationResult {
   }
 
   if (issuesFound > 0) {
-    console.log(`  ⚠️  ${String(issuesFound)} code block syntax issues`);
+    logWarning(`${String(issuesFound)} code block syntax issues`);
   } else {
-    console.log("  ✅ All code blocks have valid syntax");
+    logSuccess("All code blocks have valid syntax");
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -589,20 +408,19 @@ function validateCodeBlockSyntax(): ValidationResult {
 function validateCodeMetrics(): ValidationResult {
   console.log("\n🔟 Checking code metrics against OpenSpec documents...");
 
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
 
   const auditFile = "openspec/changes/migrate-languagemodelv3/IMPLEMENTATION_AUDIT.md";
   const releaseNotesFile = "openspec/changes/migrate-languagemodelv3/RELEASE_NOTES.md";
 
-  if (!existsSync(auditFile) || !existsSync(releaseNotesFile)) {
-    warnings.push("OpenSpec files not found, skipping code metrics validation");
-    console.log("  ⚠️  OpenSpec files not found, skipping");
-    return { errors, passed: errors.length === 0, warnings };
+  if (!fileExists(auditFile) || !fileExists(releaseNotesFile)) {
+    result.warnings.push("OpenSpec files not found, skipping code metrics validation");
+    logWarning("OpenSpec files not found, skipping");
+    return finalizeValidationResult(result);
   }
 
-  const auditContent = readFileSync(auditFile, "utf-8");
-  const releaseNotesContent = readFileSync(releaseNotesFile, "utf-8");
+  const { content: auditContent } = readMarkdownFile(auditFile);
+  const { content: releaseNotesContent } = readMarkdownFile(releaseNotesFile);
 
   const auditTestMatch = /(\d+)\/(\d+) tests passing/.exec(auditContent);
   const releaseTestMatch = /(\d+) tests/.exec(releaseNotesContent);
@@ -628,12 +446,12 @@ function validateCodeMetrics(): ValidationResult {
   const testMetrics = runCoverageCheck();
 
   if (!testMetrics) {
-    warnings.push("Could not extract test metrics from npm test output");
-    console.log("  ⚠️  Could not extract test metrics");
-    return { errors, passed: errors.length === 0, warnings };
+    result.warnings.push("Could not extract test metrics from npm test output");
+    logWarning("Could not extract test metrics");
+    return finalizeValidationResult(result);
   }
 
-  console.log("\n  ✅ Actual Metrics:");
+  logSuccess("Actual Metrics:");
   console.log(`    • Test count: ${String(testMetrics.totalTests)}`);
   if (testMetrics.coverage !== undefined) {
     console.log(`    • Coverage: ${testMetrics.coverage.toFixed(2)}%`);
@@ -641,13 +459,13 @@ function validateCodeMetrics(): ValidationResult {
   console.log(`    • All tests passed: ${testMetrics.passed ? "YES" : "NO"}`);
 
   if (claimedTestsAudit !== null && claimedTestsAudit !== testMetrics.totalTests) {
-    errors.push(
+    result.errors.push(
       `IMPLEMENTATION_AUDIT.md claims ${String(claimedTestsAudit)} tests, but actual count is ${String(testMetrics.totalTests)}`,
     );
   }
 
   if (claimedTestsRelease !== null && claimedTestsRelease !== testMetrics.totalTests) {
-    errors.push(
+    result.errors.push(
       `RELEASE_NOTES.md claims ${String(claimedTestsRelease)} tests, but actual count is ${String(testMetrics.totalTests)}`,
     );
   }
@@ -655,42 +473,44 @@ function validateCodeMetrics(): ValidationResult {
   if (claimedCoverage !== null && testMetrics.coverage !== undefined) {
     const diff = Math.abs(claimedCoverage - testMetrics.coverage);
     if (diff > COVERAGE_TOLERANCE_PERCENT) {
-      errors.push(
+      result.errors.push(
         `OpenSpec claims ${String(claimedCoverage)}% coverage, but actual is ${testMetrics.coverage.toFixed(2)}%`,
       );
     }
   }
 
   if (!testMetrics.passed) {
-    errors.push("Some tests are failing - all tests must pass");
+    result.errors.push("Some tests are failing - all tests must pass");
   }
 
   const pkg = readJsonFile("package.json") as null | PackageJson;
   if (pkg?.version) {
     const version = pkg.version;
     if (!auditContent.includes(version)) {
-      warnings.push(`package.json version (${version}) not found in IMPLEMENTATION_AUDIT.md`);
+      result.warnings.push(
+        `package.json version (${version}) not found in IMPLEMENTATION_AUDIT.md`,
+      );
     }
   }
 
   console.log("");
-  if (errors.length === 0) {
-    console.log("  ✅ Code metrics match OpenSpec claims");
+  if (result.errors.length === 0) {
+    logSuccess("Code metrics match OpenSpec claims");
   } else {
-    console.log("  ❌ Code metrics validation failed:");
-    errors.forEach((err) => {
+    logError("Code metrics validation failed:");
+    result.errors.forEach((err) => {
       console.log(`    • ${err}`);
     });
   }
 
-  if (warnings.length > 0) {
-    console.log("  ⚠️  Warnings:");
-    warnings.forEach((warn) => {
+  if (result.warnings.length > 0) {
+    logWarning("Warnings:");
+    result.warnings.forEach((warn) => {
       console.log(`    • ${warn}`);
     });
   }
 
-  return { errors, passed: errors.length === 0, warnings };
+  return finalizeValidationResult(result);
 }
 
 // ============================================================================
@@ -704,20 +524,19 @@ function validateCodeMetrics(): ValidationResult {
  * @returns Validation result with warnings for missing dotenv imports
  */
 function validateDotenvImports(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n5️⃣  Checking dotenv imports in documentation...");
 
   let issuesFound = 0;
 
   for (const file of DOTENV_CHECK_FILES) {
-    if (!existsSync(file)) {
-      console.log(`  ⚠️  File not found: ${file}`);
+    if (!fileExists(file)) {
+      logWarning(`File not found: ${file}`);
       continue;
     }
 
-    const content = readFileSync(file, "utf-8");
-    const codeBlocks = extractTypeScriptCodeBlocks(content);
+    const { content } = readMarkdownFile(file);
+    const codeBlocks = extractCodeBlocks(content, "typescript");
 
     for (const code of codeBlocks) {
       if (!code.includes("createSAPAIProvider") && !code.includes("sapai(")) {
@@ -736,7 +555,7 @@ function validateDotenvImports(): ValidationResult {
         code.includes("via AICORE_SERVICE_KEY");
 
       if (!hasDotenvImport && !hasEnvComment) {
-        warnings.push(
+        result.warnings.push(
           `${file}: Code example with createSAPAIProvider missing dotenv import or env setup comment`,
         );
         issuesFound++;
@@ -746,16 +565,12 @@ function validateDotenvImports(): ValidationResult {
   }
 
   if (issuesFound > 0) {
-    console.log(`  ⚠️  ${String(issuesFound)} files with potential dotenv import issues`);
+    logWarning(`${String(issuesFound)} files with potential dotenv import issues`);
   } else {
-    console.log("  ✅ All code examples have proper environment setup");
+    logSuccess("All code examples have proper environment setup");
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -765,17 +580,14 @@ function validateDotenvImports(): ValidationResult {
  * @returns Validation result with errors for invalid hierarchy jumps
  */
 function validateHeadingHierarchySmart(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n1️⃣2️⃣  Checking heading hierarchy (context-aware)...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
   let issuesFound = 0;
 
   for (const file of mdFiles) {
-    const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
-    const inCodeBlock = trackCodeBlocks(lines);
+    const { inCodeBlock, lines } = readMarkdownFileWithCodeBlocks(file);
 
     let previousLevel = 1; // H1 is implicit (document title)
     let previousLine = 0;
@@ -786,13 +598,13 @@ function validateHeadingHierarchySmart(): ValidationResult {
       }
 
       const line = lines[i];
-      const headerMatch = /^(#{1,6})\s+(.+)$/.exec(line);
+      const headerMatch = REGEX_PATTERNS.HEADER.exec(line);
 
       if (headerMatch) {
         const level = headerMatch[1].length;
 
         if (level > previousLevel + 1) {
-          errors.push(
+          result.errors.push(
             `${file}:${String(i + 1)} - Invalid heading jump: H${String(previousLevel)} → H${String(level)} (line ${String(previousLine)} → ${String(i + 1)}). Insert H${String(previousLevel + 1)} level first.`,
           );
           issuesFound++;
@@ -805,16 +617,12 @@ function validateHeadingHierarchySmart(): ValidationResult {
   }
 
   if (issuesFound > 0) {
-    console.log(`  ❌ ${String(issuesFound)} heading hierarchy issues`);
+    logError(`${String(issuesFound)} heading hierarchy issues`);
   } else {
-    console.log("  ✅ Heading hierarchy is valid");
+    logSuccess("Heading hierarchy is valid");
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -824,31 +632,20 @@ function validateHeadingHierarchySmart(): ValidationResult {
  * @returns Validation result with errors for broken links
  */
 function validateInternalLinks(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n2️⃣  Checking for broken internal links...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
   let brokenCount = 0;
 
-  const fileExistsCache = new Map<string, boolean>();
-
-  const checkFileExists = (path: string): boolean => {
-    if (!fileExistsCache.has(path)) {
-      fileExistsCache.set(path, existsSync(path));
-    }
-    const result = fileExistsCache.get(path);
-    return result ?? false;
-  };
+  const checkFileExists = createFileExistsChecker();
 
   for (const file of mdFiles) {
     if (!checkFileExists(file)) {
       continue;
     }
 
-    const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
-    const inCodeBlock = trackCodeBlocks(lines);
+    const { inCodeBlock, lines } = readMarkdownFileWithCodeBlocks(file);
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -872,7 +669,7 @@ function validateInternalLinks(): ValidationResult {
         const resolvedPath = join(sourceDir, fullPath);
 
         if (!checkFileExists(resolvedPath)) {
-          errors.push(`${file}:${String(i + 1)} - Broken link to ${targetFile}`);
+          result.errors.push(`${file}:${String(i + 1)} - Broken link to ${targetFile}`);
           brokenCount++;
         }
       }
@@ -880,16 +677,12 @@ function validateInternalLinks(): ValidationResult {
   }
 
   if (brokenCount > 0) {
-    console.log(`  ❌ ${String(brokenCount)} broken internal links found`);
+    logError(`${String(brokenCount)} broken internal links found`);
   } else {
-    console.log("  ✅ No broken internal links");
+    logSuccess("No broken internal links");
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -899,17 +692,14 @@ function validateInternalLinks(): ValidationResult {
  * @returns Validation result with warnings for incorrect format
  */
 function validateLinkFormat(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n6️⃣  Checking link format consistency...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
   let badLinksCount = 0;
 
   for (const file of mdFiles) {
-    const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
-    const inCodeBlock = trackCodeBlocks(lines);
+    const { inCodeBlock, lines } = readMarkdownFileWithCodeBlocks(file);
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -922,23 +712,21 @@ function validateLinkFormat(): ValidationResult {
       const matches = Array.from(line.matchAll(badLinkPattern));
 
       for (const match of matches) {
-        warnings.push(`${file}:${String(i + 1)} - Relative link without ./ prefix: ${match[2]}`);
+        result.warnings.push(
+          `${file}:${String(i + 1)} - Relative link without ./ prefix: ${match[2]}`,
+        );
         badLinksCount++;
       }
     }
   }
 
   if (badLinksCount > 0) {
-    console.log(`  ⚠️  ${String(badLinksCount)} links without ./ prefix (should be: ./FILE.md)`);
+    logWarning(`${String(badLinksCount)} links without ./ prefix (should be: ./FILE.md)`);
   } else {
-    console.log("  ✅ All links use correct format");
+    logSuccess("All links use correct format");
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -948,20 +736,18 @@ function validateLinkFormat(): ValidationResult {
  * @returns Validation result with errors for incorrect formats
  */
 function validateModelIdFormats(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n4️⃣  Checking model ID format consistency...");
 
   const filesToCheck = ["README.md", "API_REFERENCE.md"];
   let issuesFound = 0;
 
   for (const file of filesToCheck) {
-    if (!existsSync(file)) {
+    if (!fileExists(file)) {
       continue;
     }
 
-    const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
+    const { lines } = readMarkdownFile(file);
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -983,7 +769,7 @@ function validateModelIdFormats(): ValidationResult {
 
         for (const match of matches) {
           const incorrect = match[1];
-          errors.push(
+          result.errors.push(
             `${file}:${String(i + 1)} - Model ID format error (${rule.vendor}): "${incorrect}" should be "${correctFormat}"`,
           );
           issuesFound++;
@@ -993,16 +779,12 @@ function validateModelIdFormats(): ValidationResult {
   }
 
   if (issuesFound > 0) {
-    console.log(`  ❌ ${String(issuesFound)} model ID format issues found`);
+    logError(`${String(issuesFound)} model ID format issues found`);
   } else {
-    console.log("  ✅ All model IDs use correct format with vendor prefixes");
+    logSuccess("All model IDs use correct format with vendor prefixes");
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -1012,16 +794,15 @@ function validateModelIdFormats(): ValidationResult {
  * @returns Validation result with warnings for files exceeding model mention thresholds
  */
 function validateModelLists(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n3️⃣  Checking for excessive hardcoded model lists...");
 
   for (const { file, threshold } of MODEL_CHECK_FILES) {
-    if (!existsSync(file)) {
+    if (!fileExists(file)) {
       continue;
     }
 
-    const content = readFileSync(file, "utf-8");
+    const { content } = readMarkdownFile(file);
 
     let modelMentions = 0;
     for (const rule of MODEL_VALIDATION_RULES) {
@@ -1034,21 +815,17 @@ function validateModelLists(): ValidationResult {
     }
 
     if (modelMentions > threshold) {
-      warnings.push(
+      result.warnings.push(
         `${file}: ${String(modelMentions)} model IDs (threshold: ${String(threshold)}). ` +
           `Consider using representative examples instead of exhaustive lists.`,
       );
-      console.log(`  ⚠️  ${file}: ${String(modelMentions)} model mentions (may be excessive)`);
+      logWarning(`${file}: ${String(modelMentions)} model mentions (may be excessive)`);
     } else {
-      console.log(`  ✅ ${file}: ${String(modelMentions)} model mentions (within threshold)`);
+      logSuccess(`${file}: ${String(modelMentions)} model mentions (within threshold)`);
     }
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -1058,17 +835,14 @@ function validateModelLists(): ValidationResult {
  * @returns Validation result with warnings for orphan sections
  */
 function validateOrphanSections(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n1️⃣4️⃣  Checking for orphan sections...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
   let issuesFound = 0;
 
   for (const file of mdFiles) {
-    const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
-    const inCodeBlock = trackCodeBlocks(lines);
+    const { inCodeBlock, lines } = readMarkdownFileWithCodeBlocks(file);
 
     const headers: { level: number; line: number; text: string }[] = [];
 
@@ -1111,7 +885,7 @@ function validateOrphanSections(): ValidationResult {
       const hasContent = hasTextContent || hasCodeBlock;
 
       if (!isSubHeader && !hasContent) {
-        warnings.push(
+        result.warnings.push(
           `${file}:${String(current.line)} - Orphan section: "${"#".repeat(current.level)} ${current.text}" has no content before next header`,
         );
         issuesFound++;
@@ -1120,16 +894,12 @@ function validateOrphanSections(): ValidationResult {
   }
 
   if (issuesFound > 0) {
-    console.log(`  ⚠️  ${String(issuesFound)} orphan sections found`);
+    logWarning(`${String(issuesFound)} orphan sections found`);
   } else {
-    console.log("  ✅ No orphan sections detected");
+    logSuccess("No orphan sections detected");
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -1139,21 +909,20 @@ function validateOrphanSections(): ValidationResult {
  * @returns Validation result with warnings for undocumented exports
  */
 function validatePublicExportsDocumented(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("1️⃣  Checking public exports are documented...");
 
   const indexPath = "src/index.ts";
   const apiRefPath = "API_REFERENCE.md";
 
-  if (!existsSync(indexPath) || !existsSync(apiRefPath)) {
-    errors.push("Missing src/index.ts or API_REFERENCE.md");
-    console.log("  ❌ Critical files missing");
-    return { errors, passed: false, warnings };
+  if (!fileExists(indexPath) || !fileExists(apiRefPath)) {
+    result.errors.push("Missing src/index.ts or API_REFERENCE.md");
+    logError("Critical files missing");
+    return finalizeValidationResult(result);
   }
 
-  const indexContent = readFileSync(indexPath, "utf-8");
-  const apiRefContent = readFileSync(apiRefPath, "utf-8");
+  const { content: indexContent } = readTextFile(indexPath);
+  const { content: apiRefContent } = readMarkdownFile(apiRefPath);
 
   const exports = new Set<string>();
 
@@ -1182,7 +951,7 @@ function validatePublicExportsDocumented(): ValidationResult {
   let undocumented = 0;
   for (const exportName of CRITICAL_EXPORTS) {
     if (!exports.has(exportName)) {
-      warnings.push(`Critical export '${exportName}' not found in src/index.ts`);
+      result.warnings.push(`Critical export '${exportName}' not found in src/index.ts`);
       continue;
     }
 
@@ -1195,24 +964,20 @@ function validatePublicExportsDocumented(): ValidationResult {
     const isDocumented = patterns.some((p) => p.test(apiRefContent));
 
     if (!isDocumented) {
-      warnings.push(`Export '${exportName}' not documented in API_REFERENCE.md`);
+      result.warnings.push(`Export '${exportName}' not documented in API_REFERENCE.md`);
       undocumented++;
     }
   }
 
   if (undocumented > 0) {
-    console.log(
-      `  ⚠️  ${String(undocumented)}/${String(CRITICAL_EXPORTS.length)} critical exports not documented`,
+    logWarning(
+      `${String(undocumented)}/${String(CRITICAL_EXPORTS.length)} critical exports not documented`,
     );
   } else {
-    console.log(`  ✅ All ${String(CRITICAL_EXPORTS.length)} critical exports documented`);
+    logSuccess(`All ${String(CRITICAL_EXPORTS.length)} critical exports documented`);
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -1222,30 +987,25 @@ function validatePublicExportsDocumented(): ValidationResult {
  * @returns Validation result with errors for missing required files
  */
 function validateRequiredFiles(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n7️⃣  Checking required documentation files...");
 
   let missingCount = 0;
 
   for (const file of REQUIRED_FILES) {
-    if (!existsSync(file)) {
-      errors.push(`Missing required file: ${file}`);
+    if (!fileExists(file)) {
+      result.errors.push(`Missing required file: ${file}`);
       missingCount++;
     }
   }
 
   if (missingCount > 0) {
-    console.log(`  ❌ ${String(missingCount)} required files missing`);
+    logError(`${String(missingCount)} required files missing`);
   } else {
-    console.log(`  ✅ All ${String(REQUIRED_FILES.length)} required files present`);
+    logSuccess(`All ${String(REQUIRED_FILES.length)} required files present`);
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -1255,25 +1015,15 @@ function validateRequiredFiles(): ValidationResult {
  * @returns Validation result with warnings for broken links and model format issues
  */
 function validateSourceCodeComments(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n1️⃣1️⃣  Checking source code comments (JSDoc, inline)...");
-
-  const sourceFiles = [
-    "src/sap-ai-error.ts",
-    "src/sap-ai-language-model.ts",
-    "src/sap-ai-provider.ts",
-    "src/index.ts",
-    "src/sap-ai-settings.ts",
-    "src/convert-to-sap-messages.ts",
-  ];
 
   let linksChecked = 0;
   let brokenLinksCount = 0;
   let modelIdIssues = 0;
 
-  for (const file of sourceFiles) {
-    if (!existsSync(file)) {
+  for (const file of SOURCE_FILES) {
+    if (!fileExists(file)) {
       continue;
     }
 
@@ -1302,8 +1052,8 @@ function validateSourceCodeComments(): ValidationResult {
 
           const resolvedPath = join(".", targetPath);
 
-          if (!existsSync(resolvedPath)) {
-            warnings.push(
+          if (!fileExists(resolvedPath)) {
+            result.warnings.push(
               `${file}:${String(absoluteLine)} - Comment contains broken link: ${targetPath}`,
             );
             brokenLinksCount++;
@@ -1317,8 +1067,8 @@ function validateSourceCodeComments(): ValidationResult {
             linksChecked++;
             const resolvedPath = join(".", target);
 
-            if (!existsSync(resolvedPath)) {
-              warnings.push(
+            if (!fileExists(resolvedPath)) {
+              result.warnings.push(
                 `${file}:${String(absoluteLine)} - JSDoc @link to non-existent file: ${target}`,
               );
               brokenLinksCount++;
@@ -1344,7 +1094,7 @@ function validateSourceCodeComments(): ValidationResult {
             }
 
             const incorrect = match[1];
-            warnings.push(
+            result.warnings.push(
               `${file}:${String(absoluteLine)} - Comment mentions model without vendor prefix: "${incorrect}" should be "${correctFormat}"`,
             );
             modelIdIssues++;
@@ -1357,22 +1107,18 @@ function validateSourceCodeComments(): ValidationResult {
   console.log(`  📝 Checked ${String(linksChecked)} links in source comments`);
 
   if (brokenLinksCount > 0) {
-    console.log(`  ⚠️  ${String(brokenLinksCount)} broken links in source comments`);
+    logWarning(`${String(brokenLinksCount)} broken links in source comments`);
   } else {
-    console.log("  ✅ No broken links in source comments");
+    logSuccess("No broken links in source comments");
   }
 
   if (modelIdIssues > 0) {
-    console.log(`  ⚠️  ${String(modelIdIssues)} model ID format issues in comments`);
+    logWarning(`${String(modelIdIssues)} model ID format issues in comments`);
   } else {
-    console.log("  ✅ Model IDs in comments use correct format");
+    logSuccess("Model IDs in comments use correct format");
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -1382,8 +1128,7 @@ function validateSourceCodeComments(): ValidationResult {
  * @returns Validation result with errors for missing/mismatched entries and warnings for extras
  */
 function validateTableOfContents(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n8️⃣  Checking Table of Contents consistency...");
 
   const mdFiles = findMarkdownFiles(".", EXCLUDED_DIRS);
@@ -1391,8 +1136,7 @@ function validateTableOfContents(): ValidationResult {
   let issuesFound = 0;
 
   for (const file of mdFiles) {
-    const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
+    const { content, lines } = readMarkdownFile(file);
 
     const { endLine, hasToc, startLine } = detectToc(content);
 
@@ -1405,7 +1149,7 @@ function validateTableOfContents(): ValidationResult {
     const tocEntries = extractTocEntries(lines, startLine, endLine);
 
     if (tocEntries.length === 0) {
-      warnings.push(`${file}: ToC section found but no entries detected`);
+      result.warnings.push(`${file}: ToC section found but no entries detected`);
       issuesFound++;
       continue;
     }
@@ -1418,7 +1162,7 @@ function validateTableOfContents(): ValidationResult {
 
     if (validation.missing.length > 0) {
       for (const header of validation.missing) {
-        errors.push(
+        result.errors.push(
           `${file}:${String(header.lineNumber)} - Missing in ToC: "${"#".repeat(header.level)} ${header.text}" (anchor: #${header.anchor})`,
         );
         issuesFound++;
@@ -1427,7 +1171,7 @@ function validateTableOfContents(): ValidationResult {
 
     if (validation.extra.length > 0) {
       for (const entry of validation.extra) {
-        warnings.push(
+        result.warnings.push(
           `${file}:${String(entry.lineNumber)} - Extra in ToC (no matching header): "${entry.text}" -> #${entry.anchor}`,
         );
         issuesFound++;
@@ -1437,13 +1181,13 @@ function validateTableOfContents(): ValidationResult {
     if (validation.mismatched.length > 0) {
       for (const { actual, expected } of validation.mismatched) {
         if (actual.text !== expected.text) {
-          errors.push(
+          result.errors.push(
             `${file}:${String(actual.lineNumber)} - ToC text mismatch: "${actual.text}" should be "${expected.text}"`,
           );
           issuesFound++;
         }
         if (actual.level !== expected.level) {
-          warnings.push(
+          result.warnings.push(
             `${file}:${String(actual.lineNumber)} - ToC level mismatch: "${actual.text}" is level ${String(actual.level)} but should be ${String(expected.level)}`,
           );
           issuesFound++;
@@ -1455,16 +1199,12 @@ function validateTableOfContents(): ValidationResult {
   if (filesWithToc === 0) {
     console.log("  ℹ️  No files with Table of Contents found");
   } else if (issuesFound === 0) {
-    console.log(`  ✅ All ${String(filesWithToc)} Table of Contents are consistent`);
+    logSuccess(`All ${String(filesWithToc)} Table of Contents are consistent`);
   } else {
-    console.log(`  ❌ ${String(issuesFound)} ToC issues found in ${String(filesWithToc)} files`);
+    logError(`${String(issuesFound)} ToC issues found in ${String(filesWithToc)} files`);
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 /**
@@ -1532,21 +1272,20 @@ function validateTocEntries(
  * @returns Validation result with warnings if version is not mentioned in docs
  */
 function validateVersionConsistency(): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const result = createValidationResult();
   console.log("\n9️⃣  Checking version consistency...");
 
-  if (!existsSync("package.json")) {
-    warnings.push("package.json not found");
-    console.log("  ⚠️  package.json not found");
-    return { errors, passed: true, warnings };
+  if (!fileExists("package.json")) {
+    result.warnings.push("package.json not found");
+    logWarning("package.json not found");
+    return finalizeValidationResult(result);
   }
 
   const pkg = readJsonFile("package.json") as null | PackageJson;
   if (!pkg?.version) {
-    warnings.push("Unable to read version from package.json");
-    console.log("  ⚠️  Unable to read version");
-    return { errors, passed: true, warnings };
+    result.warnings.push("Unable to read version from package.json");
+    logWarning("Unable to read version");
+    return finalizeValidationResult(result);
   }
 
   const version = pkg.version;
@@ -1555,11 +1294,11 @@ function validateVersionConsistency(): ValidationResult {
   let mentionedCount = 0;
 
   for (const file of VERSION_CHECK_FILES) {
-    if (!existsSync(file)) {
+    if (!fileExists(file)) {
       continue;
     }
 
-    const content = readFileSync(file, "utf-8");
+    const { content } = readMarkdownFile(file);
     const hasVersion =
       content.includes(version) ||
       content.includes(`v${version}`) ||
@@ -1571,25 +1310,30 @@ function validateVersionConsistency(): ValidationResult {
   }
 
   if (mentionedCount === 0) {
-    warnings.push(`Version ${version} not mentioned in key documentation files`);
-    console.log(`  ⚠️  Version not mentioned in docs (may need update)`);
+    result.warnings.push(`Version ${version} not mentioned in key documentation files`);
+    logWarning(`Version not mentioned in docs (may need update)`);
   } else {
-    console.log(
-      `  ✅ Version mentioned in ${String(mentionedCount)}/${String(VERSION_CHECK_FILES.length)} key files`,
+    logSuccess(
+      `Version mentioned in ${String(mentionedCount)}/${String(VERSION_CHECK_FILES.length)} key files`,
     );
   }
 
-  return {
-    errors,
-    passed: errors.length === 0,
-    warnings,
-  };
+  return finalizeValidationResult(result);
 }
 
 // ============================================================================
 // CLI Entry Point
 // ============================================================================
 
-// Parse CLI arguments and run main function
-parseCliArgs();
+// Parse CLI arguments
+const cliArgs = parseArgsWithHelp({
+  defaultExcludeDirs: DEFAULT_EXCLUDED_DIRS,
+  description: "SAP AI Provider - Documentation Validation",
+  usageExamples: ["npm run validate-docs", "npm run validate-docs -- --exclude-dirs dir1,dir2"],
+});
+
+// Extend excluded dirs with CLI args
+EXCLUDED_DIRS = [...DEFAULT_EXCLUDED_DIRS, ...cliArgs.excludeDirs];
+
+// Run main function
 main();
