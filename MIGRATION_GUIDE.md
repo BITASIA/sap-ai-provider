@@ -663,7 +663,7 @@ const model1 = provider("gpt-4o", {
   responseFormat: { type: "json_object" },
 });
 
-// JSON schema response (structured output with validation)
+// JSON schema response
 const model2 = provider("gpt-4o", {
   responseFormat: {
     type: "json_schema",
@@ -819,11 +819,11 @@ After migration:
 
 ## Common Migration Issues
 
-| Issue                         | Cause                     | Solution                                                                                                  |
-| ----------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------- |
-| **Type errors after upgrade** | Stale build cache         | `npm run clean && npm run build && npm run type-check`                                                    |
-| **Authentication failures**   | Missing/incorrect env var | Verify `AICORE_SERVICE_KEY` is set. See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md)                    |
-| **Masking errors**            | Incorrect configuration   | Use `buildDpiMaskingProvider()` helper. See [example-data-masking.ts](./examples/example-data-masking.ts) |
+| Issue                       | Cause                     | Solution                                                                                                  |
+| --------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------- |
+|                             |                           |                                                                                                           |
+| **Authentication failures** | Missing/incorrect env var | Verify `AICORE_SERVICE_KEY` is set. See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md)                    |
+| **Masking errors**          | Incorrect configuration   | Use `buildDpiMaskingProvider()` helper. See [example-data-masking.ts](./examples/example-data-masking.ts) |
 
 For detailed troubleshooting, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 

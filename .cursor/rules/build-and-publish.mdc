@@ -13,15 +13,16 @@ description: Build, type-check, test, and publish workflow for the package
 
 ## Commands
 
-- Clean: `npm run clean`
 - Build: `npm run build`
 - Type-check: `npm run type-check`
 - Lint: `npm run lint`
-- Prettier check/fix: `npm run prettier-check` / `npm run prettier-fix`
+- Lint-fix: `npm run lint-fix`
+- Prettier-check: `npm run prettier-check`
+- Prettier-fix: `npm run prettier-fix`
 - Test: `npm test`
 
-`prepublishOnly` enforces type-check, tests, and build before publish (see
-[package.json](mdc:package.json)).
+`prepublishOnly` enforces type-check, lint, test, build and check-build before
+publish (see [package.json](mdc:package.json)).
 
 ## Node Engine
 

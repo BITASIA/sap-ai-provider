@@ -156,7 +156,7 @@ This should complete in under 15 seconds total and all commands should pass.
 ### CI/CD Pipeline
 
 - **GitHub Actions**: `.github/workflows/check-pr.yaml` runs on PRs and pushes
-- **CI checks**: format-check, type-check, test (all environments), build, publish-check
+- **CI checks**: format-check, type-check, test, build, publish-check
 - **Publishing**: `.github/workflows/npm-publish-npm-packages.yml` publishes on releases
 - **Build matrix**: Tests run in both Node.js and Edge runtime environments
 

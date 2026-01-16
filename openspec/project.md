@@ -159,8 +159,10 @@ npm run test:coverage # With coverage report
 ```bash
 npm run prepublishOnly  # Runs before npm publish
 # - type-check
+# - lint
 # - test
 # - build
+# - check-build
 ```
 
 **Release Process:**
