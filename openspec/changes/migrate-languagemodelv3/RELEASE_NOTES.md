@@ -10,7 +10,7 @@
 
 Version 4.0.0 migrates from `LanguageModelV2` to `LanguageModelV3` specification, ensuring compatibility with AI SDK 6+ and unlocking access to modern AI capabilities (agents, reasoning, enhanced streaming).
 
-**Quality**: 267/267 tests passing | Coverage: 91.37% overall | Implementation audit: 9.8/10
+**Quality**: 292/292 tests passing | Coverage: 93.38% overall | Implementation audit: 9.8/10
 
 **Installation**: `npm install @jerome-benoit/sap-ai-provider@4.0.0`
 
@@ -54,8 +54,8 @@ RC2 introduces powerful documentation validation enhancements to prevent OpenSpe
 
 ### Test Coverage Improvements (scripts/validate-docs.ts)
 
-- ✅ 267/267 tests passing (100%)
-- ✅ 91.37% coverage overall (92.87% src/, 84.76% scripts/)
+- ✅ 292/292 tests passing (100%)
+- ✅ 93.38% coverage overall
 - ✅ 93.93% message conversion coverage (+16.66% from v3.x)
 - ✅ Added 10 new tests for edge cases
 - ✅ Refactored tests for cleaner, maintainable code
@@ -210,8 +210,8 @@ if (chunk.type === "text-delta") {
 
 - ✅ TypeScript strict mode: 0 errors
 - ✅ ESLint: 0 errors, 0 warnings
-- ✅ Tests: 249/249 passing (100%)
-- ✅ Test coverage: 91.13% overall (92.87% src/, 83.92% scripts/)
+- ✅ Tests: 292/292 passing (100%)
+- ✅ Test coverage: 93.38% overall
 - ✅ Build: ESM + CJS + DTS verified
 - ✅ Implementation audit: 9.8/10
 

@@ -11,9 +11,11 @@
  */
 
 import { existsSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { parseArgsWithHelp } from "./cli-utils.js";
 import {
+  logError,
   logInfo,
   logProcessing,
   logSection,
@@ -38,6 +40,11 @@ import { DOC_FILES } from "./validation-config.js";
  * @returns True if ToC was updated, false if skipped
  */
 function fixTocInFile(filePath: string): boolean {
+  if (!isPathSafe(filePath)) {
+    logError(`Unsafe path rejected: ${filePath}`);
+    return false;
+  }
+
   logProcessing(`Processing: ${filePath}`);
 
   const { content, lines } = readMarkdownFile(filePath);
@@ -92,6 +99,19 @@ function fixTocInFile(filePath: string): boolean {
 
   logSuccess(`ToC updated successfully (${String(filteredHeaders.length)} entries)`);
   return true;
+}
+
+/**
+ * Validates that a file path is safe (within current working directory).
+ * Prevents path traversal attacks.
+ *
+ * @param filePath - Path to validate
+ * @returns True if path is safe, false otherwise
+ */
+function isPathSafe(filePath: string): boolean {
+  const cwd = process.cwd();
+  const resolved = resolve(cwd, filePath);
+  return resolved.startsWith(cwd + "/") || resolved === cwd;
 }
 
 /** CLI entry point. Fixes ToC in specified file or all documentation files. */

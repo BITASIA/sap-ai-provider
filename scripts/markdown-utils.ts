@@ -33,6 +33,14 @@ export interface TocEntry {
 }
 
 /**
+ * Base result type for file reading operations.
+ */
+interface FileReadResult {
+  content: string;
+  lines: string[];
+}
+
+/**
  * Checks if a file exists with caching support.
  * Use for repeated existence checks on the same paths.
  *
@@ -193,9 +201,15 @@ export function extractHeaders(lines: string[], tocStartLine: number): HeaderEnt
  * @param lines - File lines
  * @param startLine - 0-based ToC start
  * @param endLine - 0-based ToC end
+ * @param indentSize - Spaces per indent level (default: 2)
  * @returns ToC entries with 1-based lineNumber
  */
-export function extractTocEntries(lines: string[], startLine: number, endLine: number): TocEntry[] {
+export function extractTocEntries(
+  lines: string[],
+  startLine: number,
+  endLine: number,
+  indentSize = 2,
+): TocEntry[] {
   const entries: TocEntry[] = [];
   const tocPattern = /^(\s*)[-*]\s+\[([^\]]+)\]\(#([^)]+)\)/;
 
@@ -207,7 +221,7 @@ export function extractTocEntries(lines: string[], startLine: number, endLine: n
       const indent = match[1].length;
       const text = match[2];
       const anchor = match[3];
-      const level = Math.floor(indent / 2) + 2;
+      const level = Math.floor(indent / indentSize) + 2;
 
       entries.push({
         anchor,
@@ -318,17 +332,6 @@ export function inferTocDepth(headers: HeaderEntry[]): number {
 }
 
 /**
- * Converts header text to GitHub-compatible anchor.
- *
- * @param text - Header text
- * @returns Lowercase, hyphenated anchor
- * @example
- * textToAnchor("Hello World") // "hello-world"
- * textToAnchor("🚀 Getting Started") // "getting-started"
- * textToAnchor("API: `createProvider()`") // "api-createprovider"
- * textToAnchor("`createSAPAIProvider(options?)`") // "createsapaiprovider"
- */
-/**
  * Checks if a file path matches any of the given patterns.
  * Patterns can be directories (ending with /) or file names.
  *
@@ -360,7 +363,9 @@ export function readJsonFile(filePath: string): null | Record<string, unknown> {
   try {
     const content = readFileSync(filePath, "utf-8");
     return JSON.parse(content) as Record<string, unknown>;
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`Warning: Failed to read JSON file '${filePath}': ${message}`);
     return null;
   }
 }
@@ -371,12 +376,8 @@ export function readJsonFile(filePath: string): null | Record<string, unknown> {
  * @param filePath - Path to markdown file
  * @returns File content and split lines
  */
-export function readMarkdownFile(filePath: string): {
-  content: string;
-  lines: string[];
-} {
-  const content = readFileSync(filePath, "utf-8");
-  return { content, lines: content.split("\n") };
+export function readMarkdownFile(filePath: string): FileReadResult {
+  return readFileWithLines(filePath);
 }
 
 /**
@@ -386,13 +387,10 @@ export function readMarkdownFile(filePath: string): {
  * @param filePath - Path to markdown file
  * @returns File content, split lines, and boolean array marking code block lines
  */
-export function readMarkdownFileWithCodeBlocks(filePath: string): {
-  content: string;
+export function readMarkdownFileWithCodeBlocks(filePath: string): FileReadResult & {
   inCodeBlock: boolean[];
-  lines: string[];
 } {
-  const content = readFileSync(filePath, "utf-8");
-  const lines = content.split("\n");
+  const { content, lines } = readFileWithLines(filePath);
   const inCodeBlock = trackCodeBlocks(lines);
   return { content, inCodeBlock, lines };
 }
@@ -404,33 +402,31 @@ export function readMarkdownFileWithCodeBlocks(filePath: string): {
  * @param filePath - Path to text file
  * @returns File content and split lines
  */
-export function readTextFile(filePath: string): {
-  content: string;
-  lines: string[];
-} {
-  const content = readFileSync(filePath, "utf-8");
-  return { content, lines: content.split("\n") };
+export function readTextFile(filePath: string): FileReadResult {
+  return readFileWithLines(filePath);
 }
 
+/**
+ * Converts header text to GitHub-compatible anchor.
+ *
+ * @param text - Header text
+ * @returns Lowercase, hyphenated anchor
+ * @example
+ * textToAnchor("Hello World") // "hello-world"
+ * textToAnchor("🚀 Getting Started") // "getting-started"
+ * textToAnchor("API: `createProvider()`") // "api-createprovider"
+ */
 export function textToAnchor(text: string): string {
-  return (
-    text
-      .toLowerCase()
-      // Extract content from backticks (remove backticks but keep content)
-      .replaceAll(/`([^`]+)`/g, "$1")
-      // Remove emojis
-      .replaceAll(/[\u{1F300}-\u{1F9FF}]/gu, "")
-      .replaceAll(/[\u{2600}-\u{26FF}]/gu, "")
-      .replaceAll(/[\u{2700}-\u{27BF}]/gu, "")
-      // Remove special characters, keep alphanumeric, spaces, hyphens, underscores
-      .replaceAll(/[^\da-z\s-_]/g, "")
-      // Collapse multiple spaces to single hyphen
-      .replaceAll(/\s+/g, "-")
-      // Collapse multiple hyphens to single hyphen
-      .replaceAll(/-+/g, "-")
-      // Trim leading/trailing hyphens
-      .replace(/^-+|-+$/g, "")
-  );
+  return text
+    .toLowerCase()
+    .replaceAll(/`([^`]+)`/g, "$1")
+    .replaceAll(/[\u{1F300}-\u{1F9FF}]/gu, "")
+    .replaceAll(/[\u{2600}-\u{26FF}]/gu, "")
+    .replaceAll(/[\u{2700}-\u{27BF}]/gu, "")
+    .replaceAll(/[^\da-z\s-_]/g, "")
+    .replaceAll(/\s+/g, "-")
+    .replaceAll(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 /**
@@ -466,4 +462,15 @@ export function trackCodeBlocks(lines: string[]): boolean[] {
   }
 
   return inCodeBlock;
+}
+
+/**
+ * Reads a text file and splits into lines (internal helper).
+ *
+ * @param filePath - Path to file
+ * @returns Content and lines
+ */
+function readFileWithLines(filePath: string): FileReadResult {
+  const content = readFileSync(filePath, "utf-8");
+  return { content, lines: content.split("\n") };
 }

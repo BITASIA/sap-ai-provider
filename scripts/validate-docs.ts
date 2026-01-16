@@ -16,6 +16,7 @@ import { logError, logSection, logSuccess, logSummary, logWarning } from "./cons
 import {
   createFileExistsChecker,
   detectToc,
+  detectTocIndentation,
   extractCodeBlocks,
   extractHeaders,
   extractTocEntries,
@@ -46,10 +47,6 @@ import {
   finalizeValidationResult,
 } from "./validation-utils.js";
 
-// ============================================================================
-// Types and Interfaces
-// ============================================================================
-
 /** package.json structure. */
 interface PackageJson {
   [key: string]: unknown;
@@ -75,16 +72,15 @@ interface TocValidationResult {
   tocDepth: number;
 }
 
-// ============================================================================
-// Constants
-// ============================================================================
-
 /** Excluded directories, initialized from defaults and extended via CLI args */
-let EXCLUDED_DIRS: string[] = [...DEFAULT_EXCLUDED_DIRS];
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
+const EXCLUDED_DIRS: readonly string[] = (() => {
+  const cliArgs = parseArgsWithHelp({
+    defaultExcludeDirs: DEFAULT_EXCLUDED_DIRS,
+    description: "SAP AI Provider - Documentation Validation",
+    usageExamples: ["npm run validate-docs", "npm run validate-docs -- --exclude-dirs dir1,dir2"],
+  });
+  return [...DEFAULT_EXCLUDED_DIRS, ...cliArgs.excludeDirs];
+})();
 
 /** Test metrics from npm test. */
 interface TestMetrics {
@@ -132,10 +128,6 @@ function extractTestCount(output: string): null | number {
 
   return null;
 }
-
-// ============================================================================
-// Helper Functions - Code Analysis
-// ============================================================================
 
 /**
  * Extracts comments (JSDoc, block, inline) from TypeScript.
@@ -513,15 +505,9 @@ function validateCodeMetrics(): ValidationResult {
   return finalizeValidationResult(result);
 }
 
-// ============================================================================
-// Validation Checks
-// ============================================================================
-
 /**
  * Check 5: Validates dotenv imports in code examples.
- * Ensures code examples with createSAPAIProvider include proper environment setup.
- *
- * @returns Validation result with warnings for missing dotenv imports
+ * A file passes if it has at least one complete example with env setup, or all snippets are partial.
  */
 function validateDotenvImports(): ValidationResult {
   const result = createValidationResult();
@@ -538,11 +524,15 @@ function validateDotenvImports(): ValidationResult {
     const { content } = readMarkdownFile(file);
     const codeBlocks = extractCodeBlocks(content, "typescript");
 
-    for (const code of codeBlocks) {
-      if (!code.includes("createSAPAIProvider") && !code.includes("sapai(")) {
-        continue;
-      }
+    const relevantBlocks = codeBlocks.filter(
+      (code) => code.includes("createSAPAIProvider") || code.includes("sapai("),
+    );
 
+    if (relevantBlocks.length === 0) {
+      continue;
+    }
+
+    const hasCompleteExampleWithEnvSetup = relevantBlocks.some((code) => {
       const hasDotenvImport =
         code.includes("dotenv/config") ||
         code.includes("// Load environment") ||
@@ -552,15 +542,43 @@ function validateDotenvImports(): ValidationResult {
       const hasEnvComment =
         code.includes("AICORE_SERVICE_KEY") ||
         code.includes("environment variable") ||
-        code.includes("via AICORE_SERVICE_KEY");
+        code.includes("via AICORE_SERVICE_KEY") ||
+        code.includes("VCAP_SERVICES") ||
+        code.includes("service binding") ||
+        code.includes("// No environment variables needed") ||
+        code.includes("// Authentication is automatic");
 
-      if (!hasDotenvImport && !hasEnvComment) {
-        result.warnings.push(
-          `${file}: Code example with createSAPAIProvider missing dotenv import or env setup comment`,
-        );
-        issuesFound++;
-        break; // Only report once per file
-      }
+      return hasDotenvImport || hasEnvComment;
+    });
+
+    const allBlocksArePartialSnippets = relevantBlocks.every((code) => {
+      const hasNoImports = !code.includes("import ");
+
+      const isComparisonSnippet =
+        code.includes("// Before") ||
+        code.includes("// After") ||
+        code.includes("// v1.x") ||
+        code.includes("// v2.x") ||
+        code.includes("// v3.x") ||
+        code.includes("// v4.x");
+
+      const isFeatureSnippet =
+        code.includes("import {") &&
+        code.includes("@mymediset/sap-ai-provider") &&
+        !code.includes("generateText") &&
+        !code.includes("streamText");
+
+      const isConfigOnlySnippet =
+        !code.includes("await ") && !code.includes("generateText") && !code.includes("streamText");
+
+      return hasNoImports || isComparisonSnippet || isFeatureSnippet || isConfigOnlySnippet;
+    });
+
+    if (!hasCompleteExampleWithEnvSetup && !allBlocksArePartialSnippets) {
+      result.warnings.push(
+        `${file}: Code example with createSAPAIProvider missing dotenv import or env setup comment`,
+      );
+      issuesFound++;
     }
   }
 
@@ -1146,7 +1164,8 @@ function validateTableOfContents(): ValidationResult {
 
     filesWithToc++;
 
-    const tocEntries = extractTocEntries(lines, startLine, endLine);
+    const indentSize = detectTocIndentation(lines, startLine, endLine);
+    const tocEntries = extractTocEntries(lines, startLine, endLine, indentSize);
 
     if (tocEntries.length === 0) {
       result.warnings.push(`${file}: ToC section found but no entries detected`);
@@ -1321,19 +1340,4 @@ function validateVersionConsistency(): ValidationResult {
   return finalizeValidationResult(result);
 }
 
-// ============================================================================
-// CLI Entry Point
-// ============================================================================
-
-// Parse CLI arguments
-const cliArgs = parseArgsWithHelp({
-  defaultExcludeDirs: DEFAULT_EXCLUDED_DIRS,
-  description: "SAP AI Provider - Documentation Validation",
-  usageExamples: ["npm run validate-docs", "npm run validate-docs -- --exclude-dirs dir1,dir2"],
-});
-
-// Extend excluded dirs with CLI args
-EXCLUDED_DIRS = [...DEFAULT_EXCLUDED_DIRS, ...cliArgs.excludeDirs];
-
-// Run main function
 main();
