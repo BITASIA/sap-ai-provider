@@ -136,7 +136,11 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * SAP AI Core will fail the request at runtime.
    */
   readonly supportsImageUrls: boolean = true;
-  /** Multiple completions via the `n` parameter (provider-specific support). */
+  /**
+   * Multiple completions via the `n` parameter.
+   * Note: Amazon and Anthropic models do not support this feature.
+   * The provider silently omits the parameter for unsupported models.
+   */
   readonly supportsMultipleCompletions: boolean = true;
 
   /** Parallel tool calls. */
@@ -201,12 +205,12 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    *
    * **Note on Abort Signal:**
    * The abort signal implementation uses Promise.race to reject the promise when
-   * the signal is aborted. However, this does not cancel the underlying HTTP request
-   * to SAP AI Core - the request continues executing on the server. This is a
-   * limitation of the SAP AI SDK's chatCompletion API.
-   * @see https://github.com/SAP/ai-sdk-js/issues/1429 for tracking true cancellation support
+   * aborted. However, this does not cancel the underlying HTTP request to SAP AI Core -
+   * the request continues executing on the server. This is a current limitation of the
+   * SAP AI SDK's API. See https://github.com/SAP/ai-sdk-js/issues/1429
    * @param options - Generation options including prompt, tools, and settings
    * @returns Promise resolving to the generation result with content, usage, and metadata
+   * @since 1.0.0
    * @example
    * ```typescript
    * const result = await model.doGenerate({
@@ -414,8 +418,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * TODO: Use backend's `x-request-id` when `OrchestrationStreamResponse` exposes `rawResponse`.
    *
    * **Abort Signal:**
-   * AbortSignal rejects the promise but does NOT cancel the HTTP request to SAP AI Core.
-   * See https://github.com/SAP/ai-sdk-js/issues/1429
+   * Same limitation as `doGenerate` - see its documentation for details.
    * @see {@link https://sdk.vercel.ai/docs/ai-sdk-core/streaming Vercel AI SDK Streaming}
    * @param options - Streaming options including prompt, tools, and settings
    * @returns Promise resolving to stream and request metadata
@@ -433,7 +436,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    *   }
    * }
    * ```
-   * @since 4.0.0
+   * @since 1.0.0
    */
   async doStream(options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult> {
     try {

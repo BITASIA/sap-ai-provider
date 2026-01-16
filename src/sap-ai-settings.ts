@@ -140,34 +140,14 @@ export interface SAPAISettings {
   /**
    * Whether to include assistant reasoning parts in the SAP prompt conversion.
    *
-   * Reasoning parts contain internal model chain-of-thought reasoning that may not be
-   * suitable for end-user display or persistence. When disabled (default), only the
-   * final response content is forwarded.
-   *
-   * **Default:** `false` (recommended for production)
-   *
-   * **When to enable:**
-   * - Debugging model behavior
-   * - Analyzing reasoning patterns
-   * - Research and development
-   *
-   * **When to keep disabled:**
-   * - Production applications
-   * - User-facing chatbots
-   * - When storing conversation history
+   * Reasoning parts contain internal model chain-of-thought reasoning. When disabled,
+   * only the final response content is forwarded. Enable for debugging/analysis;
+   * disable for production applications and user-facing chatbots.
+   * @default false
    * @example
    * ```typescript
-   * // Enable for debugging (see model's reasoning)
-   * const debugModel = provider('gpt-4o', {
-   *   includeReasoning: true
-   * });
-   *
-   * // Disabled by default (production use)
-   * const prodModel = provider('gpt-4o');
-   * // or explicitly:
-   * const prodModel2 = provider('gpt-4o', {
-   *   includeReasoning: false
-   * });
+   * const debugModel = provider('gpt-4o', { includeReasoning: true });
+   * const prodModel = provider('gpt-4o'); // includeReasoning defaults to false
    * ```
    */
   includeReasoning?: boolean;
@@ -215,7 +195,9 @@ export interface SAPAISettings {
     /**
      * Number of completions to generate.
      * Multiple completions provide alternative responses.
-     * Note: Not supported by Amazon and Anthropic models.
+     *
+     * Note: Not supported by Amazon and Anthropic models. When used with these
+     * models, the parameter is silently omitted from the request.
      * If not specified, typically defaults to 1 on the model side.
      */
     n?: number;
@@ -344,7 +326,9 @@ export interface SAPAISettings {
   translation?: TranslationModule;
 }
 
-// Re-export useful types from SAP AI SDK
+/**
+ * SAP AI SDK types re-exported for convenience.
+ */
 export type {
   FilteringModule,
   GroundingModule,

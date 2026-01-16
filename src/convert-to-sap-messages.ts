@@ -116,8 +116,8 @@ export function convertToSAPMessages(
         for (const part of message.content) {
           switch (part.type) {
             case "reasoning": {
-              // SAP AI SDK doesn't support reasoning parts natively
-              // Drop them by default, or preserve as <reasoning>...</reasoning> when enabled
+              // Reasoning parts are converted to XML markers for preservation
+              // When disabled (default), reasoning content is omitted from the prompt
               if (includeReasoning && part.text) {
                 text += `<reasoning>${part.text}</reasoning>`;
               }

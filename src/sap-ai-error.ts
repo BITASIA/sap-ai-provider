@@ -224,6 +224,13 @@ function getAxiosResponseHeaders(error: unknown): Record<string, string> | undef
  * to 500 for custom SAP error codes outside this range.
  * @param code - SAP error code
  * @returns HTTP status code (100-599)
+ * @example
+ * ```typescript
+ * getStatusCodeFromSAPError(401) // Returns 401 (Unauthorized)
+ * getStatusCodeFromSAPError(429) // Returns 429 (Rate Limit)
+ * getStatusCodeFromSAPError(999) // Returns 500 (custom SAP code → fallback)
+ * getStatusCodeFromSAPError()    // Returns 500 (no code provided)
+ * ```
  * @internal
  */
 function getStatusCodeFromSAPError(code?: number): number {

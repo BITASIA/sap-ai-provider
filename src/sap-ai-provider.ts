@@ -59,8 +59,7 @@ export interface SAPAIProvider extends ProviderV3 {
  * Configuration settings for the SAP AI Provider.
  *
  * This interface defines all available options for configuring the SAP AI Core connection
- * using the official SAP AI SDK. The SDK handles authentication automatically when
- * running on SAP BTP (via service binding) or locally (via AICORE_SERVICE_KEY env var).
+ * using the official SAP AI SDK. See {@link createSAPAIProvider} for authentication details.
  * @example
  * ```typescript
  * // Using default configuration (auto-detects service binding or env var)
@@ -217,63 +216,23 @@ export function createSAPAIProvider(options: SAPAIProviderSettings = {}): SAPAIP
   const createModel = (modelId: SAPAIModelId, settings: SAPAISettings = {}) => {
     /**
      * Settings merge strategy:
-     * - modelParams (primitives): Deep merge - both default and per-call values combine
-     * - Complex objects (masking, filtering, tools): Override - last value wins
      *
-     * This design avoids unexpected behavior from merging complex configuration objects.
+     * | Setting Type | Merge Behavior | Example |
+     * |-------------|----------------|---------|
+     * | `modelParams` | Deep merge (primitives combined) | `temperature: 0.7` (default) + `maxTokens: 2000` (call) = both apply |
+     * | Complex objects (`masking`, `filtering`) | Override (last wins) | Call-time `masking` completely replaces default |
+     * | `tools` | Override (last wins) | Call-time tools replace default tools array |
+     *
+     * This design prevents unexpected behavior from merging complex configurations.
      * @example
-     * **Model params are merged:**
      * ```typescript
-     * const provider = createSAPAIProvider({
-     *   defaultSettings: {
-     *     modelParams: { temperature: 0.7, maxTokens: 1000 }
-     *   }
-     * });
+     * // modelParams: merged
+     * provider('gpt-4o', { modelParams: { maxTokens: 2000 } });
+     * // Result: { temperature: 0.7 (from default), maxTokens: 2000 }
      *
-     * const model = provider('gpt-4o', {
-     *   modelParams: { maxTokens: 2000 }
-     * });
-     *
-     * // Result: { temperature: 0.7, maxTokens: 2000 }
-     * // temperature from default, maxTokens overridden
-     * ```
-     * @example
-     * **Complex objects are replaced (not merged):**
-     * ```typescript
-     * const provider = createSAPAIProvider({
-     *   defaultSettings: {
-     *     masking: {
-     *       enabled: true,
-     *       entities: ['PERSON', 'EMAIL']
-     *     }
-     *   }
-     * });
-     *
-     * const model = provider('gpt-4o', {
-     *   masking: {
-     *     enabled: true,
-     *     entities: ['PHONE']
-     *   }
-     * });
-     *
-     * // Result: masking = { enabled: true, entities: ['PHONE'] }
-     * // Completely replaced, not merged - PERSON and EMAIL are gone
-     * ```
-     * @example
-     * **Tools override completely:**
-     * ```typescript
-     * const provider = createSAPAIProvider({
-     *   defaultSettings: {
-     *     tools: [weatherTool, searchTool]
-     *   }
-     * });
-     *
-     * const model = provider('gpt-4o', {
-     *   tools: [calculatorTool]
-     * });
-     *
-     * // Result: tools = [calculatorTool]
-     * // Default tools are completely replaced
+     * // masking: replaced
+     * provider('gpt-4o', { masking: { entities: ['PHONE'] } });
+     * // Result: Only PHONE, default PERSON/EMAIL are gone
      * ```
      */
     const mergedSettings: SAPAISettings = {
@@ -314,8 +273,8 @@ export function createSAPAIProvider(options: SAPAIProviderSettings = {}): SAPAIP
 /**
  * Default SAP AI provider instance.
  *
- * Uses the default configuration which auto-detects authentication
- * from service binding (SAP BTP) or AICORE_SERVICE_KEY environment variable.
+ * Uses default configuration with automatic authentication.
+ * See {@link createSAPAIProvider} for authentication details.
  * @example
  * ```typescript
  * import { sapai } from '@mymediset/sap-ai-provider';
