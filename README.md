@@ -35,6 +35,7 @@ familiar Vercel AI SDK interface.
   - [Content Filtering](#content-filtering)
   - [Document Grounding (RAG)](#document-grounding-rag)
   - [Translation](#translation)
+  - [Provider Options (Per-Call Overrides)](#provider-options-per-call-overrides)
 - [Configuration Options](#configuration-options)
 - [Error Handling](#error-handling)
 - [Troubleshooting](#troubleshooting)
@@ -417,8 +418,8 @@ const dpiConfig = buildDpiMaskingProvider({
 });
 ```
 
-**Full documentation:**
-[API_REFERENCE.md - Data Masking](./API_REFERENCE.md#builddpimaskingproviderconfig)
+**Complete documentation:**
+[API Reference - Data Masking](./API_REFERENCE.md#builddpimaskingproviderconfig)
 
 ### Content Filtering
 
@@ -442,8 +443,8 @@ const provider = createSAPAIProvider({
 });
 ```
 
-**Full documentation:**
-[API_REFERENCE.md - Content Filtering](./API_REFERENCE.md#buildazurecontentsafetyfiltertype-config)
+**Complete documentation:**
+[API Reference - Content Filtering](./API_REFERENCE.md#buildazurecontentsafetyfiltertype-config)
 
 ### Document Grounding (RAG)
 
