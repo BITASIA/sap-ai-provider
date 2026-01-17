@@ -936,11 +936,16 @@ debugging.
 
 ### Retry Mechanism
 
-The provider marks errors as retryable based on HTTP status codes:
+The provider marks errors as retryable based on HTTP status codes (aligned with
+Vercel AI SDK defaults):
 
+- **408 (Request Timeout)**: `isRetryable: true` → Retry after timeout
+- **409 (Conflict)**: `isRetryable: true` → Retry on transient conflicts
 - **429 (Rate Limit)**: `isRetryable: true` → Exponential backoff
-- **500-504 (Server Errors)**: `isRetryable: true` → Exponential backoff
-- **400-404, 401-403**: `isRetryable: false` → Immediate failure
+- **5xx (Server Errors)**: `isRetryable: true` → Exponential backoff
+- **400 (Bad Request)**: `isRetryable: false` → Client must fix request
+- **401/403 (Auth Errors)**: `isRetryable: false` → Fix credentials
+- **404 (Not Found)**: `isRetryable: false` → Fix model/deployment
 
 The Vercel AI SDK handles retry logic automatically based on the `isRetryable`
 flag.
@@ -950,8 +955,9 @@ flag.
 This provider converts all SAP Orchestration errors to standard Vercel AI SDK
 error types:
 
-- Authentication issues → `LoadAPIKeyError`
-- API/HTTP errors → `APICallError` with SAP metadata in `responseBody`
+- **401/403 (Authentication)** → `LoadAPIKeyError`
+- **404 (Model/Deployment not found)** → `NoSuchModelError`
+- **Other HTTP errors** → `APICallError` with SAP metadata in `responseBody`
 
 **Breaking change in v3.0.0:** The custom `SAPAIError` class was removed to
 ensure full compatibility with the AI SDK ecosystem and enable automatic retry

@@ -490,7 +490,7 @@ handling.
 **Quick Example:**
 
 ```typescript
-import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
+import { APICallError, LoadAPIKeyError, NoSuchModelError } from "@ai-sdk/provider";
 
 try {
   const result = await generateText({
@@ -499,8 +499,13 @@ try {
   });
 } catch (error) {
   if (error instanceof LoadAPIKeyError) {
+    // 401/403: Authentication or permission issue
     console.error("Authentication issue:", error.message);
+  } else if (error instanceof NoSuchModelError) {
+    // 404: Model or deployment not found
+    console.error("Model not found:", error.modelId);
   } else if (error instanceof APICallError) {
+    // Other API errors (400, 429, 5xx, etc.)
     console.error("API error:", error.statusCode, error.message);
     // SAP-specific metadata in responseBody
     const sapError = JSON.parse(error.responseBody ?? "{}");

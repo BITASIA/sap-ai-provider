@@ -124,20 +124,26 @@ For a complete error code reference, see
 > see
 > [Architecture - Authentication System](./ARCHITECTURE.md#authentication-system).
 
-**v3.0.0 Breaking Change:** `SAPAIError` removed. Use `APICallError` from
-`@ai-sdk/provider`.
+**v3.0.0 Breaking Change:** `SAPAIError` removed. Use `APICallError`,
+`LoadAPIKeyError`, or `NoSuchModelError` from `@ai-sdk/provider`.
 
 **Quick example:**
 
 ```typescript
-import { APICallError } from "@ai-sdk/provider";
+import { APICallError, LoadAPIKeyError, NoSuchModelError } from "@ai-sdk/provider";
 
 try {
   const result = await generateText({ model, prompt });
 } catch (error) {
-  if (error instanceof APICallError) {
+  if (error instanceof LoadAPIKeyError) {
+    // 401/403: Authentication issue
+    console.error("Auth error:", error.message);
+  } else if (error instanceof NoSuchModelError) {
+    // 404: Model not found
+    console.error("Model not found:", error.modelId);
+  } else if (error instanceof APICallError) {
+    // Other API errors
     console.error("Status:", error.statusCode);
-    // Parse SAP metadata from error.responseBody
     const sapError = JSON.parse(error.responseBody ?? "{}");
     console.error("Request ID:", sapError.error?.request_id);
   }

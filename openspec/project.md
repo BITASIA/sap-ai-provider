@@ -84,7 +84,7 @@ the familiar Vercel AI SDK interface.
 
 **Error Handling:**
 
-- Use Vercel AI SDK native error types (`APICallError`, `LoadAPIKeyError`)
+- Use Vercel AI SDK native error types (`APICallError`, `LoadAPIKeyError`, `NoSuchModelError`)
 - Automatic retry logic for rate limits (429) and server errors (5xx)
 - Detailed error metadata in `responseBody` with SAP-specific fields
 

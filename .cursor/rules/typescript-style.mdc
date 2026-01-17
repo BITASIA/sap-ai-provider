@@ -23,7 +23,8 @@ configuration and code style.
 ## Errors and Handling
 
 - Do not swallow errors. Propagate or wrap with context using Vercel AI SDK
-  standard errors (`APICallError`, `LoadAPIKeyError` from `@ai-sdk/provider`).
+  standard errors (`APICallError`, `LoadAPIKeyError`, `NoSuchModelError` from
+  `@ai-sdk/provider`).
 - Only use `try/catch` where meaningful recovery or re-throw with context is
   performed.
 

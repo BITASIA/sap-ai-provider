@@ -410,15 +410,20 @@ try {
 **After (v3.x):**
 
 ```typescript
-import { APICallError } from "@ai-sdk/provider";
+import { APICallError, LoadAPIKeyError, NoSuchModelError } from "@ai-sdk/provider";
 
 try {
   const result = await generateText({ model, prompt });
 } catch (error) {
-  if (error instanceof APICallError) {
+  if (error instanceof LoadAPIKeyError) {
+    // 401/403: Authentication issue
+    console.error("Auth Error:", error.message);
+  } else if (error instanceof NoSuchModelError) {
+    // 404: Model not found
+    console.error("Model not found:", error.modelId);
+  } else if (error instanceof APICallError) {
+    // Other API errors
     console.error("API Error:", error.statusCode, error.message);
-    console.error("Response:", error.responseBody);
-    // SAP-specific metadata is in responseBody JSON
     const sapError = JSON.parse(error.responseBody || "{}");
     console.error("Request ID:", sapError.error?.request_id);
   }

@@ -1047,7 +1047,7 @@ SAP AI Core error details are preserved in `APICallError.responseBody` as JSON:
 #### Error Handling Examples
 
 ```typescript
-import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
+import { APICallError, LoadAPIKeyError, NoSuchModelError } from "@ai-sdk/provider";
 
 try {
   const result = await generateText({
@@ -1056,11 +1056,14 @@ try {
   });
 } catch (error) {
   if (error instanceof LoadAPIKeyError) {
-    // Authentication/setup issue
+    // 401/403: Authentication/permission issue
     console.error("Setup error:", error.message);
     // Check AICORE_SERVICE_KEY environment variable
+  } else if (error instanceof NoSuchModelError) {
+    // 404: Model or deployment not found
+    console.error("Model not found:", error.modelId);
   } else if (error instanceof APICallError) {
-    // API/HTTP error
+    // Other API/HTTP errors (400, 429, 5xx, etc.)
     console.error("API error:", error.message);
     console.error("Status:", error.statusCode);
     console.error("Retryable:", error.isRetryable);
@@ -1080,21 +1083,23 @@ try {
 
 Complete reference for status codes returned by SAP AI Core:
 
-| Code | Description           | Error Type        | Auto-Retry | Common Causes                  | Recommended Action                              | Guide                                                                       |
-| :--: | :-------------------- | :---------------- | :--------: | :----------------------------- | :---------------------------------------------- | :-------------------------------------------------------------------------- |
-| 400  | Bad Request           | `APICallError`    |     ❌     | Invalid parameters             | Validate configuration against TypeScript types | [→ Guide](./TROUBLESHOOTING.md#problem-400-bad-request)                     |
-| 401  | Unauthorized          | `LoadAPIKeyError` |     ❌     | Invalid/expired credentials    | Check `AICORE_SERVICE_KEY` environment variable | [→ Guide](./TROUBLESHOOTING.md#problem-authentication-failed-or-401-errors) |
-| 403  | Forbidden             | `APICallError`    |     ❌     | Insufficient permissions       | Verify service key has required roles           | [→ Guide](./TROUBLESHOOTING.md#problem-403-forbidden)                       |
-| 404  | Not Found             | `APICallError`    |     ❌     | Invalid model ID or deployment | Verify deployment ID and model name             | [→ Guide](./TROUBLESHOOTING.md#problem-404-modeldeployment-not-found)       |
-| 429  | Too Many Requests     | `APICallError`    |     ✅     | Rate limit exceeded            | Automatic exponential backoff                   | [→ Guide](./TROUBLESHOOTING.md#problem-429-rate-limit-exceeded)             |
-| 500  | Internal Server Error | `APICallError`    |     ✅     | Service issue                  | Automatic retry, check SAP AI Core status       | [→ Guide](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
-| 502  | Bad Gateway           | `APICallError`    |     ✅     | Network/proxy issue            | Automatic retry                                 | [→ Guide](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
-| 503  | Service Unavailable   | `APICallError`    |     ✅     | Service temporarily down       | Automatic retry                                 | [→ Guide](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
-| 504  | Gateway Timeout       | `APICallError`    |     ✅     | Request timeout                | Automatic retry, reduce request complexity      | [→ Guide](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| Code | Description           | Error Type         | Auto-Retry | Common Causes                  | Recommended Action                              | Guide                                                                       |
+| :--: | :-------------------- | :----------------- | :--------: | :----------------------------- | :---------------------------------------------- | :-------------------------------------------------------------------------- |
+| 400  | Bad Request           | `APICallError`     |     ❌     | Invalid parameters             | Validate configuration against TypeScript types | [→ Guide](./TROUBLESHOOTING.md#problem-400-bad-request)                     |
+| 401  | Unauthorized          | `LoadAPIKeyError`  |     ❌     | Invalid/expired credentials    | Check `AICORE_SERVICE_KEY` environment variable | [→ Guide](./TROUBLESHOOTING.md#problem-authentication-failed-or-401-errors) |
+| 403  | Forbidden             | `LoadAPIKeyError`  |     ❌     | Insufficient permissions       | Verify service key has required roles           | [→ Guide](./TROUBLESHOOTING.md#problem-403-forbidden)                       |
+| 404  | Not Found             | `NoSuchModelError` |     ❌     | Invalid model ID or deployment | Verify deployment ID and model name             | [→ Guide](./TROUBLESHOOTING.md#problem-404-modeldeployment-not-found)       |
+| 408  | Request Timeout       | `APICallError`     |     ✅     | Request took too long          | Automatic retry                                 | [→ Guide](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| 409  | Conflict              | `APICallError`     |     ✅     | Transient conflict             | Automatic retry                                 | [→ Guide](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| 429  | Too Many Requests     | `APICallError`     |     ✅     | Rate limit exceeded            | Automatic exponential backoff                   | [→ Guide](./TROUBLESHOOTING.md#problem-429-rate-limit-exceeded)             |
+| 500  | Internal Server Error | `APICallError`     |     ✅     | Service issue                  | Automatic retry, check SAP AI Core status       | [→ Guide](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| 502  | Bad Gateway           | `APICallError`     |     ✅     | Network/proxy issue            | Automatic retry                                 | [→ Guide](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| 503  | Service Unavailable   | `APICallError`     |     ✅     | Service temporarily down       | Automatic retry                                 | [→ Guide](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
+| 504  | Gateway Timeout       | `APICallError`     |     ✅     | Request timeout                | Automatic retry, reduce request complexity      | [→ Guide](./TROUBLESHOOTING.md#problem-500502503504-server-errors)          |
 
 #### Error Handling Strategy
 
-The provider automatically handles retryable errors (429, 500-504) with
+The provider automatically handles retryable errors (408, 409, 429, 5xx) with
 exponential backoff. For non-retryable errors, your application should handle
 them appropriately.
 

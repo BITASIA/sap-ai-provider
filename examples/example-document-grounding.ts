@@ -22,7 +22,7 @@
 
 // Load environment variables
 import "dotenv/config";
-import { APICallError } from "@ai-sdk/provider";
+import { APICallError, LoadAPIKeyError, NoSuchModelError } from "@ai-sdk/provider";
 import { generateText } from "ai";
 // In YOUR production project, use the published package instead:
 // import { createSAPAIProvider, buildDocumentGroundingConfig } from "@mymediset/sap-ai-provider";
@@ -184,7 +184,11 @@ async function documentGroundingExample() {
     console.log("   - Use metadata_params to retrieve source information for citations");
     console.log("   - Use metadata_params to retrieve source information for citations");
   } catch (error: unknown) {
-    if (error instanceof APICallError) {
+    if (error instanceof LoadAPIKeyError) {
+      console.error("❌ Authentication Error:", error.message);
+    } else if (error instanceof NoSuchModelError) {
+      console.error("❌ Model Not Found:", error.modelId);
+    } else if (error instanceof APICallError) {
       console.error("❌ API Call Error:", error.statusCode, error.message);
 
       // Parse SAP-specific metadata
@@ -201,9 +205,6 @@ async function documentGroundingExample() {
       if (error.statusCode === 400) {
         console.error("\n💡 Vector store not found or not configured correctly.");
         console.error("   Make sure your vector database is set up in SAP AI Core.");
-      } else if (error.statusCode === 404) {
-        console.error("\n💡 Document or vector store not found.");
-        console.error("   Check your VECTOR_STORE_ID and document names.");
       }
     } else {
       const errorMessage = error instanceof Error ? error.message : String(error);

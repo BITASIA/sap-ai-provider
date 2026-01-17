@@ -13,7 +13,7 @@
 
 // Load environment variables
 import "dotenv/config";
-import { APICallError } from "@ai-sdk/provider";
+import { APICallError, LoadAPIKeyError, NoSuchModelError } from "@ai-sdk/provider";
 import { generateText } from "ai";
 // In YOUR production project, use the published package instead:
 // import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
@@ -96,7 +96,11 @@ async function generateTextExample() {
 
     console.log("\n✅ All tests completed!");
   } catch (error: unknown) {
-    if (error instanceof APICallError) {
+    if (error instanceof LoadAPIKeyError) {
+      console.error("❌ Authentication Error:", error.message);
+    } else if (error instanceof NoSuchModelError) {
+      console.error("❌ Model Not Found:", error.modelId);
+    } else if (error instanceof APICallError) {
       console.error("❌ API Call Error:", error.statusCode, error.message);
 
       // Parse SAP-specific metadata
