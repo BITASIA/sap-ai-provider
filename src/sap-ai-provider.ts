@@ -235,7 +235,7 @@ export interface SAPAIProviderSettings {
  * ```
  */
 export function createSAPAIProvider(options: SAPAIProviderSettings = {}): SAPAIProvider {
-  // Validate defaultSettings.modelParams at provider creation time (fail-fast)
+  // Validate defaultSettings.modelParams at provider creation time
   if (options.defaultSettings?.modelParams) {
     validateModelParamsSettings(options.defaultSettings.modelParams);
   }

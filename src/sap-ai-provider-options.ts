@@ -1,11 +1,8 @@
 /**
  * Provider options schemas for SAP AI models.
  *
- * These schemas define the options that can be passed per-call via `providerOptions['sap-ai']`.
- * They use Zod for runtime validation and are integrated with the AI SDK's `parseProviderOptions` helper.
- *
- * The schemas are also used to validate constructor settings, ensuring consistent validation
- * across both configuration paths.
+ * Zod schemas for runtime validation of per-call options via `providerOptions['sap-ai']`
+ * and constructor settings.
  * @example
  * ```typescript
  * import { generateText } from 'ai';
@@ -46,12 +43,6 @@ export const SAP_AI_PROVIDER_NAME = "sap-ai" as const;
 
 /**
  * Zod schema for model generation parameters.
- *
- * This schema is used for validating both:
- * - Constructor `modelParams` settings
- * - Per-call `providerOptions['sap-ai'].modelParams`
- *
- * Using a single schema ensures consistent validation rules across both paths.
  * @internal
  */
 export const modelParamsSchema = z

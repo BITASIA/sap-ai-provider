@@ -192,7 +192,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * @throws {z.ZodError} If modelParams contains invalid values
    */
   constructor(modelId: SAPAIModelId, settings: SAPAISettings, config: SAPAIConfig) {
-    // Validate modelParams at construction time to fail fast on invalid configuration
+    // Validate modelParams at construction time
     if (settings.modelParams) {
       validateModelParamsSettings(settings.modelParams);
     }
@@ -272,8 +272,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
         })(),
       };
 
-      // SAP AI SDK's chatCompletion() doesn't accept AbortSignal directly
-      // Implement cancellation via Promise.race() when an AbortSignal is provided
+      // AbortSignal via Promise.race (SDK doesn't support it directly)
       const response = await (async () => {
         const completionPromise = client.chatCompletion(requestBody);
 
@@ -821,7 +820,6 @@ export class SAPAILanguageModel implements LanguageModelV3 {
     orchestrationConfig: OrchestrationModuleConfig;
     warnings: SharedV3Warning[];
   }> {
-    // Parse and validate provider options using Zod schema
     const sapOptions = await parseProviderOptions({
       provider: SAP_AI_PROVIDER_NAME,
       providerOptions: options.providerOptions,
@@ -919,8 +917,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
         .filter((t): t is ChatCompletionTool => t !== null);
     }
 
-    // Amazon Bedrock and Anthropic models don't support the 'n' parameter
-    // Only set n when explicitly provided to avoid overriding API defaults
+    // Amazon/Anthropic models don't support 'n'
     const supportsN =
       !this.modelId.startsWith("amazon--") && !this.modelId.startsWith("anthropic--");
 
@@ -964,7 +961,6 @@ export class SAPAILanguageModel implements LanguageModelV3 {
       if (nValue !== undefined) {
         modelParams.n = nValue;
       }
-      // If n is not explicitly provided, omit it to allow the API to use its default
     }
 
     const parallelToolCalls =
@@ -982,9 +978,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
       modelParams.seed = options.seed;
     }
 
-    // Validate AI SDK options parameters (not validated by Zod schemas)
-    // Constructor settings and providerOptions are already validated by Zod,
-    // so we only need to warn about invalid values from the AI SDK's options.*
+    // Validate AI SDK options
     validateAISDKParameters(
       {
         frequencyPenalty: options.frequencyPenalty,
@@ -1217,21 +1211,14 @@ function mapFinishReason(reason: string | undefined): LanguageModelV3FinishReaso
 
 /**
  * Validates AI SDK standard parameters and adds warnings for out-of-range values.
- *
- * This function only validates parameters that come from the AI SDK's standard options
- * (e.g., `options.temperature`, `options.maxOutputTokens`). It does NOT validate:
- * - `providerOptions['sap-ai'].modelParams` - validated by Zod via parseProviderOptions
- * - Constructor `settings.modelParams` - validated by Zod via validateModelParamsSettings
- *
- * Does not throw errors to allow API-side validation to be authoritative.
- * Warnings help developers catch configuration issues early during development.
- * @param params - AI SDK standard parameters to validate
- * @param params.frequencyPenalty - Frequency penalty from options.frequencyPenalty
- * @param params.maxTokens - Maximum tokens from options.maxOutputTokens
- * @param params.presencePenalty - Presence penalty from options.presencePenalty
- * @param params.temperature - Temperature from options.temperature
- * @param params.topP - Top P from options.topP
- * @param warnings - Array to add warnings to
+ * Only warns (does not throw) to allow API-side validation to be authoritative.
+ * @param params - AI SDK options parameters
+ * @param params.frequencyPenalty - Frequency penalty
+ * @param params.maxTokens - Max tokens
+ * @param params.presencePenalty - Presence penalty
+ * @param params.temperature - Temperature
+ * @param params.topP - Top P
+ * @param warnings - Warnings array
  * @internal
  */
 function validateAISDKParameters(
@@ -1244,7 +1231,6 @@ function validateAISDKParameters(
   },
   warnings: SharedV3Warning[],
 ): void {
-  // Validate AI SDK standard parameters (not covered by Zod schemas)
   if (params.temperature !== undefined && (params.temperature < 0 || params.temperature > 2)) {
     warnings.push({
       message: `temperature=${String(params.temperature)} is outside typical range [0, 2]. The API may reject this value.`,
