@@ -604,7 +604,7 @@ const result = await generateText({
 
 ### `SAPAIProvider`
 
-Main provider interface extending Vercel AI SDK's `ProviderV2`.
+Main provider interface extending Vercel AI SDK's `ProviderV3`.
 
 **Properties:**
 
@@ -657,12 +657,13 @@ Configuration options for the SAP AI Provider.
 
 **Properties:**
 
-| Property          | Type                            | Default       | Description                                  |
-| ----------------- | ------------------------------- | ------------- | -------------------------------------------- |
-| `resourceGroup`   | `string`                        | `'default'`   | SAP AI Core resource group                   |
-| `deploymentId`    | `string`                        | Auto-resolved | SAP AI Core deployment ID                    |
-| `destination`     | `HttpDestinationOrFetchOptions` | -             | Custom destination configuration             |
-| `defaultSettings` | `SAPAISettings`                 | -             | Default model settings applied to all models |
+| Property                | Type                            | Default       | Description                                                                                                                       |
+| ----------------------- | ------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `resourceGroup`         | `string`                        | `'default'`   | SAP AI Core resource group                                                                                                        |
+| `deploymentId`          | `string`                        | Auto-resolved | SAP AI Core deployment ID                                                                                                         |
+| `destination`           | `HttpDestinationOrFetchOptions` | -             | Custom destination configuration                                                                                                  |
+| `defaultSettings`       | `SAPAISettings`                 | -             | Default model settings applied to all models                                                                                      |
+| `warnOnAmbiguousConfig` | `boolean`                       | `true`        | Emit warnings for ambiguous configurations (e.g., when both `deploymentId` and `resourceGroup` are provided, `deploymentId` wins) |
 
 **Example:**
 
@@ -670,6 +671,7 @@ Configuration options for the SAP AI Provider.
 const settings: SAPAIProviderSettings = {
   resourceGroup: "production",
   deploymentId: "d65d81e7c077e583",
+  warnOnAmbiguousConfig: true, // Warn if both deploymentId and resourceGroup provided
   defaultSettings: {
     modelParams: {
       temperature: 0.7,
@@ -888,7 +890,7 @@ Standard entity types recognized by SAP DPI.
 
 ### `SAPAILanguageModel`
 
-Implementation of Vercel AI SDK's `LanguageModelV2` interface.
+Implementation of Vercel AI SDK's `LanguageModelV3` interface.
 
 **Properties:**
 
@@ -911,13 +913,13 @@ Generate a single completion (non-streaming).
 
 ```typescript
 async doGenerate(
-  options: LanguageModelV2CallOptions
+  options: LanguageModelV3CallOptions
 ): Promise<{
-  content: LanguageModelV2Content[];
-  finishReason: LanguageModelV2FinishReason;
-  usage: LanguageModelV2Usage;
+  content: LanguageModelV3Content[];
+  finishReason: LanguageModelV3FinishReason;
+  usage: LanguageModelV3Usage;
   rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
-  warnings: LanguageModelV2CallWarning[];
+  warnings: LanguageModelV3CallWarning[];
 }>
 ```
 
@@ -937,12 +939,30 @@ Generate a streaming completion.
 
 ```typescript
 async doStream(
-  options: LanguageModelV2CallOptions
+  options: LanguageModelV3CallOptions
 ): Promise<{
-  stream: ReadableStream<LanguageModelV2StreamPart>;
+  stream: ReadableStream<LanguageModelV3StreamPart>;
   rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
 }>
 ```
+
+**Stream Events:**
+
+The stream emits the following event types in order:
+
+| Event Type          | Description                                      | When Emitted                  |
+| ------------------- | ------------------------------------------------ | ----------------------------- |
+| `stream-start`      | Stream initialization with warnings              | First, before any content     |
+| `response-metadata` | Model ID, timestamp, and response ID             | After first chunk received    |
+| `text-start`        | Text block begins (includes unique block ID)     | When text generation starts   |
+| `text-delta`        | Incremental text chunk                           | For each text token           |
+| `text-end`          | Text block completes                             | When text generation ends     |
+| `tool-input-start`  | Tool input begins (includes tool ID and name)    | When tool call starts         |
+| `tool-input-delta`  | Incremental tool arguments                       | For each tool argument chunk  |
+| `tool-input-end`    | Tool input completes                             | When tool arguments complete  |
+| `tool-call`         | Complete tool call with ID, name, and full input | After tool-input-end          |
+| `finish`            | Stream completes with usage and finish reason    | Last event on success         |
+| `error`             | Error occurred during streaming                  | On error (stream then closes) |
 
 **Example:**
 
@@ -955,7 +975,27 @@ const { stream } = await model.doStream({
     },
   ],
 });
+
+for await (const part of stream) {
+  switch (part.type) {
+    case "text-delta":
+      process.stdout.write(part.delta);
+      break;
+    case "tool-call":
+      console.log(`Tool called: ${part.toolName}`, part.input);
+      break;
+    case "finish":
+      console.log("Usage:", part.usage);
+      break;
+    case "error":
+      console.error("Stream error:", part.error);
+      break;
+  }
+}
 ```
+
+**Note:** See [Known Limitations](./TROUBLESHOOTING.md#known-limitations) for
+information about client-generated response IDs in streaming mode.
 
 ---
 
@@ -1104,7 +1144,7 @@ Converts Vercel AI SDK prompt format to SAP AI Core message format.
 **Signature:**
 
 ```typescript
-function convertToSAPMessages(prompt: LanguageModelV2Prompt): SAPMessage[];
+function convertToSAPMessages(prompt: LanguageModelV3Prompt): SAPMessage[];
 ```
 
 **Parameters:**
@@ -1472,7 +1512,7 @@ For the current package version, see [package.json](./package.json).
 ### Dependencies
 
 - **Vercel AI SDK:** v6.0+ (`ai` package)
-- **SAP AI SDK:** ^2.4.0 (`@sap-ai-sdk/orchestration`)
+- **SAP AI SDK:** ^2.5.0 (`@sap-ai-sdk/orchestration`)
 - **Node.js:** >= 18
 
 > **Note:** For exact dependency versions, always refer to `package.json` in the

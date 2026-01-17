@@ -274,8 +274,8 @@ service, including:
 
 **Popular models:**
 
-- **OpenAI**: gpt-4o, gpt-4o-mini, gpt-4.1, o1, o3 (recommended for multi-tool
-  apps)
+- **OpenAI**: gpt-4o, gpt-4o-mini, gpt-4.1, o1, o3, o4-mini (recommended for
+  multi-tool apps)
 - **Anthropic Claude**: anthropic--claude-3.5-sonnet, anthropic--claude-4-opus
 - **Google Gemini**: gemini-2.5-pro, gemini-2.0-flash
 
@@ -680,9 +680,7 @@ for details.
 ### Community
 
 - 🐛 [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues) - Report
-  bugs and request features
-- 💬 [Discussions](https://github.com/BITASIA/sap-ai-provider/discussions) - Ask
-  questions and share ideas
+  bugs, request features, and ask questions
 
 ### Related Projects
 

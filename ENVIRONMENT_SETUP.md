@@ -219,5 +219,5 @@ console.log("AI API URL:", key.serviceurls?.AI_API_URL);
 - [README.md](./README.md#authentication) - Quick authentication overview
 - [API_REFERENCE.md](./API_REFERENCE.md#sapaiprovidersettings) - Configuration
   options
-- [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md#authentication-changes) -
+- [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md#2-update-authentication) -
   Authentication changes in v2.0

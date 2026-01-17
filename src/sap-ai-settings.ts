@@ -23,6 +23,7 @@ import type {
  * **Google Vertex AI Models:**
  * - gemini-2.0-flash, gemini-2.0-flash-lite
  * - gemini-2.5-flash, gemini-2.5-pro
+ * - ⚠️ **Limitation:** Gemini models support only 1 tool per request
  *
  * **AWS Bedrock Models:**
  * - anthropic--claude-3-haiku, anthropic--claude-3-sonnet, anthropic--claude-3-opus
@@ -32,6 +33,7 @@ import type {
  *
  * **AI Core Open Source Models:**
  * - mistralai--mistral-large-instruct, mistralai--mistral-medium-instruct, mistralai--mistral-small-instruct
+ * - meta--llama3.1-70b-instruct
  * - cohere--command-a-reasoning
  */
 export type SAPAIModelId = ChatModel;

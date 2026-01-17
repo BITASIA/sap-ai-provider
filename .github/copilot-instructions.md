@@ -74,7 +74,7 @@ npm run type-check && npm run test && npm run test:node && npm run test:edge && 
 
 **For environment setup and authentication**, see [ENVIRONMENT_SETUP.md](../ENVIRONMENT_SETUP.md)
 
-- **Examples location**: `/examples` directory contains 6 example files
+- **Examples location**: `/examples` directory contains 8 example files
 - **Running examples**: `npx tsx examples/example-simple-chat-completion.ts`
   ⚠️ **Important:** Examples require `AICORE_SERVICE_KEY` environment variable to work
 - **Without service key**: Examples will fail with clear error message about missing environment variable
@@ -254,7 +254,7 @@ When acting as a PR reviewer, you must first thoroughly analyze and understand t
 
 **Key patterns to follow:**
 
-- Implement Vercel AI SDK interfaces correctly (`ProviderV2`, etc.)
+- Implement Vercel AI SDK interfaces correctly (`ProviderV3`, etc.)
 - Maintain Node.js and Edge runtime compatibility
 - Keep components focused and single-purpose
 - Follow existing authentication and caching patterns

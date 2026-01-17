@@ -80,6 +80,9 @@ below.
   - [Test with Minimal Request](#test-with-minimal-request)
   - [Verify Configuration](#verify-configuration)
 - [Getting Help](#getting-help)
+- [Known Limitations](#known-limitations)
+  - [AbortSignal Does Not Cancel HTTP Requests](#abortsignal-does-not-cancel-http-requests)
+  - [Streaming Response ID Is Client-Generated](#streaming-response-id-is-client-generated)
 - [Related Documentation](#related-documentation)
 
 ## Authentication Issues
@@ -113,7 +116,7 @@ entry file
 ## API Errors
 
 For a complete error code reference, see
-[API Reference - Error Codes](./API_REFERENCE.md#error-codes).
+[API Reference - Error Handling](./API_REFERENCE.md#error-handling--reference).
 
 ### Parsing SAP Error Metadata (v3.0.0+)
 
@@ -381,6 +384,87 @@ If issues persist:
    error messages, code snippets (redact credentials)
 4. **SAP Support:** For SAP AI Core service issues -
    [SAP AI Core Docs](https://help.sap.com/docs/ai-core)
+
+## Known Limitations
+
+This section documents known limitations of the SAP AI Provider that are either
+inherent to the underlying SAP AI SDK or are planned for future resolution.
+
+### AbortSignal Does Not Cancel HTTP Requests
+
+**Symptom:** When using `AbortSignal` to cancel a request, the promise rejects
+but the underlying HTTP request continues executing on SAP AI Core.
+
+**Technical Details:**
+
+The SAP AI SDK's `OrchestrationClient.chatCompletion()` and `stream()` methods
+do not natively accept an `AbortSignal`. The provider implements cancellation
+via `Promise.race()`, which rejects the promise when aborted but does not cancel
+the in-flight HTTP request.
+
+```typescript
+// Current behavior
+const controller = new AbortController();
+
+const result = await generateText({
+  model: provider("gpt-4o"),
+  prompt: "Long task...",
+  abortSignal: controller.signal,
+});
+
+// Calling controller.abort() will:
+// ✅ Reject the promise immediately
+// ❌ NOT cancel the HTTP request to SAP AI Core (request continues on server)
+```
+
+**Impact:**
+
+- Token usage is still incurred for aborted requests
+- Server-side processing continues until completion
+- No impact on response quality or subsequent requests
+
+**Status:** Waiting for SAP AI SDK enhancement. See
+[SAP AI SDK Issue #1429](https://github.com/SAP/ai-sdk-js/issues/1429).
+
+**Workaround:** For cost-sensitive applications, consider implementing
+request-level timeouts at the application layer rather than relying on abort.
+
+---
+
+### Streaming Response ID Is Client-Generated
+
+**Symptom:** The `response-metadata.id` in streaming responses is a
+client-generated UUID, not the server's `x-request-id`.
+
+**Technical Details:**
+
+The SAP AI SDK's `OrchestrationStreamResponse` does not currently expose the raw
+HTTP response headers, including `x-request-id`. The provider generates a
+client-side UUID for response tracing.
+
+```typescript
+// In streaming responses:
+for await (const part of stream) {
+  if (part.type === "response-metadata") {
+    console.log(part.id); // Client-generated UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+    // Note: This is NOT the server's x-request-id
+  }
+}
+```
+
+**Impact:**
+
+- Cannot correlate streaming responses with SAP AI Core server logs using
+  `x-request-id`
+- Non-streaming (`doGenerate`) responses correctly expose `x-request-id` in
+  `providerMetadata['sap-ai'].requestId`
+
+**Status:** Waiting for SAP AI SDK enhancement. See
+[SAP AI SDK Issue #1433](https://github.com/SAP/ai-sdk-js/issues/1433).
+
+**Workaround:** For debugging, use non-streaming requests when server-side
+request correlation is required, or log the client-generated UUID for
+client-side tracing.
 
 ## Related Documentation
 

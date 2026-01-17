@@ -398,9 +398,7 @@ Apache License 2.0.
 
 - 📖 Read the documentation: [README](./README.md),
   [API Reference](./API_REFERENCE.md)
-- 💬 Ask questions in
-  [GitHub Discussions](https://github.com/BITASIA/sap-ai-provider/discussions)
-- 🐛 Report issues:
+- 🐛 Report issues or ask questions:
   [Issue Tracker](https://github.com/BITASIA/sap-ai-provider/issues)
 - 👥 Join the community and share your experience
 

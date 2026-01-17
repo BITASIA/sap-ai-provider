@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json.schemastore.org/markdown-link-check.json",
+  "ignorePatterns": [
+    {
+      "pattern": "^https://<"
+    },
+    {
+      "pattern": "^https://\\{"
+    },
+    {
+      "pattern": "^https://your-"
+    },
+    {
+      "pattern": "^https://example\\.com"
+    },
+    {
+      "pattern": "^https://api\\.ai\\.prod\\.region"
+    },
+    {
+      "pattern": "^https://api\\.weather\\.com"
+    },
+    {
+      "pattern": "^https://github\\.com/YOUR-USERNAME"
+    },
+    {
+      "pattern": "^https://\\.\\.\\."
+    },
+    {
+      "pattern": "^http://localhost"
+    }
+  ],
+  "replacementPatterns": [],
+  "httpHeaders": [],
+  "timeout": "10s",
+  "retryOn429": true,
+  "retryCount": 2,
+  "fallbackRetryDelay": "5s",
+  "aliveStatusCodes": [200, 206, 403]
+}

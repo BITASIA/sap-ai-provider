@@ -11,7 +11,7 @@ see [API_REFERENCE.md](./API_REFERENCE.md).
 **3-layer architecture** bridging your application to SAP AI services:
 
 - **Application** → **Provider** → **SAP AI Core** → AI Models
-- Implements Vercel AI SDK's `ProviderV2` interface
+- Implements Vercel AI SDK's `ProviderV3` interface
 - Uses SAP AI SDK (`@sap-ai-sdk/orchestration`) for OAuth2 auth
 - Transforms messages bidirectionally (AI SDK ↔ SAP format)
 - Supports streaming, tool calling, multi-modal, and data masking
@@ -74,7 +74,7 @@ Handler → SAP AI Core API
 ## Overview
 
 The SAP AI Core Provider is designed as a bridge between the Vercel AI SDK and
-SAP AI Core services. It implements the Vercel AI SDK's `ProviderV2` interface
+SAP AI Core services. It implements the Vercel AI SDK's `ProviderV3` interface
 while handling the complexities of SAP AI Core's API, authentication, and data
 formats.
 
@@ -194,7 +194,7 @@ sequenceDiagram
         Note over Prov,SDK: Response Processing
         Prov->>Prov: Parse & validate
         Prov->>Prov: Extract content & tool calls
-        Prov-->>SDK: LanguageModelV2Result
+        Prov-->>SDK: LanguageModelV3Result
     end
 
     SDK-->>App: GenerateTextResult
@@ -274,7 +274,7 @@ src/
 
 #### `SAPAILanguageModel`
 
-- **Purpose**: Implementation of Vercel AI SDK's `LanguageModelV2`
+- **Purpose**: Implementation of Vercel AI SDK's `LanguageModelV3`
 - **Responsibilities**:
   - Request/response transformation
   - Streaming support
@@ -1000,7 +1000,7 @@ AI SDK types.
 The provider implements the factory pattern for model creation:
 
 ```typescript
-interface SAPAIProvider extends ProviderV2 {
+interface SAPAIProvider extends ProviderV3 {
   // Function call syntax
   (modelId: SAPAIModelId, settings?: SAPAISettings): SAPAILanguageModel;
 
