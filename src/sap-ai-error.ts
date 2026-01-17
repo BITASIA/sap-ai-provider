@@ -203,7 +203,7 @@ export function convertToAISDKError(
       });
     }
 
-    // Network errors -> retryable 503
+    // Network errors
     if (
       errorMsg.includes("econnrefused") ||
       errorMsg.includes("enotfound") ||
@@ -231,12 +231,12 @@ export function convertToAISDKError(
           `Check your destination configuration or provide a valid destinationName.`,
         requestBodyValues: context?.requestBody,
         responseHeaders,
-        statusCode: 500,
+        statusCode: 400,
         url: context?.url ?? "",
       });
     }
 
-    // Deployment resolution errors -> NoSuchModelError
+    // Deployment resolution errors
     if (
       errorMsg.includes("failed to resolve deployment") ||
       errorMsg.includes("no deployment matched")
@@ -282,17 +282,122 @@ export function convertToAISDKError(
       });
     }
 
+    // Consumed stream is a programming error
+    if (errorMsg.includes("consumed stream")) {
+      return new APICallError({
+        cause: error,
+        isRetryable: false,
+        message: `SAP AI Core stream consumption error: ${originalMsg}`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 500,
+        url: context?.url ?? "",
+      });
+    }
+
     // SSE stream errors
     if (
-      errorMsg.includes("iterate over") ||
-      errorMsg.includes("consumed stream") ||
+      errorMsg.includes("iterating over") ||
       errorMsg.includes("parse message into json") ||
-      errorMsg.includes("no body")
+      errorMsg.includes("received from") ||
+      errorMsg.includes("no body") ||
+      errorMsg.includes("invalid sse payload")
     ) {
       return new APICallError({
         cause: error,
         isRetryable: true,
         message: `SAP AI Core streaming error: ${originalMsg}`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 500,
+        url: context?.url ?? "",
+      });
+    }
+
+    // Configuration and validation errors
+    if (
+      errorMsg.includes("prompt template or messages must be defined") ||
+      errorMsg.includes("filtering parameters cannot be empty") ||
+      errorMsg.includes("templating yaml string must be non-empty") ||
+      errorMsg.includes("could not access response data") ||
+      errorMsg.includes("could not parse json") ||
+      errorMsg.includes("error parsing yaml") ||
+      errorMsg.includes("yaml does not conform") ||
+      errorMsg.includes("validation errors")
+    ) {
+      return new APICallError({
+        cause: error,
+        isRetryable: false,
+        message: `SAP AI Core configuration error: ${originalMsg}`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 400,
+        url: context?.url ?? "",
+      });
+    }
+
+    // Buffer not available is an environment error
+    if (errorMsg.includes("buffer is not available as globals")) {
+      return new APICallError({
+        cause: error,
+        isRetryable: false,
+        message: `SAP AI Core environment error: ${originalMsg}`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 500,
+        url: context?.url ?? "",
+      });
+    }
+
+    // Response stream undefined is a programming error
+    if (errorMsg.includes("response stream is undefined")) {
+      return new APICallError({
+        cause: error,
+        isRetryable: false,
+        message: `SAP AI Core response stream error: ${originalMsg}`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 500,
+        url: context?.url ?? "",
+      });
+    }
+
+    // Response timing issues
+    if (
+      errorMsg.includes("response is required to process") ||
+      errorMsg.includes("stream is still open") ||
+      errorMsg.includes("data is not available yet")
+    ) {
+      return new APICallError({
+        cause: error,
+        isRetryable: true,
+        message: `SAP AI Core response processing error: ${originalMsg}`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 500,
+        url: context?.url ?? "",
+      });
+    }
+
+    // Deployment retrieval errors
+    if (errorMsg.includes("failed to fetch the list of deployments")) {
+      return new APICallError({
+        cause: error,
+        isRetryable: true,
+        message: `SAP AI Core deployment retrieval error: ${originalMsg}`,
+        requestBodyValues: context?.requestBody,
+        responseHeaders,
+        statusCode: 503,
+        url: context?.url ?? "",
+      });
+    }
+
+    // Stream buffer type errors
+    if (errorMsg.includes("received non-uint8array")) {
+      return new APICallError({
+        cause: error,
+        isRetryable: false,
+        message: `SAP AI Core stream buffer error: ${originalMsg}`,
         requestBodyValues: context?.requestBody,
         responseHeaders,
         statusCode: 500,

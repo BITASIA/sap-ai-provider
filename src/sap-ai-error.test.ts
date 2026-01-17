@@ -754,7 +754,7 @@ describe("SSE Error Handling", () => {
     expect(responseBody.error.request_id).toBe("wrapped-123");
   });
 
-  it("should handle SSE stream errors without JSON", () => {
+  it("should handle streaming errors with wrapped parsing failures", () => {
     const innerError = new Error("Could not parse message into JSON");
     const wrappedError = new Error("Error while iterating over SSE stream.");
     Object.defineProperty(wrappedError, "name", { value: "ErrorWithCause" });
@@ -767,11 +767,41 @@ describe("SSE Error Handling", () => {
     expect(result.isRetryable).toBe(true);
   });
 
+  it("should handle stream iteration errors", () => {
+    const error = new Error("Cannot iterate over a consumed stream.");
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.message).toContain("stream consumption error");
+    expect(result.isRetryable).toBe(false);
+    expect(result.statusCode).toBe(500);
+  });
+
   it("should handle malformed JSON gracefully", () => {
     const error = new Error("Error received from the server.\n{invalid json}");
     const result = convertToAISDKError(error) as APICallError;
 
     expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(500);
+  });
+
+  it("should handle streaming message parsing errors", () => {
+    const error = new Error("Could not parse message into JSON");
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.message).toContain("streaming error");
+    expect(result.isRetryable).toBe(true);
+    expect(result.statusCode).toBe(500);
+  });
+
+  it("should handle streaming response with no body", () => {
+    const error = new Error("Attempted to iterate over a response with no body");
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.message).toContain("streaming error");
+    expect(result.isRetryable).toBe(true);
     expect(result.statusCode).toBe(500);
   });
 
@@ -788,6 +818,17 @@ describe("SSE Error Handling", () => {
     expect(result).toBeInstanceOf(APICallError);
     expect(result.message).toContain("Network timeout");
   });
+
+  it("should handle server errors received during streaming", () => {
+    const serverError = { code: 429, message: "Rate limited", request_id: "test-123" };
+    const error = new Error(`Error received from the server.\n${JSON.stringify(serverError)}`);
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    // "Error received from the server" is detected as OrchestrationErrorResponse, not generic streaming error
+    expect(result.statusCode).toBe(429);
+    expect(result.isRetryable).toBe(true);
+  });
 });
 
 describe("SDK-specific Error Handling", () => {
@@ -797,7 +838,8 @@ describe("SDK-specific Error Handling", () => {
     const result = convertToAISDKError(error) as APICallError;
 
     expect(result).toBeInstanceOf(APICallError);
-    expect(result.statusCode).toBe(500);
+    expect(result.statusCode).toBe(400);
+    expect(result.isRetryable).toBe(false);
     expect(result.message).toContain("destination");
   });
 
@@ -844,6 +886,165 @@ describe("SDK-specific Error Handling", () => {
 
     expect(result).toBeInstanceOf(APICallError);
     expect(result.statusCode).toBe(503);
+    expect(result.isRetryable).toBe(true);
+  });
+
+  it("should handle prompt template or messages missing error", () => {
+    const error = new Error("Either a prompt template or messages must be defined.");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(400);
+    expect(result.isRetryable).toBe(false);
+    expect(result.message).toContain("configuration");
+  });
+
+  it("should handle filtering parameters empty error", () => {
+    const error = new Error("Filtering parameters cannot be empty");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(400);
+    expect(result.isRetryable).toBe(false);
+  });
+
+  it("should handle response access error", () => {
+    const error = new Error("Could not access response data. Response was not an axios response.");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(400);
+    expect(result.isRetryable).toBe(false);
+  });
+
+  it("should handle response required processing error", () => {
+    const error = new Error("Response is required to process completion post response streaming.");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(500);
+    expect(result.isRetryable).toBe(true);
+  });
+
+  it("should handle stream end response required error", () => {
+    const error = new Error("Response is required to process stream end.");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(500);
+    expect(result.isRetryable).toBe(true);
+  });
+
+  it("should handle undefined response stream error", () => {
+    const error = new Error("Response stream is undefined.");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(500);
+    expect(result.isRetryable).toBe(false);
+  });
+
+  it("should handle templating YAML string empty error", () => {
+    const error = new Error("Templating YAML string must be non-empty.");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(400);
+    expect(result.isRetryable).toBe(false);
+  });
+
+  it("should handle buffer not available error", () => {
+    const error = new Error(
+      "Unexpected: Buffer is not available as globals. Please report this error.",
+    );
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(500);
+    expect(result.isRetryable).toBe(false);
+  });
+
+  it("should handle deployment list fetch error", () => {
+    const error = new Error("Failed to fetch the list of deployments.");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(503);
+    expect(result.isRetryable).toBe(true);
+  });
+
+  it("should handle JSON parsing errors as non-retryable 400", () => {
+    const error = new Error("Could not parse JSON: invalid syntax");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(400);
+    expect(result.isRetryable).toBe(false);
+  });
+
+  it("should handle YAML parsing errors as non-retryable 400", () => {
+    const error = new Error("Error parsing YAML: unexpected token");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(400);
+    expect(result.isRetryable).toBe(false);
+  });
+
+  it("should handle YAML schema validation errors as non-retryable 400", () => {
+    const error = new Error(
+      "Prompt Template YAML does not conform to the defined type. Validation errors: missing required field",
+    );
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(400);
+    expect(result.isRetryable).toBe(false);
+  });
+
+  it("should handle stream not closed errors as retryable 500", () => {
+    const error = new Error(
+      "The stream is still open, the requested data is not available yet. Please wait until the stream is closed.",
+    );
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(500);
+    expect(result.isRetryable).toBe(true);
+  });
+
+  it("should handle buffer type errors as non-retryable 500", () => {
+    const error = new Error(
+      "Unexpected: received non-Uint8Array (ArrayBuffer) stream chunk in an environment with a global 'Buffer' defined, which this library assumes to be Node. Please report this error.",
+    );
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(500);
+    expect(result.isRetryable).toBe(false);
+  });
+
+  it("should handle invalid SSE payload errors as retryable 500", () => {
+    const error = new Error("Invalid SSE payload: malformed event data");
+
+    const result = convertToAISDKError(error) as APICallError;
+
+    expect(result).toBeInstanceOf(APICallError);
+    expect(result.statusCode).toBe(500);
     expect(result.isRetryable).toBe(true);
   });
 });
