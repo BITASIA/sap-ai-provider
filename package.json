@@ -1,6 +1,6 @@
 {
   "name": "@mymediset/sap-ai-provider",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "type": "module",
   "description": "SAP AI Core provider for AI SDK (powered by @sap-ai-sdk/orchestration)",
   "keywords": [
