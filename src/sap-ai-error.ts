@@ -1,6 +1,6 @@
 import type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
 
-import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
+import { APICallError, LoadAPIKeyError, NoSuchModelError } from "@ai-sdk/provider";
 import { isErrorWithCause } from "@sap-cloud-sdk/util";
 
 /**
@@ -13,7 +13,7 @@ import { isErrorWithCause } from "@sap-cloud-sdk/util";
  * @param context.requestBody - The request body that caused the error
  * @param context.responseHeaders - Response headers from the failed request
  * @param context.url - URL that was called when the error occurred
- * @returns APICallError compatible with AI SDK
+ * @returns APICallError, LoadAPIKeyError, or NoSuchModelError compatible with AI SDK
  * @example
  * **Basic Usage**
  * ```typescript
@@ -31,7 +31,7 @@ export function convertSAPErrorToAPICallError(
     responseHeaders?: Record<string, string>;
     url?: string;
   },
-): APICallError {
+): APICallError | LoadAPIKeyError | NoSuchModelError {
   const error = errorResponse.error;
 
   let message: string;
@@ -66,15 +66,37 @@ export function convertSAPErrorToAPICallError(
 
   let enhancedMessage = message;
 
+  // Handle authentication errors (401/403) with LoadAPIKeyError
   if (statusCode === 401 || statusCode === 403) {
     enhancedMessage +=
       "\n\nAuthentication failed. Verify your AICORE_SERVICE_KEY environment variable is set correctly." +
       "\nSee: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-service-key";
-  } else if (statusCode === 404) {
+    if (requestId) {
+      enhancedMessage += `\nRequest ID: ${requestId}`;
+    }
+    return new LoadAPIKeyError({
+      message: enhancedMessage,
+    });
+  }
+
+  // Handle model/deployment not found (404) with NoSuchModelError
+  if (statusCode === 404) {
     enhancedMessage +=
       "\n\nResource not found. The model or deployment may not exist in your SAP AI Core instance." +
       "\nSee: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-deployment-for-orchestration";
-  } else if (statusCode === 429) {
+    if (requestId) {
+      enhancedMessage += `\nRequest ID: ${requestId}`;
+    }
+    // Try to extract model/deployment identifier from message or location
+    const modelId = extractModelIdentifier(message, location);
+    return new NoSuchModelError({
+      message: enhancedMessage,
+      modelId: modelId ?? "unknown",
+      modelType: "languageModel",
+    });
+  }
+
+  if (statusCode === 429) {
     enhancedMessage +=
       "\n\nRate limit exceeded. Please try again later or contact your SAP administrator." +
       "\nSee: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/rate-limits";
@@ -109,7 +131,7 @@ export function convertSAPErrorToAPICallError(
  * @param context.requestBody - The request body that caused the error
  * @param context.responseHeaders - Response headers from the failed request
  * @param context.url - URL that was called when the error occurred
- * @returns APICallError or LoadAPIKeyError
+ * @returns APICallError, LoadAPIKeyError, or NoSuchModelError
  * @example
  * **Basic Usage**
  * ```typescript
@@ -126,8 +148,12 @@ export function convertToAISDKError(
     responseHeaders?: Record<string, string>;
     url?: string;
   },
-): APICallError | LoadAPIKeyError {
-  if (error instanceof APICallError || error instanceof LoadAPIKeyError) {
+): APICallError | LoadAPIKeyError | NoSuchModelError {
+  if (
+    error instanceof APICallError ||
+    error instanceof LoadAPIKeyError ||
+    error instanceof NoSuchModelError
+  ) {
     return error;
   }
 
@@ -210,22 +236,19 @@ export function convertToAISDKError(
       });
     }
 
-    // Deployment resolution errors
+    // Deployment resolution errors -> NoSuchModelError
     if (
       errorMsg.includes("failed to resolve deployment") ||
       errorMsg.includes("no deployment matched")
     ) {
-      return new APICallError({
-        cause: error,
-        isRetryable: false,
+      const modelId = extractModelIdentifier(originalMsg);
+      return new NoSuchModelError({
         message:
           `SAP AI Core deployment error: ${originalMsg}\n\n` +
           `Make sure you have a running orchestration deployment in your AI Core instance.\n` +
           `See: https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/create-deployment-for-orchestration`,
-        requestBodyValues: context?.requestBody,
-        responseHeaders,
-        statusCode: 404,
-        url: context?.url ?? "",
+        modelId: modelId ?? "unknown",
+        modelType: "languageModel",
       });
     }
 
@@ -298,6 +321,39 @@ export function convertToAISDKError(
     statusCode: 500,
     url: context?.url ?? "",
   });
+}
+
+/**
+ * Extracts model or deployment identifier from error message or location.
+ * @param message - Error message
+ * @param location - Error location
+ * @returns Model/deployment identifier or undefined
+ * @internal
+ */
+function extractModelIdentifier(message: string, location?: string): string | undefined {
+  // Try to extract from message: "deployment: xyz", "deployment xyz", "model: xyz", etc.
+  const patterns = [
+    /deployment[:\s]+([a-zA-Z0-9_-]+)/i,
+    /model[:\s]+([a-zA-Z0-9_-]+)/i,
+    /resource[:\s]+([a-zA-Z0-9_-]+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = pattern.exec(message);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  // Try location as fallback
+  if (location) {
+    const locationMatch = /([a-zA-Z0-9_-]+)/.exec(location);
+    if (locationMatch?.[1]) {
+      return locationMatch[1];
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -389,14 +445,23 @@ function isOrchestrationErrorResponse(error: unknown): error is OrchestrationErr
 }
 
 /**
- * Determines if an error should be retryable based on status code.
- * Following the AI SDK pattern: 429 (rate limit) and 5xx (server errors) are retryable.
+ * Determines if an HTTP status code represents a retryable error.
+ * Following the Vercel AI SDK pattern from api-call-error.ts:
+ * - 408 (Request Timeout)
+ * - 409 (Conflict)
+ * - 429 (Too Many Requests / Rate Limit)
+ * - 5xx (Server Errors)
  * @param statusCode - HTTP status code
  * @returns True if error should be retried
  * @internal
  */
 function isRetryable(statusCode: number): boolean {
-  return statusCode === 429 || (statusCode >= 500 && statusCode < 600);
+  return (
+    statusCode === 408 ||
+    statusCode === 409 ||
+    statusCode === 429 ||
+    (statusCode >= 500 && statusCode < 600)
+  );
 }
 
 /**

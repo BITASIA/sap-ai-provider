@@ -7,7 +7,7 @@
 
 import type { OrchestrationErrorResponse } from "@sap-ai-sdk/orchestration";
 
-import { APICallError, LoadAPIKeyError } from "@ai-sdk/provider";
+import { APICallError, LoadAPIKeyError, NoSuchModelError } from "@ai-sdk/provider";
 import { describe, expect, it } from "vitest";
 
 import { convertSAPErrorToAPICallError, convertToAISDKError } from "./sap-ai-error";
@@ -36,9 +36,11 @@ describe("convertSAPErrorToAPICallError", () => {
     const result = convertSAPErrorToAPICallError(errorResponse);
 
     expect(result).toBeInstanceOf(APICallError);
-    expect(result.statusCode).toBe(500);
+    if (result instanceof APICallError) {
+      expect(result.statusCode).toBe(500);
+      expect(result.isRetryable).toBe(true);
+    }
     expect(result.message).toContain("Test error message");
-    expect(result.isRetryable).toBe(true);
   });
 
   it("should convert SAP error with error list (array)", () => {
@@ -56,11 +58,15 @@ describe("convertSAPErrorToAPICallError", () => {
     const result = convertSAPErrorToAPICallError(errorResponse);
 
     expect(result).toBeInstanceOf(APICallError);
-    expect(result.statusCode).toBe(400);
+    if (result instanceof APICallError) {
+      expect(result.statusCode).toBe(400);
+    }
     expect(result.message).toContain("First error");
   });
 
   it.each([
+    { code: 408, description: "Request Timeout", message: "Request timed out" },
+    { code: 409, description: "Conflict", message: "Conflict error" },
     { code: 429, description: "Rate Limit", message: "Rate limit exceeded" },
     {
       code: 500,
@@ -86,8 +92,11 @@ describe("convertSAPErrorToAPICallError", () => {
 
     const result = convertSAPErrorToAPICallError(errorResponse);
 
-    expect(result.statusCode).toBe(code);
-    expect(result.isRetryable).toBe(true);
+    expect(result).toBeInstanceOf(APICallError);
+    if (result instanceof APICallError) {
+      expect(result.statusCode).toBe(code);
+      expect(result.isRetryable).toBe(true);
+    }
   });
 
   it.each([
@@ -103,14 +112,8 @@ describe("convertSAPErrorToAPICallError", () => {
       message: "Forbidden",
       messageContains: "Authentication failed",
     },
-    {
-      code: 404,
-      description: "Not Found",
-      message: "Model not found",
-      messageContains: "Resource not found",
-    },
   ])(
-    "should not mark $code ($description) errors as retryable",
+    "should convert $code ($description) errors to LoadAPIKeyError",
     ({ code, message, messageContains }) => {
       const errorResponse: OrchestrationErrorResponse = {
         error: {
@@ -123,11 +126,31 @@ describe("convertSAPErrorToAPICallError", () => {
 
       const result = convertSAPErrorToAPICallError(errorResponse);
 
-      expect(result.statusCode).toBe(code);
-      expect(result.isRetryable).toBe(false);
+      expect(result).toBeInstanceOf(LoadAPIKeyError);
       expect(result.message).toContain(messageContains);
+      expect(result.message).toContain("AICORE_SERVICE_KEY");
     },
   );
+
+  it("should convert 404 errors to NoSuchModelError", () => {
+    const errorResponse: OrchestrationErrorResponse = {
+      error: {
+        code: 404,
+        location: "Deployment",
+        message: "Model deployment-abc-123 not found",
+        request_id: "error-404",
+      },
+    };
+
+    const result = convertSAPErrorToAPICallError(errorResponse);
+
+    expect(result).toBeInstanceOf(NoSuchModelError);
+    expect(result.message).toContain("Resource not found");
+    if (result instanceof NoSuchModelError) {
+      expect(result.modelId).toBe("deployment-abc-123");
+      expect(result.modelType).toBe("languageModel");
+    }
+  });
 
   it("should preserve SAP metadata in responseBody", () => {
     const errorResponse: OrchestrationErrorResponse = {
@@ -141,20 +164,23 @@ describe("convertSAPErrorToAPICallError", () => {
 
     const result = convertSAPErrorToAPICallError(errorResponse);
 
-    expect(result.responseBody).toBeDefined();
-    if (result.responseBody) {
-      const body = JSON.parse(result.responseBody) as {
-        error: {
-          code: number;
-          location: string;
-          message: string;
-          request_id: string;
+    expect(result).toBeInstanceOf(APICallError);
+    if (result instanceof APICallError) {
+      expect(result.responseBody).toBeDefined();
+      if (result.responseBody) {
+        const body = JSON.parse(result.responseBody) as {
+          error: {
+            code: number;
+            location: string;
+            message: string;
+            request_id: string;
+          };
         };
-      };
-      expect(body.error.message).toBe("Test error");
-      expect(body.error.code).toBe(500);
-      expect(body.error.location).toBe("Test Module");
-      expect(body.error.request_id).toBe("metadata-test-123");
+        expect(body.error.message).toBe("Test error");
+        expect(body.error.code).toBe(500);
+        expect(body.error.location).toBe("Test Module");
+        expect(body.error.request_id).toBe("metadata-test-123");
+      }
     }
   });
 
@@ -172,7 +198,10 @@ describe("convertSAPErrorToAPICallError", () => {
       url: "https://api.sap.com/v1/chat",
     });
 
-    expect(result.url).toBe("https://api.sap.com/v1/chat");
+    expect(result).toBeInstanceOf(APICallError);
+    if (result instanceof APICallError) {
+      expect(result.url).toBe("https://api.sap.com/v1/chat");
+    }
   });
 
   it("should preserve response headers when provided", () => {
@@ -192,9 +221,12 @@ describe("convertSAPErrorToAPICallError", () => {
       url: "https://api.sap.com/v1/chat",
     });
 
-    expect(result.responseHeaders).toEqual({
-      "x-request-id": "headers-test-123",
-    });
+    expect(result).toBeInstanceOf(APICallError);
+    if (result instanceof APICallError) {
+      expect(result.responseHeaders).toEqual({
+        "x-request-id": "headers-test-123",
+      });
+    }
   });
 
   it("should include request body in context", () => {
@@ -212,7 +244,10 @@ describe("convertSAPErrorToAPICallError", () => {
       requestBody,
     });
 
-    expect(result.requestBodyValues).toEqual(requestBody);
+    expect(result).toBeInstanceOf(APICallError);
+    if (result instanceof APICallError) {
+      expect(result.requestBodyValues).toEqual(requestBody);
+    }
   });
 
   it("should add request ID to error message", () => {
@@ -478,8 +513,11 @@ describe("convertToAISDKError", () => {
 
     const result = convertSAPErrorToAPICallError(errorResponse);
 
-    expect(result.statusCode).toBe(500);
-    expect(result.isRetryable).toBe(true);
+    expect(result).toBeInstanceOf(APICallError);
+    if (result instanceof APICallError) {
+      expect(result.statusCode).toBe(500);
+      expect(result.isRetryable).toBe(true);
+    }
   });
 
   it("should handle error without location", () => {
@@ -494,7 +532,10 @@ describe("convertToAISDKError", () => {
 
     const result = convertSAPErrorToAPICallError(errorResponse);
 
-    expect(result.statusCode).toBe(400);
+    expect(result).toBeInstanceOf(APICallError);
+    if (result instanceof APICallError) {
+      expect(result.statusCode).toBe(400);
+    }
     expect(result.message).not.toContain("Error location:");
   });
 
@@ -510,7 +551,10 @@ describe("convertToAISDKError", () => {
 
     const result = convertSAPErrorToAPICallError(errorResponse);
 
-    expect(result.statusCode).toBe(400);
+    expect(result).toBeInstanceOf(APICallError);
+    if (result instanceof APICallError) {
+      expect(result.statusCode).toBe(400);
+    }
     expect(result.message).not.toContain("Request ID:");
   });
 
@@ -550,7 +594,10 @@ describe("convertToAISDKError", () => {
     const result = convertSAPErrorToAPICallError(errorResponse);
 
     expect(result.message).toContain("First error in list");
-    expect(result.statusCode).toBe(400);
+    expect(result).toBeInstanceOf(APICallError);
+    if (result instanceof APICallError) {
+      expect(result.statusCode).toBe(400);
+    }
   });
 
   it("should return undefined when error property is explicitly undefined", () => {
@@ -755,13 +802,16 @@ describe("SDK-specific Error Handling", () => {
   });
 
   it("should handle deployment resolution errors", () => {
-    const error = new Error("Failed to resolve deployment ID");
+    const error = new Error("Failed to resolve deployment: d123abc");
 
-    const result = convertToAISDKError(error) as APICallError;
+    const result = convertToAISDKError(error);
 
-    expect(result).toBeInstanceOf(APICallError);
-    expect(result.statusCode).toBe(404);
+    expect(result).toBeInstanceOf(NoSuchModelError);
     expect(result.message).toContain("deployment");
+    if (result instanceof NoSuchModelError) {
+      expect(result.modelId).toBe("d123abc");
+      expect(result.modelType).toBe("languageModel");
+    }
   });
 
   it("should handle content filtering errors", () => {
