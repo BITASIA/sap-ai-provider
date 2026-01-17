@@ -1,16 +1,23 @@
 ---
 description: Guidance for integrating with the Vercel AI SDK
 ---
+
 # AI SDK Integration
 
-The provider implements the `LanguageModelV2` contract and is designed to work with the Vercel AI SDK.
+The provider implements the `LanguageModelV3` and `EmbeddingModelV3` contracts
+and is designed to work with the Vercel AI SDK 6.0+.
 
 ## Key Points
 
-- Create models via the provider function: `const model = provider("gpt-4o")`.
-- Supported operations include `doGenerate` and `doStream` (see [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)).
+- Create language models via the provider function: `const model = provider("gpt-4o")`.
+- Create embedding models via: `const model = provider.embedding("text-embedding-ada-002")`.
+- Supported operations include `doGenerate` and `doStream` for language models,
+  `doEmbed` for embedding models (see
+  [src/sap-ai-language-model.ts](mdc:src/sap-ai-language-model.ts) and
+  [src/sap-ai-embedding-model.ts](mdc:src/sap-ai-embedding-model.ts)).
 - Tool calling is supported by passing `tools` in call options.
-- Structured outputs (JSON schema response_format) are enabled for most models except Anthropic and Amazon families.
+- Structured outputs (JSON schema response_format) are enabled for most models
+  except Anthropic and Amazon families.
 - `n` (multi-choice) is disabled for Amazon models.
 
 ## Recommended API Usage
@@ -18,6 +25,6 @@ The provider implements the `LanguageModelV2` contract and is designed to work w
 - Text generation: `generateText` with `model: provider("<modelId>")`.
 - Streaming: `streamText` for SSE token streams.
 - Structured outputs: `generateObject` when the model supports JSON schema.
+- Embeddings: `embed` or `embedMany` with `model: provider.embedding("<modelId>")`.
 
 Refer to examples in [README.md](mdc:README.md) and [examples/](mdc:examples/).
-

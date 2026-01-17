@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Install dependencies
         run: npm ci
       - name: Run lint
@@ -30,11 +30,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
       - name: Install dependencies
         run: npm ci
       - name: Run type-check
@@ -45,11 +45,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
       - name: Install dependencies
         run: npm ci
       - name: Run tests
@@ -64,11 +64,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
       - name: Install dependencies
         run: npm ci
       - name: Build package
@@ -83,18 +83,36 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
       - name: Install dependencies
         run: npm ci
       - name: Build package
         run: npm run build
-      - name: Simulate npm publish (dry run)
-        run: npm publish --dry-run
+      - name: Determine npm tag for dry-run
+        id: tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" =~ -alpha ]]; then
+            echo "tag=alpha" >> $GITHUB_OUTPUT
+          elif [[ "$VERSION" =~ -beta ]]; then
+            echo "tag=beta" >> $GITHUB_OUTPUT
+          elif [[ "$VERSION" =~ -rc ]]; then
+            echo "tag=next" >> $GITHUB_OUTPUT
+          elif [[ "$VERSION" =~ -canary ]]; then
+            echo "tag=canary" >> $GITHUB_OUTPUT
+          elif [[ "$VERSION" =~ - ]]; then
+            echo "tag=next" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+          echo "Detected version: $VERSION, using tag: $(cat $GITHUB_OUTPUT | grep tag | cut -d= -f2)"
+      - name: Simulate npm publish
+        run: npm publish --dry-run --tag ${{ steps.tag.outputs.tag }}
       - name: Check publishable files
         run: |
           echo "📦 Checking package contents:"

@@ -4,9 +4,17 @@ SAP AI Provider is a TypeScript/Node.js library that provides seamless integrati
 
 Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
+## Table of Contents
+
+- [Working Effectively](#working-effectively)
+- [Validation](#validation)
+- [Common Tasks](#common-tasks)
+- [Pull Request Review Guidelines](#pull-request-review-guidelines)
+
 ## Working Effectively
 
 ### Bootstrap and Install Dependencies
+
 - **Prerequisites**: Node.js 18+ and npm are required
 - **Fresh install**: `npm install` -- takes ~25 seconds. NEVER CANCEL. Set timeout to 60+ seconds.
   - Use `npm install` when no package-lock.json exists (fresh clone)
@@ -17,6 +25,7 @@ Always reference these instructions first and fallback to search or bash command
   - Faster than `npm install` for CI/existing setups
 
 ### Building
+
 - **Build the library**: `npm run build` -- takes ~3 seconds. Set timeout to 15+ seconds.
   - Uses tsup to create CommonJS, ESM, and TypeScript declaration files
   - Outputs to `dist/` directory: `index.js`, `index.mjs`, `index.d.ts`, `index.d.mts`
@@ -24,47 +33,55 @@ Always reference these instructions first and fallback to search or bash command
   - Verifies all expected files exist and lists directory contents
 
 ### Testing
+
 - **Run all tests**: `npm run test` -- takes ~1 second. Set timeout to 15+ seconds.
 - **Run Node.js specific tests**: `npm run test:node` -- takes ~1 second. Set timeout to 15+ seconds.
 - **Run Edge runtime tests**: `npm run test:edge` -- takes ~1 second. Set timeout to 15+ seconds.
 - **Watch mode for development**: `npm run test:watch`
 
 ### Type Checking and Linting
+
 - **Type checking**: `npm run type-check` -- takes ~2 seconds. Set timeout to 15+ seconds.
 - **Prettier formatting check**: `npm run prettier-check` -- takes ~1 second. Set timeout to 10+ seconds.
 - **Auto-fix formatting**: `npm run prettier-fix`
-- **Linting**: `npm run lint` -- **CURRENTLY FAILS** due to missing eslint.config.js file. Do not use until fixed.
+- **Linting**: `npm run lint` -- takes ~1 second. Set timeout to 15+ seconds.
+- **Auto-fix linting issues**: `npm run lint-fix`
 
 ### Development Workflow
-1. **Always run the bootstrap steps first**: `npm ci`
-2. **Make your changes** to TypeScript files in `/src`
-3. **Run type checking**: `npm run type-check`
-4. **Run tests**: `npm run test`
-5. **Check formatting**: `npm run prettier-check` (fix with `npm run prettier-fix` if needed)
-6. **Build the library**: `npm run build`
-7. **Verify build outputs**: `npm run check-build`
+
+**For comprehensive workflow and standards**, see [Contributing Guide](../CONTRIBUTING.md#development-workflow)
+
+**Quick workflow summary:**
+
+1. **Bootstrap**: `npm ci` (always first)
+2. **Make changes** in `/src`
+3. **Validate**: `npm run type-check && npm run test && npm run prettier-check`
+4. **Build**: `npm run build && npm run check-build`
 
 ## Validation
 
 ### Pre-commit Requirements
-- **ALWAYS run these commands before committing or the CI will fail**:
-  - `npm run type-check`
-  - `npm run test`
-  - `npm run test:node`
-  - `npm run test:edge`  
-  - `npm run prettier-check`
-  - `npm run build`
-  - `npm run check-build`
-- **Do NOT run `npm run lint`** until the ESLint configuration is fixed
+
+**ALWAYS run this command before committing (CI will fail otherwise):**
+
+```bash
+npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
+```
+
+**Detailed checklist and standards**: See [Contributing Guide - Pre-Commit Checklist](../CONTRIBUTING.md#pre-commit-checklist)
 
 ### Manual Testing with Examples
-- **Examples location**: `/examples` directory contains 4 example files
+
+**For environment setup and authentication**, see [Environment Setup](../ENVIRONMENT_SETUP.md)
+
+- **Examples location**: `/examples` directory contains 9 example files
 - **Running examples**: `npx tsx examples/example-simple-chat-completion.ts`
-- **LIMITATION**: Examples require `SAP_AI_SERVICE_KEY` environment variable to work
+  ⚠️ **Important:** Examples require `AICORE_SERVICE_KEY` environment variable to work
 - **Without service key**: Examples will fail with clear error message about missing environment variable
-- **With service key**: Create `.env` file with `SAP_AI_SERVICE_KEY=<your-service-key-json>`
+- **With service key**: Create `.env` file with `AICORE_SERVICE_KEY=<your-service-key-json>`
 
 ### Complete End-to-End Validation Scenario
+
 Since full example testing requires SAP credentials, validate changes using this comprehensive approach:
 
 1. **Install and setup**: `npm install` (or `npm ci` if lock file exists)
@@ -73,62 +90,91 @@ Since full example testing requires SAP credentials, validate changes using this
 4. **Type check passes**: `npm run type-check`
 5. **Formatting is correct**: `npm run prettier-check`
 6. **Try running an example**: `npx tsx examples/example-simple-chat-completion.ts`
-7. **Expected result**: Clear error message about missing `SAP_AI_SERVICE_KEY`
+7. **Expected result**: Clear error message about missing `AICORE_SERVICE_KEY`
 
 **Complete CI-like validation command:**
+
 ```bash
-npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run build && npm run check-build
+npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
 ```
+
 This should complete in under 15 seconds total and all commands should pass.
 
 ## Common Tasks
 
 ### Repository Structure
+
 ```
 .
 ├── .github/               # GitHub Actions workflows and configs
-├── examples/              # Example usage files (4 examples)
+├── examples/              # Example usage files (8 examples)
 ├── src/                   # TypeScript source code
-│   ├── types/            # Type definitions
-│   ├── index.ts          # Main exports
-│   ├── sap-ai-provider.ts         # Main provider implementation
-│   ├── sap-ai-chat-language-model.ts # Language model implementation
-│   ├── sap-ai-chat-settings.ts   # Settings and model types
-│   ├── sap-ai-error.ts           # Error handling
-│   └── convert-to-sap-messages.ts # Message conversion utilities
+│   ├── index.ts                    # Main exports
+│   ├── sap-ai-provider.ts          # Main provider implementation
+│   ├── sap-ai-language-model.ts    # Language model implementation
+│   ├── sap-ai-embedding-model.ts   # Embedding model implementation
+│   ├── sap-ai-settings.ts          # Settings and model types
+│   ├── sap-ai-error.ts             # Error handling
+│   └── convert-to-sap-messages.ts  # Message conversion utilities
 ├── dist/                  # Build outputs (gitignored)
 ├── package.json          # Dependencies and scripts
 ├── tsconfig.json         # TypeScript configuration
 ├── tsup.config.ts        # Build configuration
 ├── vitest.node.config.js # Node.js test configuration
 ├── vitest.edge.config.js # Edge runtime test configuration
-└── README.md             # Project documentation
+├── README.md             # Getting started and usage guide
+├── API_REFERENCE.md      # Complete API documentation
+├── ARCHITECTURE.md       # Technical architecture and design
+├── CONTRIBUTING.md       # Contribution guidelines and standards
+├── ENVIRONMENT_SETUP.md  # Authentication and environment configuration
+├── TROUBLESHOOTING.md    # Common issues and solutions
+├── MIGRATION_GUIDE.md    # Version migration instructions
+├── CURL_API_TESTING_GUIDE.md # Direct SAP AI Core API testing
+└── AGENTS.md             # AI agent instructions
 ```
 
 ### Key Files to Understand
+
+**Core Source Code:**
+
 - **`src/index.ts`**: Main export file - start here to understand the public API
 - **`src/sap-ai-provider.ts`**: Core provider implementation
-- **`src/sap-ai-chat-language-model.ts`**: Main language model logic
+- **`src/sap-ai-language-model.ts`**: Main language model logic
+- **`src/sap-ai-embedding-model.ts`**: Embedding model for vector generation
 - **`package.json`**: All available npm scripts and dependencies
 - **`examples/`**: Working examples of how to use the library
 
+**Documentation:**
+
+- **`README.md`**: Quick start guide and basic usage
+- **`API_REFERENCE.md`**: Complete API documentation with all exports, types, and models
+- **`ARCHITECTURE.md`**: System architecture and design decisions
+- **`CONTRIBUTING.md`**: Development workflow, coding standards, and guidelines
+- **`ENVIRONMENT_SETUP.md`**: Authentication setup and SAP AI Core configuration
+- **`TROUBLESHOOTING.md`**: Common problems and their solutions
+- **`MIGRATION_GUIDE.md`**: Version migration instructions (v1.x → v2.x → v3.x → v4.x)
+- **`CURL_API_TESTING_GUIDE.md`**: Direct API testing without the SDK
+
 ### CI/CD Pipeline
+
 - **GitHub Actions**: `.github/workflows/check-pr.yaml` runs on PRs and pushes
-- **CI checks**: format-check, type-check, test (all environments), build, publish-check
+- **CI checks**: format-check, type-check, test, build, publish-check
 - **Publishing**: `.github/workflows/npm-publish-npm-packages.yml` publishes on releases
 - **Build matrix**: Tests run in both Node.js and Edge runtime environments
 
 ### Package Dependencies
+
 - **Runtime**: `@ai-sdk/provider`, `@ai-sdk/provider-utils`, `zod`
 - **Peer**: `ai` (Vercel AI SDK), `zod`
 - **Dev**: TypeScript, Vitest, tsup, ESLint, Prettier, dotenv
 - **Node requirement**: Node.js 18+
 
 ### Common Commands Quick Reference
+
 ```bash
 # Fresh setup (no package-lock.json)
 npm install               # ~25s - Install deps + auto-build
-# or existing setup (with package-lock.json)  
+# or existing setup (with package-lock.json)
 npm ci                    # ~15s - Clean install + auto-build
 
 # Development
@@ -140,114 +186,104 @@ npm run build            # ~3s - Build library
 npm run check-build      # <1s - Verify build outputs
 npm run prettier-check   # ~1s - Check formatting
 
-# Complete validation (CI-like)
-npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run build && npm run check-build
-# Total time: ~15s
+# Complete validation
+npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
+# Total time: ~16s
 
 # Examples (requires SAP service key)
+npx tsx examples/example-generate-text.ts
 npx tsx examples/example-simple-chat-completion.ts
+npx tsx examples/example-streaming-chat.ts
 npx tsx examples/example-chat-completion-tool.ts
-npx tsx examples/example-generate-text.ts  
 npx tsx examples/example-image-recognition.ts
+npx tsx examples/example-data-masking.ts
+npx tsx examples/example-document-grounding.ts
+npx tsx examples/example-translation.ts
+npx tsx examples/example-embeddings.ts
 ```
 
 ### Known Issues
-- **ESLint**: The `npm run lint` command fails due to missing `eslint.config.js` configuration
+
 - **Examples**: Cannot be fully tested without valid SAP AI service key credentials
 - **Deprecation warning**: Vitest shows CJS Node API deprecation warning (non-blocking)
 
 ### Troubleshooting
+
+**For comprehensive troubleshooting guide**, see [Troubleshooting Guide](../TROUBLESHOOTING.md)
+
+**Quick fixes:**
+
 - **Build fails**: Check TypeScript errors with `npm run type-check`
 - **Tests fail**: Run `npm run test:watch` for detailed test output
 - **Formatting issues**: Use `npm run prettier-fix` to auto-fix
 - **Missing dependencies**: Delete `node_modules` and `package-lock.json`, then run `npm ci`
-- **Example errors**: Verify `.env` file exists with valid `SAP_AI_SERVICE_KEY`
+- **Example errors**: Verify `.env` file exists with valid `AICORE_SERVICE_KEY`
 
 ## Pull Request Review Guidelines
+
+**For complete coding standards and contribution process**, see [Contributing Guide](../CONTRIBUTING.md)
 
 When acting as a PR reviewer, you must first thoroughly analyze and understand the entire codebase before providing any reviews. Follow this comprehensive review process:
 
 ### Pre-Review Codebase Analysis
 
 **ALWAYS start by understanding the codebase:**
-1. **Read core architecture**: Review `ARCHITECTURE.md`, `README.md`, and `CONTRIBUTING.md`
+
+1. **Read core architecture and guidelines**:
+   - `ARCHITECTURE.md` - System design and component interactions
+   - `README.md` - Quick start and usage patterns
+   - `CONTRIBUTING.md` - Development workflow and coding standards
+   - `API_REFERENCE.md` - Complete API documentation
 2. **Understand the API surface**: Start with `src/index.ts` to see public exports
-3. **Study key components**: Review `src/sap-ai-provider.ts` and `src/sap-ai-chat-language-model.ts`
+3. **Study key components**: Review `src/sap-ai-provider.ts` and `src/sap-ai-language-model.ts`
 4. **Check existing patterns**: Look at test files (`*.test.ts`) to understand testing patterns
 5. **Review examples**: Check `/examples` directory for usage patterns
 6. **Understand build/test setup**: Check `package.json`, `tsconfig.json`, and config files
 
 ### Coding Standards Enforcement
 
-Ensure all changes comply with established standards:
+**For complete coding standards**, see [Contributing Guide - Coding Standards](../CONTRIBUTING.md#coding-standards)
 
-**TypeScript Standards:**
-- Strict TypeScript configuration must be maintained (`strict: true`)
-- All public APIs must have comprehensive JSDoc comments with examples
-- Interfaces and types should be exported when part of public API
-- Use `zod` schemas for runtime validation of external data
-- Prefer explicit typing over `any` or implicit types
+**Key requirements:**
 
-**Code Formatting:**
-- Prettier configuration must be followed (2 spaces, existing config)
-- Run `npm run prettier-check` to verify formatting
-- No manual spacing/formatting changes if Prettier handles it
-
-**Documentation Standards:**
-- JSDoc comments required for all public functions/classes/interfaces
-- Include `@example` blocks for complex APIs
-- Update README.md if public API changes
-- Update CHANGELOG.md for any user-facing changes
-
-**Error Handling:**
-- Use custom `SAPAIError` class for provider-specific errors
-- Provide clear, actionable error messages
-- Include error context and debugging information
-- Follow existing error patterns in the codebase
+- Strict TypeScript with JSDoc for all public APIs
+- Follow Prettier/ESLint configuration (`npm run prettier-check && npm run lint`)
+- Use Vercel AI SDK standard errors with clear messages
+- Update documentation (README.md, API_REFERENCE.md) for API changes
 
 ### Architecture and Design Compliance
 
-**Provider Integration Patterns:**
-- Must implement Vercel AI SDK interfaces correctly (`ProviderV2`, etc.)
-- Follow existing pattern of separating provider factory from language model
-- Maintain compatibility with both Node.js and Edge runtime environments
-- Use existing authentication and request handling patterns
+**For complete architecture guidelines**, see [Contributing Guide - Architecture Guidelines](../CONTRIBUTING.md#architecture-guidelines)
 
-**Modularity Requirements:**
+**Key patterns to follow:**
+
+- Implement Vercel AI SDK interfaces correctly (`ProviderV3`, etc.)
+- Maintain Node.js and Edge runtime compatibility
 - Keep components focused and single-purpose
-- Place types in appropriate locations (`src/types/` for complex schemas)
-- Maintain separation between core logic and utility functions
-- Follow existing file naming conventions
-
-**Performance Considerations:**
-- Streaming responses should be handled efficiently
-- Avoid blocking operations in request/response flow
-- Use existing caching patterns where applicable
-- Consider memory usage for large responses
+- Follow existing authentication and caching patterns
 
 ### Testing Requirements
 
-**Test Coverage:**
-- New features require corresponding test files (`*.test.ts`)
-- Tests must pass in both Node.js (`npm run test:node`) and Edge (`npm run test:edge`) environments
-- Use existing test patterns and utilities (Vitest, mocking patterns)
-- Include both unit tests and integration tests where appropriate
+**For complete testing guidelines**, see [Contributing Guide - Testing Guidelines](../CONTRIBUTING.md#testing-guidelines)
 
-**Test Quality:**
-- Tests should cover error conditions and edge cases
-- Mock external dependencies appropriately
-- Test files should mirror source file structure
-- Use descriptive test names and clear assertions
+**Essential checks:**
+
+- Tests must pass in both Node.js (`npm run test:node`) and Edge (`npm run test:edge`)
+- Use existing Vitest patterns and mocking utilities
+- Cover error conditions and edge cases
+- Test files mirror source file structure
 
 ### Security Review
 
 **Credential Handling:**
+
 - Never expose service keys or tokens in logs/errors
 - Follow existing patterns for secure credential management
 - Validate all external inputs using zod schemas
 - Check for potential injection vulnerabilities
 
 **API Security:**
+
 - Ensure proper authentication headers are required
 - Validate response data structure before processing
 - Handle network errors gracefully
@@ -256,23 +292,26 @@ Ensure all changes comply with established standards:
 ### Pre-Commit Validation Checklist
 
 Before approving any PR, verify ALL of these pass:
+
 ```bash
 npm run type-check &&
 npm run test &&
 npm run test:node &&
 npm run test:edge &&
 npm run prettier-check &&
+npm run lint &&
 npm run build &&
 npm run check-build
 ```
 
 **Documentation Checks:**
+
 - [ ] JSDoc comments added/updated for public APIs
 - [ ] README.md updated if public API changed
-- [ ] CHANGELOG.md updated for user-facing changes
 - [ ] Examples still work (verify error handling if no SAP credentials)
 
 **Code Quality Checks:**
+
 - [ ] Follows existing TypeScript patterns and strictness
 - [ ] Proper error handling with meaningful messages
 - [ ] Tests cover new functionality and edge cases
@@ -280,6 +319,7 @@ npm run check-build
 - [ ] Performance impact considered for new features
 
 **Integration Checks:**
+
 - [ ] Compatible with Vercel AI SDK patterns
 - [ ] Works in both Node.js and Edge runtime environments
 - [ ] Maintains backward compatibility
@@ -288,18 +328,21 @@ npm run check-build
 ### Review Tone and Approach
 
 **Be Constructive:**
+
 - Explain the "why" behind requested changes
 - Reference existing code patterns as examples
 - Suggest specific improvements rather than just pointing out issues
 - Acknowledge good practices when you see them
 
 **Be Thorough:**
+
 - Check for consistency with existing codebase patterns
 - Verify that changes align with architecture decisions
 - Look for potential side effects of changes
 - Consider maintainability and future extensibility
 
 **Be Educational:**
+
 - Share knowledge about best practices
 - Point to relevant documentation or examples
 - Help contributors understand the project's standards

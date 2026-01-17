@@ -1,0 +1,2745 @@
+/**
+ * Unit tests for SAP AI Language Model
+ *
+ * Tests the LanguageModelV3 implementation including:
+ * - Text generation (streaming and non-streaming)
+ * - Tool calling
+ * - Multi-modal inputs
+ * - Message conversion and formatting
+ */
+
+import type {
+  LanguageModelV3FunctionTool,
+  LanguageModelV3Prompt,
+  LanguageModelV3ProviderTool,
+  LanguageModelV3StreamPart,
+} from "@ai-sdk/provider";
+
+import { describe, expect, it, vi } from "vitest";
+
+import { SAPAILanguageModel } from "./sap-ai-language-model";
+
+// Mock the OrchestrationClient
+vi.mock("@sap-ai-sdk/orchestration", () => {
+  class MockOrchestrationClient {
+    static chatCompletionError: Error | undefined;
+    static chatCompletionResponse:
+      | undefined
+      | {
+          getContent: () => null | string;
+          getFinishReason: () => string;
+          getTokenUsage: () => {
+            completion_tokens: number;
+            prompt_tokens: number;
+            total_tokens: number;
+          };
+          getToolCalls: () =>
+            | undefined
+            | { function: { arguments: string; name: string }; id: string }[];
+          rawResponse?: { headers?: Record<string, unknown> };
+        };
+    static lastChatCompletionRequest: unknown;
+
+    static streamChunks:
+      | undefined
+      | {
+          getDeltaContent: () => null | string;
+          getDeltaToolCalls: () =>
+            | undefined
+            | {
+                function?: { arguments?: string; name?: string };
+                id?: string;
+                index: number;
+              }[];
+          getFinishReason: () => null | string | undefined;
+          getTokenUsage: () =>
+            | undefined
+            | {
+                completion_tokens: number;
+                prompt_tokens: number;
+                total_tokens: number;
+              };
+        }[];
+
+    static streamError: Error | undefined;
+
+    static streamSetupError: Error | undefined;
+
+    chatCompletion = vi.fn().mockImplementation((request) => {
+      MockOrchestrationClient.lastChatCompletionRequest = request;
+
+      const errorToThrow = MockOrchestrationClient.chatCompletionError;
+      if (errorToThrow) {
+        MockOrchestrationClient.chatCompletionError = undefined;
+        throw errorToThrow;
+      }
+
+      // Return custom response if set
+      if (MockOrchestrationClient.chatCompletionResponse) {
+        const response = MockOrchestrationClient.chatCompletionResponse;
+        MockOrchestrationClient.chatCompletionResponse = undefined;
+        return Promise.resolve(response);
+      }
+
+      const messages = (request as { messages?: unknown[] }).messages;
+      const hasImage =
+        messages?.some(
+          (msg) =>
+            typeof msg === "object" &&
+            msg !== null &&
+            "content" in msg &&
+            Array.isArray((msg as { content?: unknown }).content),
+        ) ?? false;
+
+      if (hasImage) {
+        throw new Error("boom");
+      }
+
+      return Promise.resolve({
+        getContent: () => "Hello!",
+        getFinishReason: () => "stop",
+        getTokenUsage: () => ({
+          completion_tokens: 5,
+          prompt_tokens: 10,
+          total_tokens: 15,
+        }),
+        getToolCalls: () => undefined,
+        rawResponse: {
+          headers: {
+            "x-request-id": "test-request-id",
+          },
+        },
+      });
+    });
+
+    stream = vi.fn().mockImplementation(() => {
+      // Throw synchronously if setup error is set (tests outer catch in doStream)
+      if (MockOrchestrationClient.streamSetupError) {
+        const error = MockOrchestrationClient.streamSetupError;
+        MockOrchestrationClient.streamSetupError = undefined;
+        throw error;
+      }
+
+      const chunks =
+        MockOrchestrationClient.streamChunks ??
+        ([
+          {
+            getDeltaContent: () => "Hello",
+            getDeltaToolCalls: () => undefined,
+            getFinishReason: () => null,
+            getTokenUsage: () => undefined,
+          },
+          {
+            getDeltaContent: () => "!",
+            getDeltaToolCalls: () => undefined,
+            getFinishReason: () => "stop",
+            getTokenUsage: () => ({
+              completion_tokens: 5,
+              prompt_tokens: 10,
+              total_tokens: 15,
+            }),
+          },
+        ] as const);
+
+      // Find the last non-null finish reason from chunks
+      let lastFinishReason: null | string | undefined;
+      let lastTokenUsage:
+        | undefined
+        | {
+            completion_tokens: number;
+            prompt_tokens: number;
+            total_tokens: number;
+          };
+
+      for (const chunk of chunks) {
+        const fr = chunk.getFinishReason();
+        if (fr !== null && fr !== undefined) {
+          lastFinishReason = fr;
+        }
+        const tu = chunk.getTokenUsage();
+        if (tu) {
+          lastTokenUsage = tu;
+        }
+      }
+
+      const errorToThrow = MockOrchestrationClient.streamError;
+
+      return {
+        getFinishReason: () => lastFinishReason,
+        getTokenUsage: () =>
+          lastTokenUsage ?? {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        stream: {
+          *[Symbol.asyncIterator]() {
+            for (const chunk of chunks) {
+              yield chunk;
+            }
+            // Throw error after yielding chunks if configured
+            if (errorToThrow) {
+              throw errorToThrow;
+            }
+          },
+        },
+      };
+    });
+
+    static setChatCompletionError(error: Error) {
+      MockOrchestrationClient.chatCompletionError = error;
+    }
+
+    static setChatCompletionResponse(
+      response: typeof MockOrchestrationClient.chatCompletionResponse,
+    ) {
+      MockOrchestrationClient.chatCompletionResponse = response;
+    }
+
+    static setStreamChunks(
+      chunks: {
+        getDeltaContent: () => null | string;
+        getDeltaToolCalls: () =>
+          | undefined
+          | {
+              function?: { arguments?: string; name?: string };
+              id?: string;
+              index: number;
+            }[];
+        getFinishReason: () => null | string | undefined;
+        getTokenUsage: () =>
+          | undefined
+          | {
+              completion_tokens: number;
+              prompt_tokens: number;
+              total_tokens: number;
+            };
+      }[],
+    ) {
+      MockOrchestrationClient.streamChunks = chunks;
+      MockOrchestrationClient.streamError = undefined;
+    }
+
+    static setStreamError(error: Error) {
+      MockOrchestrationClient.streamError = error;
+    }
+
+    static setStreamSetupError(error: Error) {
+      MockOrchestrationClient.streamSetupError = error;
+    }
+  }
+
+  return {
+    OrchestrationClient: MockOrchestrationClient,
+  };
+});
+
+describe("SAPAILanguageModel", () => {
+  const createModel = (modelId = "gpt-4o", settings: unknown = {}) => {
+    return new SAPAILanguageModel(
+      modelId,
+      settings as ConstructorParameters<typeof SAPAILanguageModel>[1],
+      {
+        deploymentConfig: { resourceGroup: "default" },
+        provider: "sap-ai",
+      },
+    );
+  };
+
+  const createPrompt = (text: string): LanguageModelV3Prompt => [
+    { content: [{ text, type: "text" }], role: "user" },
+  ];
+
+  const expectRequestBodyHasMessages = (result: { request?: { body?: unknown } }) => {
+    const body: unknown = result.request?.body;
+    expect(body).toBeTruthy();
+    expect(typeof body).toBe("object");
+    expect(body).toHaveProperty("messages");
+  };
+
+  const expectToOmitKeys = (value: unknown, keys: string[]) => {
+    expect(value).toBeTruthy();
+    expect(typeof value).toBe("object");
+
+    for (const key of keys) {
+      expect(value).not.toHaveProperty(key);
+    }
+  };
+
+  const setStreamChunks = async (chunks: unknown[]) => {
+    const MockClient = await getMockClient();
+    if (!MockClient.setStreamChunks) {
+      throw new Error("mock missing setStreamChunks");
+    }
+    MockClient.setStreamChunks(chunks);
+  };
+
+  const getMockClient = async () => {
+    const { OrchestrationClient } = await import("@sap-ai-sdk/orchestration");
+    return OrchestrationClient as unknown as {
+      lastChatCompletionRequest: unknown;
+      setChatCompletionError?: (error: Error) => void;
+      setChatCompletionResponse?: (response: unknown) => void;
+      setStreamChunks?: (chunks: unknown[]) => void;
+      setStreamError?: (error: Error) => void;
+      setStreamSetupError?: (error: Error) => void;
+    };
+  };
+
+  type OrchestrationChatCompletionRequest = Record<string, unknown> & {
+    messages?: unknown;
+    model?: {
+      name?: string;
+      params?: Record<string, unknown>;
+      version?: string;
+    };
+    response_format?: unknown;
+    tools?: unknown;
+  };
+
+  const getLastChatCompletionRequest = async () => {
+    const MockClient = await getMockClient();
+    return MockClient.lastChatCompletionRequest as OrchestrationChatCompletionRequest;
+  };
+
+  const expectRequestBodyHasMessagesAndNoWarnings = (result: {
+    request?: { body?: unknown };
+    warnings: unknown[];
+  }) => {
+    expect(result.warnings).toHaveLength(0);
+    expectRequestBodyHasMessages(result);
+  };
+
+  const expectWarningMessageContains = (
+    warnings: { message?: string; type: string }[],
+    substring: string,
+  ) => {
+    expect(
+      warnings.some(
+        (warning) => typeof warning.message === "string" && warning.message.includes(substring),
+      ),
+    ).toBe(true);
+  };
+
+  /**
+   * Mock response builder for chat completion.
+   * Creates a mock response with sensible defaults that can be overridden.
+   * @param overrides - Optional overrides for the mock response
+   * @param overrides.content - The response content text
+   * @param overrides.finishReason - The reason the response finished
+   * @param overrides.headers - HTTP response headers
+   * @param overrides.toolCalls - Array of tool calls in the response
+   * @param overrides.usage - Token usage information
+   * @param overrides.usage.completion_tokens - Number of tokens in the completion
+   * @param overrides.usage.prompt_tokens - Number of tokens in the prompt
+   * @param overrides.usage.total_tokens - Total number of tokens used
+   * @returns Mock chat response object
+   * @example
+   * ```typescript
+   * const response = createMockChatResponse({
+   *   content: "Custom response",
+   *   finishReason: "stop"
+   * });
+   * MockClient.setChatCompletionResponse(response);
+   * ```
+   */
+  const createMockChatResponse = (
+    overrides: {
+      content?: null | string;
+      finishReason?: string;
+      headers?: Record<string, unknown>;
+      toolCalls?: {
+        function: { arguments: string; name: string };
+        id: string;
+      }[];
+      usage?: {
+        completion_tokens: number;
+        prompt_tokens: number;
+        total_tokens: number;
+      };
+    } = {},
+  ) => {
+    const defaults = {
+      content: "Hello!",
+      finishReason: "stop",
+      headers: { "x-request-id": "test-request-id" },
+      toolCalls: undefined,
+      usage: {
+        completion_tokens: 5,
+        prompt_tokens: 10,
+        total_tokens: 15,
+      },
+    };
+
+    const merged = { ...defaults, ...overrides };
+
+    return {
+      getContent: () => merged.content,
+      getFinishReason: () => merged.finishReason,
+      getTokenUsage: () => merged.usage,
+      getToolCalls: () => merged.toolCalls,
+      rawResponse: { headers: merged.headers },
+    };
+  };
+
+  /**
+   * Mock stream chunk builder.
+   * Creates stream chunks with sensible defaults.
+   * @param overrides - Optional overrides for the mock stream chunk
+   * @param overrides._data - Raw data to expose via chunk._data (for includeRawChunks)
+   * @param overrides.deltaContent - Incremental content in this chunk
+   * @param overrides.deltaToolCalls - Incremental tool call data in this chunk
+   * @param overrides.finishReason - The reason the stream finished (if applicable)
+   * @param overrides.usage - Token usage information for this chunk
+   * @returns Mock stream chunk object
+   * @example
+   * ```typescript
+   * const chunks = [
+   *   createMockStreamChunk({ deltaContent: "Hello" }),
+   *   createMockStreamChunk({ deltaContent: " world", finishReason: "stop" })
+   * ];
+   * MockClient.setStreamChunks(chunks);
+   * ```
+   */
+  const createMockStreamChunk = (
+    overrides: {
+      _data?: unknown;
+      deltaContent?: null | string;
+      deltaToolCalls?: {
+        function?: { arguments?: string; name?: string };
+        id?: string;
+        index: number;
+      }[];
+      finishReason?: null | string | undefined;
+      usage?:
+        | undefined
+        | {
+            completion_tokens: number;
+            prompt_tokens: number;
+            total_tokens: number;
+          };
+    } = {},
+  ) => {
+    const defaults = {
+      _data: undefined,
+      deltaContent: null,
+      deltaToolCalls: undefined,
+      finishReason: null,
+      usage: undefined,
+    };
+
+    const merged = { ...defaults, ...overrides };
+
+    return {
+      _data: merged._data,
+      getDeltaContent: () => merged.deltaContent,
+      getDeltaToolCalls: () => merged.deltaToolCalls,
+      getFinishReason: () => merged.finishReason,
+      getTokenUsage: () => merged.usage,
+    };
+  };
+
+  describe("model properties", () => {
+    it("should have correct specification version", () => {
+      const model = createModel();
+      expect(model.specificationVersion).toBe("v3");
+    });
+
+    it("should have correct model ID", () => {
+      const model = createModel("gpt-4o");
+      expect(model.modelId).toBe("gpt-4o");
+    });
+
+    it("should have correct provider", () => {
+      const model = createModel();
+      expect(model.provider).toBe("sap-ai");
+    });
+
+    it("should not support HTTP URLs", () => {
+      const model = createModel();
+      expect(model.supportsUrl(new URL("http://example.com/image.png"))).toBe(false);
+    });
+
+    it("should support data URLs", () => {
+      const model = createModel();
+      expect(model.supportsUrl(new URL("data:image/png;base64,Zm9v"))).toBe(true);
+    });
+
+    it("should have supportedUrls getter for image types", () => {
+      const model = createModel();
+      const urls = model.supportedUrls;
+
+      expect(urls).toHaveProperty("image/*");
+      expect(urls["image/*"]).toHaveLength(2);
+      // First regex should match HTTPS URLs
+      expect(urls["image/*"][0].test("https://example.com/image.png")).toBe(true);
+      expect(urls["image/*"][0].test("http://example.com/image.png")).toBe(false);
+      // Second regex should match data URLs for images
+      expect(urls["image/*"][1].test("data:image/png;base64,Zm9v")).toBe(true);
+    });
+
+    describe("model capabilities", () => {
+      it("should default all capabilities to true for modern model behavior", () => {
+        const model = createModel("any-model");
+
+        // All capabilities default to true - no model list maintenance needed
+        expect(model).toMatchObject({
+          supportsImageUrls: true,
+          supportsMultipleCompletions: true,
+          supportsParallelToolCalls: true,
+          supportsStreaming: true,
+          supportsStructuredOutputs: true,
+          supportsToolCalls: true,
+        });
+      });
+
+      it.each([
+        "gpt-4o",
+        "anthropic--claude-3.5-sonnet",
+        "gemini-2.0-flash",
+        "amazon--nova-pro",
+        "mistralai--mistral-large-instruct",
+        "unknown-future-model",
+      ])("should have consistent capabilities for model %s", (modelId) => {
+        // Capabilities are static defaults, not model-dependent
+        const model = createModel(modelId);
+        expect(model).toMatchObject({
+          supportsImageUrls: true,
+          supportsMultipleCompletions: true,
+          supportsParallelToolCalls: true,
+          supportsStreaming: true,
+          supportsStructuredOutputs: true,
+          supportsToolCalls: true,
+        });
+      });
+    });
+  });
+
+  describe("constructor validation", () => {
+    it("should accept valid modelParams", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: {
+            maxTokens: 1000,
+            temperature: 0.7,
+            topP: 0.9,
+          },
+        }),
+      ).not.toThrow();
+    });
+
+    it("should accept empty modelParams", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: {},
+        }),
+      ).not.toThrow();
+    });
+
+    it("should accept settings without modelParams", () => {
+      expect(() => createModel("gpt-4o", {})).not.toThrow();
+    });
+
+    it("should throw on temperature out of range (too high)", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { temperature: 3 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on temperature out of range (negative)", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { temperature: -1 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on topP out of range", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { topP: 1.5 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on non-positive maxTokens", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { maxTokens: 0 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on non-integer maxTokens", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { maxTokens: 100.5 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on frequencyPenalty out of range", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { frequencyPenalty: -3 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on presencePenalty out of range", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { presencePenalty: 2.5 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on non-positive n", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { n: 0 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on non-boolean parallel_tool_calls", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { parallel_tool_calls: "true" },
+        }),
+      ).toThrow();
+    });
+  });
+
+  describe("doGenerate", () => {
+    it("should generate text response", async () => {
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const result = await model.doGenerate({ prompt });
+
+      expect(result.content).toHaveLength(1);
+      expect(result.content[0]).toEqual({ text: "Hello!", type: "text" });
+      expect(result.finishReason).toEqual({ raw: "stop", unified: "stop" });
+      expect(result.usage).toEqual({
+        inputTokens: {
+          cacheRead: undefined,
+          cacheWrite: undefined,
+          noCache: 10,
+          total: 10,
+        },
+        outputTokens: { reasoning: undefined, text: 5, total: 5 },
+      });
+      expect(result.response?.headers).toBeDefined();
+      expect(result.response?.headers).toMatchObject({
+        "x-request-id": "test-request-id",
+      });
+      expect(result.providerMetadata?.["sap-ai"]).toMatchObject({
+        finishReason: "stop",
+        finishReasonMapped: { raw: "stop", unified: "stop" },
+        requestId: "test-request-id",
+      });
+    });
+
+    describe("error handling", () => {
+      it("should propagate axios response headers into doGenerate errors", async () => {
+        const MockClient = await getMockClient();
+        if (!MockClient.setChatCompletionError) {
+          throw new Error("mock missing setChatCompletionError");
+        }
+
+        const axiosError = new Error("Request failed") as Error & {
+          isAxiosError: boolean;
+          response: { headers: Record<string, string> };
+        };
+        axiosError.isAxiosError = true;
+        axiosError.response = {
+          headers: {
+            "x-request-id": "do-generate-axios-123",
+          },
+        };
+
+        MockClient.setChatCompletionError(axiosError);
+
+        const model = createModel();
+        const prompt = createPrompt("Hello");
+
+        await expect(model.doGenerate({ prompt })).rejects.toMatchObject({
+          responseHeaders: {
+            "x-request-id": "do-generate-axios-123",
+          },
+        });
+      });
+
+      it("should sanitize requestBodyValues in errors", async () => {
+        const model = createModel();
+
+        const prompt: LanguageModelV3Prompt = [
+          {
+            content: [
+              {
+                data: "BASE64_IMAGE_DATA",
+                mediaType: "image/png",
+                type: "file",
+              },
+            ],
+            role: "user",
+          },
+        ];
+
+        let caught: unknown;
+        try {
+          await model.doGenerate({ prompt });
+        } catch (error: unknown) {
+          caught = error;
+        }
+
+        const caughtError = caught as {
+          name?: string;
+          requestBodyValues?: unknown;
+        };
+
+        expect(caughtError.name).toEqual(expect.stringContaining("APICallError"));
+        expect(caughtError.requestBodyValues).toMatchObject({
+          hasImageParts: true,
+          promptMessages: 1,
+        });
+      });
+    });
+
+    it("should pass tools to orchestration config", async () => {
+      const model = createModel();
+      const prompt = createPrompt("What is 2+2?");
+
+      const tools: LanguageModelV3FunctionTool[] = [
+        {
+          description: "Perform calculation",
+          inputSchema: {
+            properties: {
+              expression: { type: "string" },
+            },
+            required: ["expression"],
+            type: "object",
+          },
+          name: "calculate",
+          type: "function",
+        },
+      ];
+
+      const result = await model.doGenerate({ prompt, tools });
+
+      expectRequestBodyHasMessagesAndNoWarnings(result);
+    });
+
+    it("should pass parallel_tool_calls when configured", async () => {
+      const model = createModel("gpt-4o", {
+        modelParams: {
+          parallel_tool_calls: true,
+        },
+      });
+
+      const prompt = createPrompt("Hi");
+
+      const result = await model.doGenerate({ prompt });
+
+      expectRequestBodyHasMessages(result);
+    });
+
+    it("should apply providerOptions.sap-ai overrides", async () => {
+      const model = createModel("gpt-4o", {
+        includeReasoning: false,
+        modelParams: {
+          temperature: 0.1,
+        },
+        modelVersion: "settings-version",
+      });
+
+      const prompt = createPrompt("Hi");
+
+      const result = await model.doGenerate({
+        prompt,
+        providerOptions: {
+          "sap-ai": {
+            includeReasoning: true,
+            modelParams: {
+              temperature: 0.9,
+            },
+          },
+        },
+      });
+
+      expectRequestBodyHasMessages(result);
+
+      // Verify the per-call options were applied
+      const request = await getLastChatCompletionRequest();
+      expect(request.model?.params?.temperature).toBe(0.9);
+    });
+
+    it("should map responseFormat json without schema to json_object", async () => {
+      const model = createModel();
+
+      const prompt = createPrompt("Return JSON");
+
+      const result = await model.doGenerate({
+        prompt,
+        responseFormat: { type: "json" },
+      });
+
+      expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+
+      expect(request.response_format).toEqual({ type: "json_object" });
+    });
+
+    it("should map responseFormat json with schema to json_schema", async () => {
+      const model = createModel();
+
+      const prompt = createPrompt("Return JSON");
+
+      const schema = {
+        additionalProperties: false,
+        properties: {
+          answer: { type: "string" as const },
+        },
+        required: ["answer"],
+        type: "object" as const,
+      };
+
+      const result = await model.doGenerate({
+        prompt,
+        responseFormat: {
+          description: "A structured response",
+          name: "response",
+          schema,
+          type: "json",
+        },
+      });
+
+      expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+
+      expect(request.response_format).toEqual({
+        json_schema: {
+          description: "A structured response",
+          name: "response",
+          schema,
+          strict: null,
+        },
+        type: "json_schema",
+      });
+    });
+
+    it("should warn about unsupported tool types", async () => {
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const tools = [
+        {
+          args: {},
+          id: "custom-tool",
+          type: "provider-defined" as const,
+        },
+      ];
+
+      const result = await model.doGenerate({
+        prompt,
+        tools: tools as unknown as LanguageModelV3ProviderTool[],
+      });
+
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0].type).toBe("unsupported");
+    });
+
+    it("should prefer call options.tools over settings.tools (and warn)", async () => {
+      const model = createModel("gpt-4o", {
+        tools: [
+          {
+            function: {
+              description: "From settings",
+              name: "settings_tool",
+              parameters: {
+                properties: {},
+                required: [],
+                type: "object",
+              },
+            },
+            type: "function",
+          },
+        ],
+      });
+
+      const prompt = createPrompt("Hello");
+
+      const tools: LanguageModelV3FunctionTool[] = [
+        {
+          description: "From call options",
+          inputSchema: {
+            properties: {},
+            required: [],
+            type: "object",
+          },
+          name: "call_tool",
+          type: "function",
+        },
+      ];
+
+      const result = await model.doGenerate({ prompt, tools });
+      const warnings = result.warnings;
+
+      expectWarningMessageContains(warnings, "preferring call options.tools");
+
+      expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+
+      // Call options.tools should override settings.tools
+      const requestTools = Array.isArray(request.tools) ? (request.tools as unknown[]) : [];
+
+      expect(
+        requestTools.some(
+          (tool) =>
+            typeof tool === "object" &&
+            tool !== null &&
+            (tool as { function?: { name?: unknown } }).function?.name === "call_tool",
+        ),
+      ).toBe(true);
+
+      expect(
+        requestTools.some(
+          (tool) =>
+            typeof tool === "object" &&
+            tool !== null &&
+            (tool as { function?: { name?: unknown } }).function?.name === "settings_tool",
+        ),
+      ).toBe(false);
+    });
+
+    it("should warn when tool Zod schema conversion fails", async () => {
+      // In ESM, spying on `zod-to-json-schema` exports is not reliable.
+      // Instead, we provide a Zod-like object that passes our `isZodSchema`
+      // check but throws when stringified during conversion.
+      const model = createModel();
+      const prompt = createPrompt("Use a tool");
+
+      const zodLikeThatThrows = {
+        _def: {},
+        parse: () => undefined,
+        toJSON: () => {
+          throw new Error("conversion failed");
+        },
+      };
+
+      const tools: LanguageModelV3FunctionTool[] = [
+        {
+          description: "Tool with failing Zod schema conversion",
+          inputSchema: {},
+          name: "badTool",
+          parameters: zodLikeThatThrows,
+          type: "function",
+        } as unknown as LanguageModelV3FunctionTool,
+      ];
+
+      const result = await model.doGenerate({ prompt, tools });
+
+      expectRequestBodyHasMessages(result);
+    });
+
+    it("should include tool calls in doGenerate response content", async () => {
+      const MockClient = await getMockClient();
+      if (!MockClient.setChatCompletionResponse) {
+        throw new Error("mock missing setChatCompletionResponse");
+      }
+
+      MockClient.setChatCompletionResponse(
+        createMockChatResponse({
+          content: null,
+          finishReason: "tool_calls",
+          headers: { "x-request-id": "tool-call-test" },
+          toolCalls: [
+            {
+              function: {
+                arguments: '{"location":"Paris"}',
+                name: "get_weather",
+              },
+              id: "call_123",
+            },
+          ],
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      );
+
+      const model = createModel();
+      const prompt = createPrompt("What's the weather?");
+
+      const result = await model.doGenerate({ prompt });
+
+      expect(result.content).toContainEqual({
+        input: '{"location":"Paris"}',
+        toolCallId: "call_123",
+        toolName: "get_weather",
+        type: "tool-call",
+      });
+      expect(result.finishReason).toEqual({
+        raw: "tool_calls",
+        unified: "tool-calls",
+      });
+    });
+
+    it.each([
+      {
+        description: "normalize array header values",
+        expected: {
+          "x-multi-value": "value1; value2",
+          "x-request-id": "array-header-test",
+        },
+        headers: {
+          "x-multi-value": ["value1", "value2"],
+          "x-request-id": "array-header-test",
+        },
+      },
+      {
+        description: "convert numeric header values to strings",
+        expected: {
+          "content-length": "1024",
+          "x-retry-after": "30",
+        },
+        headers: {
+          "content-length": 1024,
+          "x-retry-after": 30,
+        },
+      },
+      {
+        description: "skip unsupported header value types",
+        expected: {
+          "x-valid": "keep-this",
+        },
+        headers: {
+          "x-object": { nested: "object" },
+          "x-valid": "keep-this",
+        },
+      },
+      {
+        description: "filter non-string values from array headers",
+        expected: {
+          "x-mixed": "valid; also-valid",
+        },
+        headers: {
+          "x-mixed": ["valid", 123, null, "also-valid"],
+        },
+      },
+      {
+        description: "exclude array headers with only non-string items",
+        expected: {
+          "x-valid": "keep-this",
+        },
+        headers: {
+          "x-invalid-array": [123, null, undefined],
+          "x-valid": "keep-this",
+        },
+      },
+    ])("should $description in doGenerate response", async ({ expected, headers }) => {
+      const MockClient = await getMockClient();
+      if (!MockClient.setChatCompletionResponse) {
+        throw new Error("mock missing setChatCompletionResponse");
+      }
+
+      MockClient.setChatCompletionResponse(
+        createMockChatResponse({
+          content: "Response",
+          finishReason: "stop",
+          headers,
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      );
+
+      const model = createModel();
+      const prompt = createPrompt("Test");
+      const result = await model.doGenerate({ prompt });
+
+      expect(result.response?.headers).toEqual(expected);
+    });
+
+    it("should include response body in doGenerate result", async () => {
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const result = await model.doGenerate({ prompt });
+
+      expect(result.response?.body).toBeDefined();
+      expect(result.response?.body).toHaveProperty("content");
+      expect(result.response?.body).toHaveProperty("tokenUsage");
+      expect(result.response?.body).toHaveProperty("finishReason");
+    });
+  });
+
+  describe("doStream", () => {
+    it("should stream basic text (edge-runtime compatible)", async () => {
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const { stream } = await model.doStream({ prompt });
+      const reader = stream.getReader();
+
+      const parts: unknown[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        parts.push(value);
+      }
+
+      expect(parts.some((p) => (p as { type?: string }).type === "stream-start")).toBe(true);
+      expect(parts.some((p) => (p as { type?: string }).type === "finish")).toBe(true);
+    });
+
+    it("should not mutate stream-start warnings when warnings occur during stream", async () => {
+      // Produce only a tool call delta with arguments, but without a tool name.
+      // This triggers a warning during the final tool-call flush.
+
+      await setStreamChunks([
+        createMockStreamChunk({
+          deltaToolCalls: [
+            {
+              function: {
+                arguments: '{"x":1}',
+              },
+              id: "toolcall-0",
+              index: 0,
+            },
+          ],
+          finishReason: "tool_calls",
+          usage: {
+            completion_tokens: 1,
+            prompt_tokens: 1,
+            total_tokens: 2,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const result = await model.doStream({ prompt });
+
+      const parts = await readAllParts(result.stream);
+
+      // Warnings are emitted in stream-start event
+      // should not be mutated during the stream. Our implementation correctly takes a snapshot
+      // of warnings at stream-start time.
+      const streamStart = parts.find((part) => part.type === "stream-start");
+      expect(streamStart?.warnings).toHaveLength(0);
+    });
+    /**
+     * Reads all parts from a stream and returns them as an array.
+     * @param stream - The readable stream to read from
+     * @returns Promise that resolves to an array of all stream parts
+     */
+    async function readAllParts(stream: ReadableStream<LanguageModelV3StreamPart>) {
+      const parts: LanguageModelV3StreamPart[] = [];
+      const reader = stream.getReader();
+
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        parts.push(value);
+      }
+
+      return parts;
+    }
+
+    it("should not emit text deltas after tool-call deltas", async () => {
+      await setStreamChunks([
+        createMockStreamChunk({
+          deltaContent: "Hello",
+        }),
+        createMockStreamChunk({
+          // Tool call deltas appear before a finish reason is reported.
+          // Any text content after this point must not be emitted.
+          deltaContent: " SHOULD_NOT_APPEAR",
+          deltaToolCalls: [
+            {
+              function: { arguments: '{"x":', name: "calc" },
+              id: "call_0",
+              index: 0,
+            },
+          ],
+        }),
+        createMockStreamChunk({
+          deltaContent: " ALSO_SHOULD_NOT_APPEAR",
+          deltaToolCalls: [
+            {
+              function: { arguments: "1}" },
+              id: "call_0",
+              index: 0,
+            },
+          ],
+          finishReason: "tool_calls",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const textDeltas = parts.filter((p) => p.type === "text-delta");
+      expect(textDeltas).toHaveLength(1);
+      expect((textDeltas[0] as { delta: string }).delta).toBe("Hello");
+    });
+
+    it("should stream text response", async () => {
+      await setStreamChunks([
+        createMockStreamChunk({
+          deltaContent: "Hello",
+        }),
+        createMockStreamChunk({
+          deltaContent: "!",
+          finishReason: "stop",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      // Check stream structure
+      expect(parts[0].type).toBe("stream-start");
+      expect(parts.some((p) => p.type === "response-metadata")).toBe(true);
+      const responseMetadata = parts.find((p) => p.type === "response-metadata");
+      expect(responseMetadata).toBeDefined();
+      expect(responseMetadata).toMatchObject({
+        modelId: "gpt-4o",
+        type: "response-metadata",
+      });
+      // Verify response-metadata has an id field (client-generated UUID)
+      if (responseMetadata?.type === "response-metadata") {
+        expect(responseMetadata.id).toBeDefined();
+        expect(typeof responseMetadata.id).toBe("string");
+        expect(responseMetadata.id).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        );
+      }
+      expect(parts.some((p) => p.type === "text-delta")).toBe(true);
+      expect(parts.some((p) => p.type === "finish")).toBe(true);
+
+      // Check finish part
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason).toEqual({
+          raw: "stop",
+          unified: "stop",
+        });
+        // Verify providerMetadata contains responseId
+        expect(finishPart.providerMetadata?.["sap-ai"]).toBeDefined();
+        expect(finishPart.providerMetadata?.["sap-ai"]?.responseId).toBeDefined();
+        expect(typeof finishPart.providerMetadata?.["sap-ai"]?.responseId).toBe("string");
+        expect(finishPart.providerMetadata?.["sap-ai"]?.responseId).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        );
+      }
+    });
+
+    it("should emit raw chunks when includeRawChunks is true", async () => {
+      const rawData1 = { custom: "data1", delta: "Hello" };
+      const rawData2 = { custom: "data2", delta: "!" };
+
+      await setStreamChunks([
+        createMockStreamChunk({
+          _data: rawData1,
+          deltaContent: "Hello",
+        }),
+        createMockStreamChunk({
+          _data: rawData2,
+          deltaContent: "!",
+          finishReason: "stop",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const { stream } = await model.doStream({ includeRawChunks: true, prompt });
+      const parts = await readAllParts(stream);
+
+      // Should have raw parts
+      const rawParts = parts.filter((p) => p.type === "raw");
+      expect(rawParts).toHaveLength(2);
+
+      // Raw parts should contain the _data values
+      expect(rawParts[0]).toMatchObject({ rawValue: rawData1, type: "raw" });
+      expect(rawParts[1]).toMatchObject({ rawValue: rawData2, type: "raw" });
+    });
+
+    it("should not emit raw chunks when includeRawChunks is false or omitted", async () => {
+      await setStreamChunks([
+        createMockStreamChunk({
+          _data: { some: "data" },
+          deltaContent: "Hello",
+        }),
+        createMockStreamChunk({
+          _data: { more: "data" },
+          deltaContent: "!",
+          finishReason: "stop",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      // Test with includeRawChunks omitted (default)
+      const { stream: stream1 } = await model.doStream({ prompt });
+      const parts1 = await readAllParts(stream1);
+      expect(parts1.filter((p) => p.type === "raw")).toHaveLength(0);
+
+      // Reset chunks for second test
+      await setStreamChunks([
+        createMockStreamChunk({
+          _data: { some: "data" },
+          deltaContent: "Hello",
+          finishReason: "stop",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      // Test with includeRawChunks: false
+      const { stream: stream2 } = await model.doStream({ includeRawChunks: false, prompt });
+      const parts2 = await readAllParts(stream2);
+      expect(parts2.filter((p) => p.type === "raw")).toHaveLength(0);
+    });
+
+    it("should use chunk itself as rawValue when _data is undefined", async () => {
+      await setStreamChunks([
+        createMockStreamChunk({
+          deltaContent: "Hello",
+          finishReason: "stop",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const { stream } = await model.doStream({ includeRawChunks: true, prompt });
+      const parts = await readAllParts(stream);
+
+      const rawParts = parts.filter((p) => p.type === "raw");
+      expect(rawParts).toHaveLength(1);
+
+      // When _data is undefined, rawValue should be the chunk itself
+      const rawPart = rawParts[0] as { rawValue: unknown; type: "raw" };
+      expect(rawPart.rawValue).toHaveProperty("getDeltaContent");
+      expect(rawPart.rawValue).toHaveProperty("getFinishReason");
+    });
+
+    it("should flush tool calls immediately on tool-calls finishReason", async () => {
+      await setStreamChunks([
+        createMockStreamChunk({
+          deltaToolCalls: [
+            {
+              function: { arguments: '{"city":', name: "get_weather" },
+              id: "call_0",
+              index: 0,
+            },
+          ],
+        }),
+        createMockStreamChunk({
+          // On this chunk, the model declares tool_calls and we expect the
+          // provider to flush tool-call parts immediately.
+          deltaToolCalls: [
+            {
+              function: { arguments: '"Paris"}' },
+              id: "call_0",
+              index: 0,
+            },
+          ],
+          finishReason: "tool_calls",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+        createMockStreamChunk({
+          // A trailing chunk after tool_calls should not produce text deltas.
+          deltaContent: "SHOULD_NOT_APPEAR",
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Use tool");
+
+      const result = await model.doStream({ prompt });
+      const parts = await readAllParts(result.stream);
+
+      const toolCallIndex = parts.findIndex((p) => p.type === "tool-call");
+      const finishIndex = parts.findIndex((p) => p.type === "finish");
+
+      expect(toolCallIndex).toBeGreaterThanOrEqual(0);
+      expect(finishIndex).toBeGreaterThanOrEqual(0);
+      expect(toolCallIndex).toBeLessThan(finishIndex);
+
+      const finishPart = parts[finishIndex];
+      if (finishPart.type === "finish") {
+        expect(finishPart.finishReason).toEqual({
+          raw: "tool_calls",
+          unified: "tool-calls",
+        });
+      }
+
+      // Ensure we stop emitting text deltas after tool-calls is detected.
+      const textDeltas = parts
+        .filter(
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "text-delta" }> =>
+            p.type === "text-delta",
+        )
+        .map((p) => p.delta);
+      expect(textDeltas.join("")).not.toContain("SHOULD_NOT_APPEAR");
+    });
+
+    it("should handle interleaved tool call deltas across multiple indices", async () => {
+      await setStreamChunks([
+        createMockStreamChunk({
+          deltaToolCalls: [
+            {
+              function: { arguments: '{"a":', name: "first" },
+              id: "call_0",
+              index: 0,
+            },
+            {
+              function: { arguments: '{"b":', name: "second" },
+              id: "call_1",
+              index: 1,
+            },
+          ],
+        }),
+        createMockStreamChunk({
+          deltaToolCalls: [
+            {
+              function: { arguments: "1}" },
+              id: "call_0",
+              index: 0,
+            },
+            {
+              function: { arguments: "2}" },
+              id: "call_1",
+              index: 1,
+            },
+          ],
+          finishReason: "tool_calls",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Use tools");
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const toolCalls = parts.filter((p) => p.type === "tool-call");
+      expect(toolCalls).toHaveLength(2);
+
+      const firstCall = toolCalls.find((call) => call.toolName === "first");
+      expect(firstCall).toMatchObject({
+        input: '{"a":1}',
+        toolName: "first",
+        type: "tool-call",
+      });
+
+      const secondCall = toolCalls.find((call) => call.toolName === "second");
+      expect(secondCall).toMatchObject({
+        input: '{"b":2}',
+        toolName: "second",
+        type: "tool-call",
+      });
+    });
+
+    it("should use latest tool call id when it changes", async () => {
+      await setStreamChunks([
+        createMockStreamChunk({
+          deltaToolCalls: [
+            {
+              function: { arguments: "{", name: "calc" },
+              id: "call_old",
+              index: 0,
+            },
+          ],
+        }),
+        createMockStreamChunk({
+          deltaToolCalls: [
+            {
+              function: { arguments: '"x":1}' },
+              id: "call_new",
+              index: 0,
+            },
+          ],
+          finishReason: "tool_calls",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Use tools");
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const toolInputDeltas = parts.filter((p) => p.type === "tool-input-delta");
+      expect(toolInputDeltas).toHaveLength(2);
+
+      const toolCall = parts.find((p) => p.type === "tool-call");
+      expect(toolCall).toBeDefined();
+      expect(toolCall).toMatchObject({
+        input: '{"x":1}',
+        toolCallId: "call_new",
+        toolName: "calc",
+        type: "tool-call",
+      });
+
+      const toolInputEnd = parts.find((p) => p.type === "tool-input-end");
+      expect(toolInputEnd).toBeDefined();
+      expect(toolInputEnd).toMatchObject({
+        id: "call_new",
+        type: "tool-input-end",
+      });
+    });
+
+    it.each([
+      {
+        description: "max_tokens_reached as length",
+        expected: "length",
+        input: "max_tokens_reached",
+      },
+      { description: "length", expected: "length", input: "length" },
+      { description: "eos as stop", expected: "stop", input: "eos" },
+      {
+        description: "stop_sequence as stop",
+        expected: "stop",
+        input: "stop_sequence",
+      },
+      { description: "end_turn as stop", expected: "stop", input: "end_turn" },
+      {
+        description: "content_filter",
+        expected: "content-filter",
+        input: "content_filter",
+      },
+      { description: "error", expected: "error", input: "error" },
+      {
+        description: "max_tokens as length",
+        expected: "length",
+        input: "max_tokens",
+      },
+      {
+        description: "tool_call as tool-calls",
+        expected: "tool-calls",
+        input: "tool_call",
+      },
+      {
+        description: "function_call as tool-calls",
+        expected: "tool-calls",
+        input: "function_call",
+      },
+      {
+        description: "unknown reason as other",
+        expected: "other",
+        input: "some_new_unknown_reason",
+      },
+      {
+        description: "undefined as other",
+        expected: "other",
+        input: undefined,
+      },
+    ])("should handle stream with finish reason: $description", async ({ expected, input }) => {
+      await setStreamChunks([
+        createMockStreamChunk({
+          deltaContent: "test content",
+          finishReason: input,
+          usage: {
+            completion_tokens: 2,
+            prompt_tokens: 1,
+            total_tokens: 3,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+      if (finishPart?.type === "finish") {
+        expect(finishPart.finishReason.unified).toBe(expected);
+        expect(finishPart.finishReason.raw).toBe(input);
+      }
+    });
+
+    it("should omit tools and response_format when not provided", async () => {
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const result = await model.doGenerate({ prompt });
+      expectRequestBodyHasMessages(result);
+
+      const request = await getLastChatCompletionRequest();
+      expectToOmitKeys(request, ["tools", "response_format"]);
+    });
+
+    it("should handle stream chunks with null content", async () => {
+      await setStreamChunks([
+        createMockStreamChunk({}), // All defaults (null content, no tools, null finishReason)
+        createMockStreamChunk({
+          deltaContent: "Hello",
+        }),
+        createMockStreamChunk({
+          finishReason: "stop",
+          usage: {
+            completion_tokens: 1,
+            prompt_tokens: 10,
+            total_tokens: 11,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      // Should only have one text-delta for "Hello", not for null chunks
+      const textDeltas = parts.filter((p) => p.type === "text-delta");
+      expect(textDeltas).toHaveLength(1);
+      expect((textDeltas[0] as { delta: string }).delta).toBe("Hello");
+
+      const finishPart = parts.find((p) => p.type === "finish");
+      expect(finishPart).toBeDefined();
+    });
+
+    it("should handle stream with empty string content", async () => {
+      await setStreamChunks([
+        createMockStreamChunk({
+          deltaContent: "",
+        }),
+        createMockStreamChunk({
+          deltaContent: "Response",
+          finishReason: "stop",
+          usage: {
+            completion_tokens: 1,
+            prompt_tokens: 10,
+            total_tokens: 11,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const { stream } = await model.doStream({ prompt });
+      const parts = await readAllParts(stream);
+
+      // Empty string deltas should still be emitted
+      const textDeltas = parts.filter((p) => p.type === "text-delta");
+      expect(textDeltas.length).toBeGreaterThanOrEqual(1);
+    });
+
+    describe("error handling", () => {
+      it("should warn when tool call delta has no tool name", async () => {
+        // (node-only)
+        // Simulate tool call without a name (never receives name in any chunk)
+        await setStreamChunks([
+          createMockStreamChunk({
+            deltaToolCalls: [
+              {
+                function: { arguments: '{"x":1}' },
+                id: "call_nameless",
+                index: 0,
+                // Note: No "name" property
+              },
+            ],
+            finishReason: "tool_calls",
+            usage: {
+              completion_tokens: 5,
+              prompt_tokens: 10,
+              total_tokens: 15,
+            },
+          }),
+        ]);
+
+        const model = createModel();
+        const prompt = createPrompt("Use tool");
+
+        const result = await model.doStream({ prompt });
+        const { stream } = result;
+        const parts: LanguageModelV3StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Should have a tool-call part even if tool name is missing.
+        const toolCall = parts.find((p) => p.type === "tool-call");
+        expect(toolCall).toBeDefined();
+        expect(toolCall).toMatchObject({
+          input: '{"x":1}',
+          toolName: "",
+          type: "tool-call",
+        });
+
+        // Warnings are emitted at stream-start time
+        // during streaming (not before), it won't appear in stream-start.
+        const streamStart = parts.find(
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "stream-start" }> =>
+            p.type === "stream-start",
+        );
+        expect(streamStart).toBeDefined();
+        expect(streamStart?.warnings).toHaveLength(0);
+
+        // Warnings only appear in stream-start event
+        // This test verifies that the warning doesn't crash the stream.
+
+        expect(parts.some((p) => p.type === "error")).toBe(false);
+        expect(parts.some((p) => p.type === "finish")).toBe(true);
+
+        const finish = parts.find(
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "finish" }> => p.type === "finish",
+        );
+        expect(finish?.finishReason).toBeDefined();
+      });
+
+      it("should emit error part when stream iteration throws", async () => {
+        // (node-only)
+        const MockClient = await getMockClient();
+        if (!MockClient.setStreamError) {
+          throw new Error("mock missing setStreamError");
+        }
+
+        // Set up chunks that complete normally, but error is thrown after
+        await setStreamChunks([
+          createMockStreamChunk({
+            deltaContent: "Hello",
+          }),
+        ]);
+        const axiosError = new Error("Stream iteration failed") as unknown as {
+          isAxiosError: boolean;
+          response: { headers: Record<string, string> };
+        };
+        axiosError.isAxiosError = true;
+        axiosError.response = {
+          headers: {
+            "x-request-id": "stream-axios-123",
+          },
+        };
+
+        MockClient.setStreamError(axiosError as unknown as Error);
+
+        const model = createModel();
+        const prompt = createPrompt("Hello");
+
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV3StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Should have text delta before error
+        const textDelta = parts.find((p) => p.type === "text-delta");
+        expect(textDelta).toBeDefined();
+
+        // Should have error part
+        const errorPart = parts.find((p) => p.type === "error");
+        expect(errorPart).toBeDefined();
+        expect(errorPart).toMatchObject({
+          type: "error",
+        });
+        expect((errorPart as { error: Error }).error.message).toEqual(
+          expect.stringContaining("Stream iteration failed"),
+        );
+        expect(
+          (errorPart as { error: { responseHeaders?: unknown } }).error.responseHeaders,
+        ).toMatchObject({
+          "x-request-id": "stream-axios-123",
+        });
+
+        // Reset the stream error for other tests
+        await setStreamChunks([
+          createMockStreamChunk({
+            deltaContent: "reset",
+            finishReason: "stop",
+            usage: {
+              completion_tokens: 5,
+              prompt_tokens: 10,
+              total_tokens: 15,
+            },
+          }),
+        ]);
+      });
+
+      it("should skip tool call deltas with invalid index", async () => {
+        await setStreamChunks([
+          createMockStreamChunk({
+            deltaContent: "Hello",
+            deltaToolCalls: [
+              {
+                function: { arguments: "{}", name: "test_tool" },
+                id: "call_invalid",
+                index: NaN, // Invalid index
+              },
+            ],
+          }),
+          createMockStreamChunk({
+            deltaToolCalls: [
+              {
+                function: { arguments: "{}", name: "other_tool" },
+                id: "call_undefined",
+                index: undefined as unknown as number, // Also invalid
+              },
+            ],
+            finishReason: "stop",
+            usage: {
+              completion_tokens: 5,
+              prompt_tokens: 10,
+              total_tokens: 15,
+            },
+          }),
+        ]);
+
+        const model = createModel();
+        const prompt = createPrompt("Hello");
+
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV3StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Should complete without error
+        expect(parts.some((p) => p.type === "finish")).toBe(true);
+        // No tool calls should be emitted due to invalid indices
+        expect(parts.some((p) => p.type === "tool-call")).toBe(false);
+      });
+
+      it("should generate unique RFC 4122 UUIDs for text blocks", async () => {
+        // Regression test for StreamIdGenerator bug (commit 3ca38c6)
+        // Ensures text blocks get truly unique UUIDs instead of hardcoded "0"
+        await setStreamChunks([
+          createMockStreamChunk({
+            deltaContent: "First text block",
+          }),
+          createMockStreamChunk({
+            deltaContent: " continuation",
+            finishReason: "stop",
+            usage: {
+              completion_tokens: 5,
+              prompt_tokens: 10,
+              total_tokens: 15,
+            },
+          }),
+        ]);
+
+        const model = createModel();
+        const prompt = createPrompt("Test");
+
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV3StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Extract text lifecycle events
+        const textStarts = parts.filter(
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "text-start" }> =>
+            p.type === "text-start",
+        );
+        const textDeltas = parts.filter(
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "text-delta" }> =>
+            p.type === "text-delta",
+        );
+        const textEnds = parts.filter(
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "text-end" }> =>
+            p.type === "text-end",
+        );
+
+        // Should have exactly one text block
+        expect(textStarts).toHaveLength(1);
+        expect(textEnds).toHaveLength(1);
+        expect(textDeltas.length).toBeGreaterThan(0);
+
+        const blockId = textStarts[0].id;
+
+        // ID must be a valid RFC 4122 UUID v4 (format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        expect(blockId).toMatch(uuidRegex);
+
+        // Must NOT be hardcoded "0" (the bug we fixed in commit 3ca38c6)
+        expect(blockId).not.toBe("0");
+
+        // Verify all text-delta and text-end use the same UUID as text-start
+        for (const delta of textDeltas) {
+          expect(delta.id).toBe(blockId);
+        }
+        expect(textEnds[0].id).toBe(blockId);
+
+        // Additional verification: test multiple streams to ensure different UUIDs
+        const { stream: stream2 } = await model.doStream({ prompt });
+        const parts2: LanguageModelV3StreamPart[] = [];
+        const reader2 = stream2.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader2.read();
+          if (done) break;
+          parts2.push(value);
+        }
+
+        const textStarts2 = parts2.filter(
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "text-start" }> =>
+            p.type === "text-start",
+        );
+
+        const blockId2 = textStarts2[0].id;
+
+        // Different stream should have different UUID (proves randomness)
+        expect(blockId2).not.toBe(blockId);
+        expect(blockId2).toMatch(uuidRegex);
+      });
+
+      it("should flush unflushed tool calls at stream end (with finishReason=stop)", async () => {
+        await setStreamChunks([
+          createMockStreamChunk({
+            deltaToolCalls: [
+              {
+                function: { arguments: '{"q":"test"}', name: "get_info" },
+                id: "call_unflushed",
+                index: 0,
+              },
+            ],
+          }),
+          // End stream without tool-calls finish reason - tool should still be emitted
+          createMockStreamChunk({
+            finishReason: "stop",
+            usage: {
+              completion_tokens: 5,
+              prompt_tokens: 10,
+              total_tokens: 15,
+            },
+          }),
+        ]);
+
+        const model = createModel();
+        const prompt = createPrompt("Test");
+
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV3StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Tool call should be emitted even though finishReason was "stop"
+        const toolCall = parts.find((p) => p.type === "tool-call");
+        expect(toolCall).toBeDefined();
+        expect(toolCall).toMatchObject({
+          toolCallId: "call_unflushed",
+          toolName: "get_info",
+          type: "tool-call",
+        });
+
+        // Finish reason should be "stop" from server (we respect server's decision)
+        const finish = parts.find(
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "finish" }> => p.type === "finish",
+        );
+        expect(finish?.finishReason).toEqual({ raw: "stop", unified: "stop" });
+      });
+
+      it("should handle undefined finish reason from stream", async () => {
+        await setStreamChunks([
+          createMockStreamChunk({
+            deltaContent: "Hello",
+            finishReason: undefined as unknown as string,
+          }),
+          createMockStreamChunk({
+            deltaContent: "!",
+            finishReason: undefined as unknown as string,
+            usage: {
+              completion_tokens: 5,
+              prompt_tokens: 10,
+              total_tokens: 15,
+            },
+          }),
+        ]);
+
+        const model = createModel();
+        const prompt = createPrompt("Hello");
+
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV3StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        const finish = parts.find(
+          (p): p is Extract<LanguageModelV3StreamPart, { type: "finish" }> => p.type === "finish",
+        );
+        // Undefined finish reason maps to "other"
+        expect(finish?.finishReason).toEqual({
+          raw: undefined,
+          unified: "other",
+        });
+      });
+
+      it("should flush tool calls that never received input-start", async () => {
+        await setStreamChunks([
+          createMockStreamChunk({
+            deltaToolCalls: [
+              {
+                // No name in first chunk - so didEmitInputStart stays false
+                function: { arguments: '{"partial":' },
+                id: "call_no_start",
+                index: 0,
+              },
+            ],
+          }),
+          createMockStreamChunk({
+            deltaToolCalls: [
+              {
+                // Name comes later but input-start was never emitted
+                function: { arguments: '"value"}', name: "delayed_name" },
+                index: 0,
+              },
+            ],
+            finishReason: "tool_calls",
+            usage: {
+              completion_tokens: 5,
+              prompt_tokens: 10,
+              total_tokens: 15,
+            },
+          }),
+        ]);
+
+        const model = createModel();
+        const prompt = createPrompt("Test");
+
+        const { stream } = await model.doStream({ prompt });
+        const parts: LanguageModelV3StreamPart[] = [];
+        const reader = stream.getReader();
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+        }
+
+        // Tool call should still be properly emitted
+        const toolCall = parts.find((p) => p.type === "tool-call");
+        expect(toolCall).toBeDefined();
+        expect(toolCall).toMatchObject({
+          input: '{"partial":"value"}',
+          toolName: "delayed_name",
+          type: "tool-call",
+        });
+      });
+
+      it("should throw converted error when doStream setup fails", async () => {
+        const MockClient = await getMockClient();
+        if (!MockClient.setStreamSetupError) {
+          throw new Error("mock missing setStreamSetupError");
+        }
+
+        const setupError = new Error("Stream setup failed");
+        MockClient.setStreamSetupError(setupError);
+
+        const model = createModel();
+        const prompt = createPrompt("Hello");
+
+        await expect(model.doStream({ prompt })).rejects.toThrow("Stream setup failed");
+      });
+    });
+  });
+
+  describe("configuration", () => {
+    describe("masking and filtering", () => {
+      it.each([
+        { property: "masking", settings: { masking: {} } },
+        { property: "filtering", settings: { filtering: {} } },
+      ])("should omit $property when empty object", async ({ property, settings }) => {
+        const model = createModel("gpt-4o", settings);
+
+        const prompt = createPrompt("Hello");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).not.toHaveProperty(property);
+      });
+
+      it("should include masking module in orchestration config", async () => {
+        const masking = {
+          masking_providers: [
+            {
+              entities: [{ type: "profile-email" }, { type: "profile-phone" }],
+              method: "anonymization",
+              type: "sap_data_privacy_integration",
+            },
+          ],
+        };
+
+        const model = createModel("gpt-4o", {
+          masking,
+        });
+
+        const prompt = createPrompt("My email is test@example.com");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("masking");
+        expect(request.masking).toEqual(masking);
+      });
+
+      it("should include filtering module in orchestration config", async () => {
+        const filtering = {
+          input: {
+            filters: [
+              {
+                config: {
+                  Hate: 0,
+                  SelfHarm: 0,
+                  Sexual: 0,
+                  Violence: 0,
+                },
+                type: "azure_content_safety",
+              },
+            ],
+          },
+        };
+
+        const model = createModel("gpt-4o", {
+          filtering,
+        });
+
+        const prompt = createPrompt("Hello");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("filtering");
+        expect(request.filtering).toEqual(filtering);
+      });
+
+      it("should include both masking and filtering when configured", async () => {
+        const masking = {
+          masking_providers: [
+            {
+              entities: [{ type: "profile-person" }],
+              method: "pseudonymization",
+              type: "sap_data_privacy_integration",
+            },
+          ],
+        };
+
+        const filtering = {
+          output: {
+            filters: [
+              {
+                config: {
+                  Hate: 2,
+                  SelfHarm: 2,
+                  Sexual: 2,
+                  Violence: 2,
+                },
+                type: "azure_content_safety",
+              },
+            ],
+          },
+        };
+
+        const model = createModel("gpt-4o", {
+          filtering,
+          masking,
+        });
+
+        const prompt = createPrompt("Hello");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("masking");
+        expect(request.masking).toEqual(masking);
+        expect(request).toHaveProperty("filtering");
+        expect(request.filtering).toEqual(filtering);
+      });
+
+      it("should include grounding module in orchestration config", async () => {
+        const grounding = {
+          config: {
+            filters: [
+              {
+                chunk_ids: [],
+                data_repositories: ["*"],
+                document_names: ["product-docs"],
+                id: "vector-store-1",
+              },
+            ],
+            metadata_params: ["file_name"],
+            placeholders: {
+              input: ["?question"],
+              output: "groundingOutput",
+            },
+          },
+          type: "document_grounding_service",
+        };
+
+        const model = createModel("gpt-4o", {
+          grounding,
+        });
+
+        const prompt = createPrompt("What is SAP AI Core?");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("grounding");
+        expect(request.grounding).toEqual(grounding);
+      });
+
+      it("should include translation module in orchestration config", async () => {
+        const translation = {
+          input: {
+            source_language: "de",
+            target_language: "en",
+          },
+          output: {
+            target_language: "de",
+          },
+        };
+
+        const model = createModel("gpt-4o", {
+          translation,
+        });
+
+        const prompt = createPrompt("Was ist SAP AI Core?");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("translation");
+        expect(request.translation).toEqual(translation);
+      });
+
+      it.each([
+        { property: "grounding", settings: { grounding: {} } },
+        { property: "translation", settings: { translation: {} } },
+      ])("should omit $property when empty object", async ({ property, settings }) => {
+        const model = createModel("gpt-4o", settings);
+
+        const prompt = createPrompt("Hello");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).not.toHaveProperty(property);
+      });
+
+      it("should include grounding, translation, masking and filtering together", async () => {
+        const grounding = {
+          config: {
+            filters: [
+              {
+                chunk_ids: [],
+                data_repositories: ["*"],
+                document_names: [],
+                id: "vector-store-1",
+              },
+            ],
+            placeholders: {
+              input: ["?question"],
+              output: "groundingOutput",
+            },
+          },
+          type: "document_grounding_service",
+        };
+
+        const translation = {
+          input: {
+            source_language: "fr",
+            target_language: "en",
+          },
+        };
+
+        const masking = {
+          masking_providers: [
+            {
+              entities: [{ type: "profile-email" }],
+              method: "anonymization",
+              type: "sap_data_privacy_integration",
+            },
+          ],
+        };
+
+        const filtering = {
+          input: {
+            filters: [
+              {
+                config: {
+                  Hate: 0,
+                  SelfHarm: 0,
+                  Sexual: 0,
+                  Violence: 0,
+                },
+                type: "azure_content_safety",
+              },
+            ],
+          },
+        };
+
+        const model = createModel("gpt-4o", {
+          filtering,
+          grounding,
+          masking,
+          translation,
+        });
+
+        const prompt = createPrompt("Quelle est SAP AI Core?");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+        expect(request).toHaveProperty("grounding");
+        expect(request.grounding).toEqual(grounding);
+        expect(request).toHaveProperty("translation");
+        expect(request.translation).toEqual(translation);
+        expect(request).toHaveProperty("masking");
+        expect(request.masking).toEqual(masking);
+        expect(request).toHaveProperty("filtering");
+        expect(request.filtering).toEqual(filtering);
+      });
+    });
+
+    describe("model version", () => {
+      it("should pass model version to orchestration config", async () => {
+        const model = createModel("gpt-4o", {
+          modelVersion: "2024-05-13",
+        });
+
+        const prompt = createPrompt("Hello");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.version).toBe("2024-05-13");
+      });
+
+      it("should use 'latest' as default version", async () => {
+        const model = createModel("gpt-4o");
+
+        const prompt = createPrompt("Hello");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.version).toBe("latest");
+      });
+    });
+
+    describe("model parameters", () => {
+      it.each([
+        {
+          expectedKey: "temperature",
+          expectedValue: 0.9,
+          optionKey: "temperature",
+          optionValue: 0.9,
+          settingsKey: "temperature",
+          settingsValue: 0.5,
+          testName: "temperature",
+        },
+        {
+          expectedKey: "max_tokens",
+          expectedValue: 1000,
+          optionKey: "maxOutputTokens",
+          optionValue: 1000,
+          settingsKey: "maxTokens",
+          settingsValue: 500,
+          testName: "maxOutputTokens",
+        },
+      ])(
+        "should prefer options.$testName over settings.modelParams.$settingsKey",
+        async ({
+          expectedKey,
+          expectedValue,
+          optionKey,
+          optionValue,
+          settingsKey,
+          settingsValue,
+        }) => {
+          const model = createModel("gpt-4o", {
+            modelParams: {
+              [settingsKey]: settingsValue,
+            },
+          });
+
+          const prompt = createPrompt("Hello");
+
+          const result = await model.doGenerate({
+            [optionKey]: optionValue,
+            prompt,
+          });
+
+          expectRequestBodyHasMessages(result);
+
+          const request = await getLastChatCompletionRequest();
+
+          expect(request.model?.params?.[expectedKey]).toBe(expectedValue);
+        },
+      );
+
+      it.each([
+        {
+          expectedKey: "top_p",
+          expectedValue: 0.9,
+          paramName: "topP",
+          paramValue: 0.9,
+        },
+        {
+          expectedKey: "top_k",
+          expectedValue: 40,
+          paramName: "topK",
+          paramValue: 40,
+        },
+        {
+          expectedKey: "frequency_penalty",
+          expectedValue: 0.5,
+          paramName: "frequencyPenalty",
+          paramValue: 0.5,
+        },
+        {
+          expectedKey: "presence_penalty",
+          expectedValue: 0.3,
+          paramName: "presencePenalty",
+          paramValue: 0.3,
+        },
+        {
+          expectedKey: "stop",
+          expectedValue: ["END", "STOP"],
+          paramName: "stopSequences",
+          paramValue: ["END", "STOP"],
+        },
+        {
+          expectedKey: "seed",
+          expectedValue: 42,
+          paramName: "seed",
+          paramValue: 42,
+        },
+      ])(
+        "should pass $paramName from options to model params",
+        async ({ expectedKey, expectedValue, paramName, paramValue }) => {
+          const model = createModel();
+          const prompt = createPrompt("Hello");
+
+          const result = await model.doGenerate({
+            [paramName]: paramValue,
+            prompt,
+          });
+
+          expectRequestBodyHasMessages(result);
+
+          const request = await getLastChatCompletionRequest();
+
+          expect(request.model?.params?.[expectedKey]).toEqual(expectedValue);
+        },
+      );
+    });
+
+    describe("model-specific behavior", () => {
+      it.each([
+        { modelId: "amazon--nova-pro", vendor: "Amazon" },
+        { modelId: "anthropic--claude-3.5-sonnet", vendor: "Anthropic" },
+      ])("should disable n parameter for $vendor models", async ({ modelId }) => {
+        const model = createModel(modelId, {
+          modelParams: { n: 2 },
+        });
+        const prompt = createPrompt("Hello");
+
+        const result = await model.doGenerate({ prompt });
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        expect(request.model?.params?.n).toBeUndefined();
+      });
+    });
+
+    describe("warnings", () => {
+      it("should warn when toolChoice is not 'auto'", async () => {
+        const model = createModel();
+        const prompt = createPrompt("Hello");
+
+        const tools: LanguageModelV3FunctionTool[] = [
+          {
+            description: "A test tool",
+            inputSchema: { properties: {}, required: [], type: "object" },
+            name: "test_tool",
+            type: "function",
+          },
+        ];
+
+        const result = await model.doGenerate({
+          prompt,
+          toolChoice: { type: "required" },
+          tools,
+        });
+
+        expect(result.warnings).toContainEqual(
+          expect.objectContaining({
+            feature: "toolChoice",
+            type: "unsupported",
+          }),
+        );
+      });
+
+      it("should not warn when toolChoice is 'auto'", async () => {
+        const model = createModel();
+        const prompt = createPrompt("Hello");
+
+        const tools: LanguageModelV3FunctionTool[] = [
+          {
+            description: "A test tool",
+            inputSchema: { properties: {}, required: [], type: "object" },
+            name: "test_tool",
+            type: "function",
+          },
+        ];
+
+        const result = await model.doGenerate({
+          prompt,
+          toolChoice: { type: "auto" },
+          tools,
+        });
+
+        const toolChoiceWarnings = result.warnings.filter(
+          (w) =>
+            w.type === "unsupported" &&
+            (w as unknown as { feature?: string }).feature === "toolChoice",
+        );
+        expect(toolChoiceWarnings).toHaveLength(0);
+      });
+
+      it("should emit a best-effort warning for responseFormat json", async () => {
+        const model = createModel();
+        const prompt = createPrompt("Return JSON");
+
+        const result = await model.doGenerate({
+          prompt,
+          responseFormat: { type: "json" },
+        });
+        const warnings = result.warnings;
+
+        expect(warnings.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe("tools", () => {
+      it("should use tools from settings when provided", async () => {
+        const model = createModel("gpt-4o", {
+          tools: [
+            {
+              function: {
+                description: "A custom tool from settings",
+                name: "custom_tool",
+                parameters: {
+                  properties: {
+                    input: { type: "string" },
+                  },
+                  required: ["input"],
+                  type: "object",
+                },
+              },
+              type: "function",
+            },
+          ],
+        });
+
+        const prompt = createPrompt("Use a tool");
+
+        const result = await model.doGenerate({ prompt });
+
+        expectRequestBodyHasMessages(result);
+
+        const request = await getLastChatCompletionRequest();
+
+        const tools = Array.isArray(request.tools) ? (request.tools as unknown[]) : undefined;
+
+        expect(tools).toBeDefined();
+        if (tools) {
+          expect(tools).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                type: "function",
+              }),
+            ]),
+          );
+
+          const customTool = tools.find(
+            (tool): tool is { function?: { name?: string }; type?: string } =>
+              typeof tool === "object" &&
+              tool !== null &&
+              (tool as { type?: unknown }).type === "function" &&
+              typeof (tool as { function?: { name?: unknown } }).function?.name === "string" &&
+              (tool as { function?: { name?: string } }).function?.name === "custom_tool",
+          );
+
+          expect(customTool).toBeDefined();
+        }
+      });
+
+      it.each([
+        {
+          description: "Tool with array schema",
+          inputSchema: { items: { type: "string" }, type: "array" },
+          testName: "coerce non-object schema type to object (array)",
+          toolName: "array_tool",
+        },
+        {
+          description: "Tool with string schema",
+          inputSchema: { type: "string" },
+          testName: "handle tool with string type schema",
+          toolName: "string_tool",
+        },
+        {
+          description: "Tool with empty properties",
+          inputSchema: { properties: {}, type: "object" },
+          testName: "handle tool with schema that has no properties",
+          toolName: "empty_props_tool",
+        },
+        {
+          description: "Tool without schema",
+          inputSchema: undefined as unknown as Record<string, unknown>,
+          testName: "handle tool with undefined inputSchema",
+          toolName: "no_schema_tool",
+        },
+      ])("should $testName", async ({ description, inputSchema, toolName }) => {
+        const model = createModel();
+        const prompt = createPrompt("Use tool");
+
+        const tools: LanguageModelV3FunctionTool[] = [
+          {
+            description,
+            inputSchema,
+            name: toolName,
+            type: "function",
+          },
+        ];
+
+        const result = await model.doGenerate({ prompt, tools });
+
+        expectRequestBodyHasMessages(result);
+      });
+    });
+  });
+});

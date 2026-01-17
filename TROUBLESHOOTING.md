@@ -1,0 +1,481 @@
+# Troubleshooting Guide
+
+This guide helps diagnose and resolve common issues when using the SAP AI Core
+Provider.
+
+## Quick Reference
+
+| Issue                 | Section                                                               |
+| --------------------- | --------------------------------------------------------------------- |
+| 401 Unauthorized      | [Authentication Issues](#problem-authentication-failed-or-401-errors) |
+| 403 Forbidden         | [Authentication Issues](#problem-403-forbidden)                       |
+| 404 Not Found         | [Model and Deployment Issues](#problem-404-modeldeployment-not-found) |
+| 400 Bad Request       | [API Errors](#problem-400-bad-request)                                |
+| 429 Rate Limit        | [API Errors](#problem-429-rate-limit-exceeded)                        |
+| 500-504 Server Errors | [API Errors](#problem-500502503504-server-errors)                     |
+| Tools not called      | [Tool Calling Issues](#problem-tools-not-being-called)                |
+| Stream issues         | [Streaming Issues](#problem-streaming-not-working-or-incomplete)      |
+| Slow responses        | [Performance Issues](#problem-slow-response-times)                    |
+
+## Common Problems (Top 5)
+
+Quick solutions for the most frequent issues:
+
+1. **🔴 401 Unauthorized**
+   - **Cause:** Missing or invalid `AICORE_SERVICE_KEY`
+   - **Fix:** [Authentication Setup Guide](./ENVIRONMENT_SETUP.md)
+   - **ETA:** 2 minutes
+
+2. **🟠 404 Model Not Found**
+   - **Cause:** Model not available in your tenant/region
+   - **Fix:** [Model Availability Guide](#problem-404-modeldeployment-not-found)
+   - **ETA:** 5 minutes
+
+3. **🟡 429 Rate Limit Exceeded**
+   - **Cause:** Too many requests
+   - **Fix:** Automatic retry enabled (no action needed)
+   - **ETA:** Resolves automatically
+
+4. **🟢 Streaming Not Working**
+   - **Cause:** Incorrect iteration pattern
+   - **Fix:** [Streaming Guide](#problem-streaming-not-working-or-incomplete)
+   - **ETA:** 2 minutes
+
+5. **🔵 Tools Not Being Called**
+   - **Cause:** Vague tool descriptions
+   - **Fix:** [Tool Calling Guide](#problem-tools-not-being-called)
+   - **ETA:** 5 minutes
+
+**For other issues**, see the detailed [Table of Contents](#table-of-contents)
+below.
+
+## Table of Contents
+
+- [Quick Reference](#quick-reference)
+- [Common Problems (Top 5)](#common-problems-top-5)
+- [Authentication Issues](#authentication-issues)
+  - [Problem: "Authentication failed" or 401 errors](#problem-authentication-failed-or-401-errors)
+  - [Problem: "Cannot find module 'dotenv'"](#problem-cannot-find-module-dotenv)
+  - [Problem: 403 Forbidden](#problem-403-forbidden)
+- [API Errors](#api-errors)
+  - [Parsing SAP Error Metadata (v3.0.0+)](#parsing-sap-error-metadata-v300)
+  - [Problem: 400 Bad Request](#problem-400-bad-request)
+  - [Problem: 429 Rate Limit Exceeded](#problem-429-rate-limit-exceeded)
+  - [Problem: 500/502/503/504 Server Errors](#problem-500502503504-server-errors)
+- [Model and Deployment Issues](#model-and-deployment-issues)
+  - [Problem: 404 Model/Deployment Not Found](#problem-404-modeldeployment-not-found)
+  - [Problem: Model doesn't support features](#problem-model-doesnt-support-features)
+- [Streaming Issues](#streaming-issues)
+  - [Problem: Streaming not working or incomplete](#problem-streaming-not-working-or-incomplete)
+- [Tool Calling Issues](#tool-calling-issues)
+  - [Problem: Tools not being called](#problem-tools-not-being-called)
+  - [Problem: Tool execution errors](#problem-tool-execution-errors)
+- [Performance Issues](#performance-issues)
+  - [Problem: Slow response times](#problem-slow-response-times)
+  - [Problem: High token usage / costs](#problem-high-token-usage--costs)
+- [Debugging Tools](#debugging-tools)
+  - [Enable Verbose Logging](#enable-verbose-logging)
+  - [Use cURL for Direct API Testing](#use-curl-for-direct-api-testing)
+  - [Check Token Validity](#check-token-validity)
+  - [Test with Minimal Request](#test-with-minimal-request)
+  - [Verify Configuration](#verify-configuration)
+- [Getting Help](#getting-help)
+- [Known Limitations](#known-limitations)
+  - [AbortSignal Does Not Cancel HTTP Requests](#abortsignal-does-not-cancel-http-requests)
+  - [Streaming Response ID Is Client-Generated](#streaming-response-id-is-client-generated)
+- [Related Documentation](#related-documentation)
+
+## Authentication Issues
+
+### Problem: "Authentication failed" or 401 errors
+
+**Symptoms:** HTTP 401, "Invalid token", provider fails to initialize
+
+**Solutions:**
+
+1. Verify `AICORE_SERVICE_KEY` environment variable is set and contains valid
+   JSON
+2. **→ Complete setup guide:** [Environment Setup Guide](./ENVIRONMENT_SETUP.md)
+
+### Problem: "Cannot find module 'dotenv'"
+
+**Solution:** `npm install dotenv` and add `import "dotenv/config";` at top of
+entry file
+
+### Problem: 403 Forbidden
+
+**Symptoms:** HTTP 403, "Insufficient permissions"
+
+**Solutions:**
+
+1. Verify service key has necessary permissions
+2. Check `AI-Resource-Group` header matches deployment
+3. Confirm SAP BTP account has SAP AI Core access
+4. Check model entitlements in tenant
+
+## API Errors
+
+For a complete error code reference, see
+[API Reference - Error Handling](./API_REFERENCE.md#error-handling--reference).
+
+### Parsing SAP Error Metadata (v3.0.0+)
+
+> **Architecture Details:** For OAuth2 authentication flow and token management,
+> see
+> [Architecture - Authentication System](./ARCHITECTURE.md#authentication-system).
+
+**v3.0.0 Breaking Change:** `SAPAIError` removed. Use `APICallError`,
+`LoadAPIKeyError`, or `NoSuchModelError` from `@ai-sdk/provider`.
+
+**Quick example:**
+
+```typescript
+import { APICallError, LoadAPIKeyError, NoSuchModelError } from "@ai-sdk/provider";
+
+try {
+  const result = await generateText({ model, prompt });
+} catch (error) {
+  if (error instanceof LoadAPIKeyError) {
+    // 401/403: Authentication issue
+    console.error("Auth error:", error.message);
+  } else if (error instanceof NoSuchModelError) {
+    // 404: Model not found
+    console.error("Model not found:", error.modelId);
+  } else if (error instanceof APICallError) {
+    // Other API errors
+    console.error("Status:", error.statusCode);
+    const sapError = JSON.parse(error.responseBody ?? "{}");
+    console.error("Request ID:", sapError.error?.request_id);
+  }
+}
+```
+
+**For complete error handling with all error properties and SAP metadata
+fields**, see
+[API Reference - Error Handling Examples](./API_REFERENCE.md#error-handling-examples).
+
+### Problem: 400 Bad Request
+
+**Common Causes:** Invalid model parameters (temperature, maxTokens), malformed
+request, incompatible features
+
+**Solutions:**
+
+- Validate configuration against TypeScript types
+- Check API Reference for valid parameter ranges
+- Enable verbose logging to see exact request
+
+### Problem: 429 Rate Limit Exceeded
+
+**Solutions:**
+
+1. Provider has automatic retry with exponential backoff
+2. Use `streamText` instead of `generateText` for long outputs
+3. Batch requests, cache responses, reduce `maxTokens`
+
+### Problem: 500/502/503/504 Server Errors
+
+**Solutions:**
+
+1. Provider automatically retries with exponential backoff
+2. Check SAP AI Core service status
+3. Reduce request complexity: simplify prompts, remove optional features
+
+## Model and Deployment Issues
+
+### Problem: 404 Model/Deployment Not Found
+
+**Symptoms:** "Model not found", "Deployment not found", HTTP 404
+
+**Solutions:**
+
+1. **Verify model availability** in your SAP AI Core tenant/region
+   ([supported models](./API_REFERENCE.md#sapaimodelid))
+2. **Check resource group:**
+
+   ```typescript
+   const provider = createSAPAIProvider({
+     resourceGroup: "default", // Must match deployment
+   });
+   ```
+
+3. **Verify deployment status:** Ensure deployment is running, check deployment
+   ID
+4. **Test with known model:** Try `gpt-4o` - if it works, issue is
+   model-specific
+
+### Problem: Model doesn't support features
+
+**Example:** "Tool calling not supported", "Streaming not available"
+
+**Solutions:**
+
+1. Check model-specific documentation for limitations
+2. Use `gpt-4o` or `gpt-4.1-mini` for full tool calling (Gemini limited to 1
+   tool)
+3. Remove unsupported features or use alternatives (JSON mode instead of
+   structured outputs)
+
+## Streaming Issues
+
+> **Architecture Details:** For streaming implementation and SSE flow diagrams,
+> see
+> [Architecture - Streaming Text Generation](./ARCHITECTURE.md#streaming-text-generation-sse-flow).
+
+### Problem: Streaming not working or incomplete
+
+**Symptoms:** No chunks, stream ends early, chunks appear all at once
+
+**Solutions:**
+
+1. **Iterate correctly:**
+
+   ```typescript
+   import "dotenv/config"; // Load environment variables
+   import { streamText } from "ai";
+
+   const result = streamText({
+     model: provider("gpt-4o"),
+     prompt: "Write a story",
+   });
+
+   for await (const chunk of result.textStream) {
+     process.stdout.write(chunk);
+   }
+   ```
+
+2. **Don't mix:** Use `streamText` for streaming, `generateText` for complete
+   responses
+
+3. **Check buffering:** Set HTTP headers for streaming:
+
+   ```typescript
+   "Content-Type": "text/event-stream",
+   "Cache-Control": "no-cache",
+   "Connection": "keep-alive"
+   ```
+
+4. **Handle errors:**
+
+   ```typescript
+   try {
+     for await (const chunk of result.textStream) {
+       process.stdout.write(chunk);
+     }
+   } catch (error) {
+     console.error("Stream error:", error);
+   }
+   ```
+
+## Tool Calling Issues
+
+### Problem: Tools not being called
+
+**Symptoms:** Model doesn't use tools, generates text instead
+
+**Solutions:**
+
+1. **Improve descriptions:** Be specific in tool descriptions and parameter
+   descriptions
+
+   ```typescript
+   const weatherTool = tool({
+     description: "Get current weather for a specific location",
+     parameters: z.object({
+       location: z.string().describe("City name, e.g., 'Tokyo'"),
+     }),
+   });
+   ```
+
+2. **Make prompt explicit:** "What's the weather in Tokyo? Use the weather tool
+   to check."
+
+3. **Check compatibility:** Gemini supports only 1 tool per request. Use
+   `gpt-4o` for multiple tools.
+   [Model limitations](./CURL_API_TESTING_GUIDE.md#tool-calling-example)
+
+### Problem: Tool execution errors
+
+**Solutions:**
+
+1. **Validate arguments:** Use schema validation before executing
+2. **Handle errors gracefully:** Wrap execute in try-catch, return
+   `{ error: message }`
+3. **Return structured data:** JSON-serializable only, avoid complex objects
+
+## Performance Issues
+
+### Problem: Slow response times
+
+**Solutions:**
+
+1. Use `streamText` for long outputs (faster perceived performance)
+2. Optimize params: Set `maxTokens` to expected size, lower `temperature`, use
+   smaller models (`gpt-4o-mini`)
+3. Reduce prompt size: Concise history, remove unnecessary context, summarize
+   periodically
+
+### Problem: High token usage / costs
+
+**Solutions:**
+
+1. Set appropriate `maxTokens` (estimate actual response length)
+2. Optimize prompts: Be concise, remove redundancy, use system messages
+   effectively
+3. Monitor usage: `console.log(result.usage)`
+
+## Debugging Tools
+
+### Enable Verbose Logging
+
+```bash
+export DEBUG=sap-ai-provider:*
+```
+
+### Use cURL for Direct API Testing
+
+See [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) for comprehensive
+direct API testing.
+
+### Check Token Validity
+
+Decode JWT token:
+
+```bash
+echo "$ACCESS_TOKEN" | cut -d. -f2 | base64 -d | jq .
+```
+
+Check: `exp` (expiration), `subaccountid`, `scope`
+
+### Test with Minimal Request
+
+Start simple, add features gradually:
+
+```typescript
+import "dotenv/config"; // Load environment variables
+import { generateText } from "ai";
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+
+const provider = createSAPAIProvider();
+const result = await generateText({
+  model: provider("gpt-4o"),
+  prompt: "Hello",
+});
+console.log(result.text);
+```
+
+### Verify Configuration
+
+```typescript
+import "dotenv/config"; // Load environment variables
+console.log("Node:", process.version);
+console.log("Service key set:", !!process.env.AICORE_SERVICE_KEY);
+
+const key = JSON.parse(process.env.AICORE_SERVICE_KEY || "{}");
+console.log("OAuth URL:", key.url);
+console.log("AI API URL:", key.serviceurls?.AI_API_URL);
+```
+
+## Getting Help
+
+If issues persist:
+
+1. **Check documentation:** [README](./README.md),
+   [API Reference](./API_REFERENCE.md),
+   [Environment Setup](./ENVIRONMENT_SETUP.md)
+2. **Review examples:** Compare your code with `examples/` directory
+
+3. **Open an issue:**
+   [GitHub Issues](https://github.com/BITASIA/sap-ai-provider/issues) - Include
+   error messages, code snippets (redact credentials)
+4. **SAP Support:** For SAP AI Core service issues -
+   [SAP AI Core Docs](https://help.sap.com/docs/ai-core)
+
+## Known Limitations
+
+This section documents known limitations of the SAP AI Provider that are either
+inherent to the underlying SAP AI SDK or are planned for future resolution.
+
+### AbortSignal Does Not Cancel HTTP Requests
+
+**Symptom:** When using `AbortSignal` to cancel a request, the promise rejects
+but the underlying HTTP request continues executing on SAP AI Core.
+
+**Technical Details:**
+
+The SAP AI SDK's `OrchestrationClient.chatCompletion()` and `stream()` methods
+do not natively accept an `AbortSignal`. The provider implements cancellation
+via `Promise.race()`, which rejects the promise when aborted but does not cancel
+the in-flight HTTP request.
+
+```typescript
+// Current behavior
+const controller = new AbortController();
+
+const result = await generateText({
+  model: provider("gpt-4o"),
+  prompt: "Long task...",
+  abortSignal: controller.signal,
+});
+
+// Calling controller.abort() will:
+// ✅ Reject the promise immediately
+// ❌ NOT cancel the HTTP request to SAP AI Core (request continues on server)
+```
+
+**Impact:**
+
+- Token usage is still incurred for aborted requests
+- Server-side processing continues until completion
+- No impact on response quality or subsequent requests
+
+**Status:** Waiting for SAP AI SDK enhancement. See
+[SAP AI SDK Issue #1429](https://github.com/SAP/ai-sdk-js/issues/1429).
+
+**Workaround:** For cost-sensitive applications, consider implementing
+request-level timeouts at the application layer rather than relying on abort.
+
+---
+
+### Streaming Response ID Is Client-Generated
+
+**Symptom:** The `response-metadata.id` in streaming responses is a
+client-generated UUID, not the server's `x-request-id`.
+
+**Technical Details:**
+
+The SAP AI SDK's `OrchestrationStreamResponse` does not currently expose the raw
+HTTP response headers, including `x-request-id`. The provider generates a
+client-side UUID for response tracing.
+
+```typescript
+// In streaming responses:
+for await (const part of stream) {
+  if (part.type === "response-metadata") {
+    console.log(part.id); // Client-generated UUID (e.g., "550e8400-e29b-41d4-a716-446655440000")
+    // Note: This is NOT the server's x-request-id
+  }
+}
+```
+
+**Impact:**
+
+- Cannot correlate streaming responses with SAP AI Core server logs using
+  `x-request-id`
+- Non-streaming (`doGenerate`) responses correctly expose `x-request-id` in
+  `providerMetadata['sap-ai'].requestId`
+
+**Status:** Waiting for SAP AI SDK enhancement. See
+[SAP AI SDK Issue #1433](https://github.com/SAP/ai-sdk-js/issues/1433).
+
+**Workaround:** For debugging, use non-streaming requests when server-side
+request correlation is required, or log the client-generated UUID for
+client-side tracing.
+
+## Related Documentation
+
+- [README](./README.md) - Getting started
+- [API Reference](./API_REFERENCE.md) - Complete API reference
+- [Environment Setup](./ENVIRONMENT_SETUP.md) - Authentication setup
+- [Architecture](./ARCHITECTURE.md) - Internal architecture
+- [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) - Direct API testing

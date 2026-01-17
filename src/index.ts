@@ -1,55 +1,106 @@
-// Provider exports
-export { createSAPAIProvider, sapai } from "./sap-ai-provider";
-export type {
-  SAPAIProvider,
-  SAPAIProviderSettings,
-  DeploymentConfig,
-} from "./sap-ai-provider";
+/**
+ * `@mymediset/sap-ai-provider`
+ *
+ * Vercel AI SDK provider for SAP AI Core.
+ * Wraps the SAP AI SDK to provide AI SDK-compatible interfaces.
+ */
 
-// Settings and model types
-export type { SAPAISettings, SAPAIModelId } from "./sap-ai-chat-settings";
+/**
+ * Embedding model.
+ */
+export { SAPAIEmbeddingModel } from "./sap-ai-embedding-model.js";
 
-// Re-export masking/filtering module types and helpers from SAP AI SDK
-export type { MaskingModule, FilteringModule } from "./sap-ai-chat-settings";
+export type { SAPAIEmbeddingModelId, SAPAIEmbeddingSettings } from "./sap-ai-embedding-model.js";
+
+/**
+ * Error handling types.
+ */
+export type { OrchestrationErrorResponse } from "./sap-ai-error.js";
+
+/**
+ * Provider options for per-call configuration.
+ *
+ * These schemas and types enable runtime validation of provider options
+ * passed via `providerOptions['sap-ai']` in AI SDK calls.
+ */
 export {
-  buildDpiMaskingProvider,
-  buildAzureContentSafetyFilter,
-  buildLlamaGuard38BFilter,
-  buildDocumentGroundingConfig,
-  buildTranslationConfig,
-} from "./sap-ai-chat-settings";
-
-// Error handling
-export { SAPAIError } from "./sap-ai-error";
-export type { OrchestrationErrorResponse } from "./sap-ai-error";
-
-// Re-export useful types from SAP AI SDK for advanced usage
-export type {
-  OrchestrationModuleConfig,
-  ChatCompletionRequest,
-  PromptTemplatingModule,
-  GroundingModule,
-  TranslationModule,
-  LlmModelParams,
-  LlmModelDetails,
-  ChatCompletionTool,
-  FunctionObject,
-} from "./types/completion-request";
+  SAP_AI_PROVIDER_NAME,
+  sapAIEmbeddingProviderOptions,
+  sapAILanguageModelProviderOptions,
+} from "./sap-ai-provider-options.js";
 
 export type {
-  ChatMessage,
-  SystemChatMessage,
-  UserChatMessage,
+  SAPAIEmbeddingProviderOptions,
+  SAPAILanguageModelProviderOptions,
+} from "./sap-ai-provider-options.js";
+
+/**
+ * Provider factory and default instance.
+ */
+export { createSAPAIProvider, sapai } from "./sap-ai-provider.js";
+
+export type { DeploymentConfig, SAPAIProvider, SAPAIProviderSettings } from "./sap-ai-provider.js";
+
+/**
+ * Model settings and identifiers.
+ */
+export type { SAPAIModelId, SAPAISettings } from "./sap-ai-settings.js";
+
+/**
+ * SAP AI SDK types and utilities.
+ *
+ * Re-exported for convenience and advanced usage scenarios.
+ */
+export type {
   AssistantChatMessage,
-  ToolChatMessage,
+  ChatCompletionRequest,
+  ChatCompletionTool,
+  ChatMessage,
   DeveloperChatMessage,
-} from "./types/completion-response";
+  DocumentTranslationApplyToSelector,
+  FilteringModule,
+  FunctionObject,
+  GroundingModule,
+  LlmModelDetails,
+  LlmModelParams,
+  MaskingModule,
+  OrchestrationConfigRef,
+  OrchestrationModuleConfig,
+  PromptTemplatingModule,
+  SystemChatMessage,
+  ToolChatMessage,
+  TranslationApplyToCategory,
+  TranslationInputParameters,
+  TranslationModule,
+  TranslationOutputParameters,
+  TranslationTargetLanguage,
+  UserChatMessage,
+} from "./sap-ai-settings.js";
 
+/**
+ * Helper functions for building configurations.
+ */
+export {
+  buildAzureContentSafetyFilter,
+  buildDocumentGroundingConfig,
+  buildDpiMaskingProvider,
+  buildLlamaGuard38BFilter,
+  buildTranslationConfig,
+  isConfigReference,
+} from "./sap-ai-settings.js";
+
+/**
+ * Response classes from SAP AI SDK.
+ */
 export {
   OrchestrationResponse,
-  OrchestrationStreamResponse,
   OrchestrationStreamChunkResponse,
-} from "./types/completion-response";
+  OrchestrationStreamResponse,
+} from "./sap-ai-settings.js";
 
-// Re-export OrchestrationClient for advanced usage
-export { OrchestrationClient } from "@sap-ai-sdk/orchestration";
+/**
+ * Direct access to SAP AI SDK OrchestrationClient.
+ *
+ * For advanced users who need to use the SAP AI SDK directly.
+ */
+export { OrchestrationClient, OrchestrationEmbeddingClient } from "@sap-ai-sdk/orchestration";

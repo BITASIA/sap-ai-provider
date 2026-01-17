@@ -4,29 +4,37 @@
  * SAP AI Provider - Simple Chat Completion Example
  *
  * This example demonstrates basic chat completion using the SAP AI Provider
- * powered by @sap-ai-sdk/orchestration.
+ * powered by `@sap-ai-sdk/orchestration`.
  *
  * Authentication:
  * - On SAP BTP: Automatically uses service binding (VCAP_SERVICES)
  * - Locally: Set AICORE_SERVICE_KEY environment variable with your service key JSON
  */
 
-// Load environment variables from .env file
+// Load environment variables
 import "dotenv/config";
-import { createSAPAIProvider } from "../src/sap-ai-provider";
+import { APICallError, LoadAPIKeyError, NoSuchModelError } from "@ai-sdk/provider";
+// In YOUR production project, use the published package instead:
+// import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+// ============================================================================
 
+// ============================================================================
+// NOTE: Import Path for Development vs Production
+// ============================================================================
+// This example uses relative imports for local development within this repo:
+import { createSAPAIProvider } from "../src/index";
+
+/**
+ *
+ */
 async function simpleTest() {
   console.log("🧪 Simple SAP AI Chat Completion Example\n");
 
   try {
     // Verify AICORE_SERVICE_KEY is set for local development
     if (!process.env.AICORE_SERVICE_KEY && !process.env.VCAP_SERVICES) {
-      console.warn(
-        "⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.",
-      );
-      console.warn(
-        "   Set it in your .env file or environment for local development.\n",
-      );
+      console.warn("⚠️  Warning: AICORE_SERVICE_KEY environment variable not set.");
+      console.warn("   Set it in your .env file or environment for local development.\n");
     }
 
     console.log("🔄 Creating SAP AI provider...");
@@ -40,18 +48,16 @@ async function simpleTest() {
 
     const model = provider("gpt-4o", {
       modelParams: {
-        temperature: 0.7,
         maxTokens: 1000,
+        temperature: 0.7,
       },
     });
 
     const result = await model.doGenerate({
       prompt: [
         {
+          content: [{ text: "How to cook a delicious chicken recipe?", type: "text" }],
           role: "user",
-          content: [
-            { type: "text", text: "How to cook a delicious chicken recipe?" },
-          ],
         },
       ],
     });
@@ -66,18 +72,35 @@ async function simpleTest() {
     console.log("📄 Generated text:", text);
     console.log(
       "📊 Usage:",
-      `${String(result.usage.inputTokens)} prompt + ${String(result.usage.outputTokens)} completion tokens`,
+      `${String(result.usage.inputTokens.total)} prompt + ${String(result.usage.outputTokens.total)} completion tokens`,
     );
     console.log("🏁 Finish reason:", result.finishReason);
     console.log("");
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("❌ Test failed:", errorMessage);
+    if (error instanceof LoadAPIKeyError) {
+      // 401/403: Authentication or permission issue
+      console.error("❌ Authentication Error:", error.message);
+    } else if (error instanceof NoSuchModelError) {
+      // 404: Model or deployment not found
+      console.error("❌ Model Not Found:", error.modelId);
+    } else if (error instanceof APICallError) {
+      console.error("❌ API Call Error:", error.statusCode, error.message);
+
+      // Parse SAP-specific metadata
+      const sapError = JSON.parse(error.responseBody ?? "{}") as {
+        error?: { code?: string; request_id?: string };
+      };
+      if (sapError.error?.request_id) {
+        console.error("   SAP Request ID:", sapError.error.request_id);
+        console.error("   SAP Error Code:", sapError.error.code);
+      }
+    } else {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("❌ Test failed:", errorMessage);
+    }
 
     console.error("\n💡 Troubleshooting tips:");
-    console.error(
-      "   - Ensure AICORE_SERVICE_KEY is set with valid credentials",
-    );
+    console.error("   - Ensure AICORE_SERVICE_KEY is set with valid credentials");
     console.error("   - Check that your SAP AI Core instance is accessible");
     console.error("   - Verify the model is available in your deployment");
   }

@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * Quick test script for SAP AI Provider v2
+ * Quick test script for SAP AI Provider
  *
  * Usage: npx tsx test-quick.ts
  *
@@ -8,19 +8,21 @@
  */
 
 import "dotenv/config";
-import { createSAPAIProvider } from "./src/index";
 import { generateText } from "ai";
 
+import { createSAPAIProvider } from "./src/index";
+
+/**
+ *
+ */
 async function quickTest() {
-  console.log("🧪 Quick Test: SAP AI Provider v2\n");
+  console.log("🧪 Quick Test: SAP AI Provider\n");
 
   // Check for credentials
   if (!process.env.AICORE_SERVICE_KEY) {
     console.error("❌ AICORE_SERVICE_KEY environment variable is not set!");
     console.error("\nSet it in .env file:");
-    console.error(
-      'AICORE_SERVICE_KEY=\'{"serviceurls":{"AI_API_URL":"..."},...}\'',
-    );
+    console.error('AICORE_SERVICE_KEY=\'{"serviceurls":{"AI_API_URL":"..."},...}\'');
     process.exit(1);
   }
 
@@ -32,7 +34,7 @@ async function quickTest() {
     console.log("✅ Provider created (synchronously!)");
 
     console.log("\n📝 Testing gpt-4o...");
-    const { text, usage, finishReason } = await generateText({
+    const { finishReason, text, usage } = await generateText({
       model: provider("gpt-4o"),
       prompt: "Say 'Hello from SAP AI Core!' in exactly those words.",
     });

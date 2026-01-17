@@ -1,33 +1,46 @@
 ---
 alwaysApply: true
 ---
+
 # Project Structure Guide
 
-This repository provides an SAP AI Core provider compatible with the Vercel AI SDK. Use these anchors to navigate the codebase quickly.
+This repository provides an SAP AI Core provider compatible with the Vercel AI
+SDK. Use these anchors to navigate the codebase quickly.
 
 ## Entry Points and Core Modules
 
 - Main package entry: [src/index.ts](mdc:src/index.ts)
   - Re-exports provider factory and types.
-- Provider factory and default instance: [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)
-  - `createSAPAIProvider(options)` returns a function for model creation (async; handles OAuth when given a service key).
-  - `createSAPAIProviderSync(options)` for token-based sync usage.
-  - `sapai` default instance reads `SAP_AI_TOKEN` at call time.
-- Chat LLM implementation: [src/sap-ai-chat-language-model.ts](mdc:src/sap-ai-chat-language-model.ts)
-  - Implements Vercel AI SDK `LanguageModelV2` contract.
-  - Supports text, tool calls, streaming, structured outputs (varies by model family).
-- Message templating: [src/convert-to-sap-messages.ts](mdc:src/convert-to-sap-messages.ts)
-- Settings and model IDs: [src/sap-ai-chat-settings.ts](mdc:src/sap-ai-chat-settings.ts)
+- Provider factory and default instance:
+  [src/sap-ai-provider.ts](mdc:src/sap-ai-provider.ts)
+  - `createSAPAIProvider(options)` returns a provider function for model
+    creation.
+  - `sapai` default instance uses default configuration (auto-detects service
+    binding or AICORE_SERVICE_KEY env var).
+- Language model implementation:
+  [src/sap-ai-language-model.ts](mdc:src/sap-ai-language-model.ts)
+  - Implements Vercel AI SDK `LanguageModelV3` contract (v4.0.0+).
+  - Supports text, tool calls, streaming, structured outputs (varies by model
+    family).
+- Embedding model implementation:
+  [src/sap-ai-embedding-model.ts](mdc:src/sap-ai-embedding-model.ts)
+  - Implements Vercel AI SDK `EmbeddingModelV3` contract.
+  - Supports single and batch embedding generation.
+- Message templating:
+  [src/convert-to-sap-messages.ts](mdc:src/convert-to-sap-messages.ts)
+- Settings and model IDs: [src/sap-ai-settings.ts](mdc:src/sap-ai-settings.ts)
+  - Also re-exports all SAP AI SDK types for convenience.
 - Error handling helpers: [src/sap-ai-error.ts](mdc:src/sap-ai-error.ts)
-- Types: [src/types/completion-response.ts](mdc:src/types/completion-response.ts), [src/types/completion-request.ts](mdc:src/types/completion-request.ts)
 
 ## Build, Types, and Distribution
 
 - TypeScript config: [tsconfig.json](mdc:tsconfig.json)
 - Build config (CJS+ESM+DTS): [tsup.config.ts](mdc:tsup.config.ts)
 - ESLint config: [eslint.config.mjs](mdc:eslint.config.mjs)
-- Output: [dist/](mdc:dist/) produces `index.js`, `index.mjs`, `index.d.ts` with sourcemaps.
-- `package.json` exports are aligned for Node and ESM: [package.json](mdc:package.json)
+- Output: [dist/](mdc:dist/) produces `index.js`, `index.cjs`, `index.d.ts` with
+  sourcemaps.
+- `package.json` exports are aligned for Node and ESM:
+  [package.json](mdc:package.json)
 
 ## Testing
 
@@ -37,14 +50,38 @@ This repository provides an SAP AI Core provider compatible with the Vercel AI S
 ## Examples and Docs
 
 - README with usage and configuration: [README.md](mdc:README.md)
+- Complete API reference: [API_REFERENCE.md](mdc:API_REFERENCE.md)
+- Architecture documentation: [ARCHITECTURE.md](mdc:ARCHITECTURE.md)
+- Contribution guidelines: [CONTRIBUTING.md](mdc:CONTRIBUTING.md)
+- Environment setup guide: [ENVIRONMENT_SETUP.md](mdc:ENVIRONMENT_SETUP.md)
+- Troubleshooting guide: [TROUBLESHOOTING.md](mdc:TROUBLESHOOTING.md)
+- Migration guide: [MIGRATION_GUIDE.md](mdc:MIGRATION_GUIDE.md)
+- cURL API testing guide:
+  [CURL_API_TESTING_GUIDE.md](mdc:CURL_API_TESTING_GUIDE.md)
+- AI agent instructions: [AGENTS.md](mdc:AGENTS.md)
 - Examples: [examples/](mdc:examples/)
-  - Chat completion: [examples/example-simple-chat-completion.ts](mdc:examples/example-simple-chat-completion.ts)
-  - Tool calling: [examples/example-chat-completion-tool.ts](mdc:examples/example-chat-completion-tool.ts)
-  - Image recognition: [examples/example-image-recognition.ts](mdc:examples/example-image-recognition.ts)
-  - Text generation: [examples/example-generate-text.ts](mdc:examples/example-generate-text.ts)
+  - Chat completion:
+    [examples/example-simple-chat-completion.ts](mdc:examples/example-simple-chat-completion.ts)
+  - Tool calling:
+    [examples/example-chat-completion-tool.ts](mdc:examples/example-chat-completion-tool.ts)
+  - Image recognition:
+    [examples/example-image-recognition.ts](mdc:examples/example-image-recognition.ts)
+  - Text generation:
+    [examples/example-generate-text.ts](mdc:examples/example-generate-text.ts)
+  - Data masking:
+    [examples/example-data-masking.ts](mdc:examples/example-data-masking.ts)
+  - Streaming:
+    [examples/example-streaming-chat.ts](mdc:examples/example-streaming-chat.ts)
+  - Document grounding (RAG):
+    [examples/example-document-grounding.ts](mdc:examples/example-document-grounding.ts)
+  - Translation:
+    [examples/example-translation.ts](mdc:examples/example-translation.ts)
+  - Embeddings:
+    [examples/example-embeddings.ts](mdc:examples/example-embeddings.ts)
 
 ## Runtime Requirements
 
 - Node.js >= 18 (see `engines` in [package.json](mdc:package.json)).
-- Environment variables are used for credentials when no service key is provided.
-
+- Authentication is handled automatically by SAP AI SDK:
+  - On SAP BTP: Uses service binding (VCAP_SERVICES)
+  - Locally: Uses AICORE_SERVICE_KEY environment variable

@@ -1,6 +1,6 @@
 {
   "name": "@mymediset/sap-ai-provider",
-  "version": "2.0.2",
+  "version": "4.1.1",
   "type": "module",
   "description": "SAP AI Core provider for AI SDK (powered by @sap-ai-sdk/orchestration)",
   "keywords": [
@@ -26,6 +26,9 @@
   },
   "license": "Apache-2.0",
   "author": "mymediset",
+  "volta": {
+    "node": "24.13.0"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -42,46 +45,57 @@
   "files": [
     "dist/**/*",
     "README.md",
-    "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE.md"
   ],
   "scripts": {
     "build": "tsup",
     "build:watch": "tsup --watch",
     "clean": "rm -rf dist",
-    "lint": "eslint .",
-    "lint-fix": "eslint . --fix",
+    "lint": "npm run lint:md:all && eslint .",
+    "lint-fix": "npm run lint:md:fix && eslint . --fix",
+    "lint:md": "markdownlint -c .markdownlintrc '**/*.md'",
+    "lint:md:fix": "markdownlint -c .markdownlintrc '**/*.md' --fix",
+    "lint:md:links": "find . -name '*.md' -not -path './node_modules/*' -exec markdown-link-check -c .markdown-link-check.json {} \\;",
+    "lint:md:toc": "tsx scripts/check-toc.ts",
+    "lint:md:all": "npm run lint:md && npm run lint:md:toc",
     "type-check": "tsc --noEmit",
-    "prettier-check": "prettier --check \"./**/*.ts\"",
-    "prettier-fix": "prettier --write \"./**/*.ts\"",
+    "prettier-check": "prettier --check .",
+    "prettier-fix": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:node": "vitest --config vitest.node.config.js --run",
-    "test:edge": "vitest --config vitest.edge.config.js --run",
-    "test:node:watch": "vitest --config vitest.node.config.js",
+    "test:node": "vitest --config vitest.node.config.ts --run",
+    "test:edge": "vitest --config vitest.edge.config.ts --run",
+    "test:node:watch": "vitest --config vitest.node.config.ts",
+    "test:coverage": "vitest run --coverage",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run type-check && npm run test && npm run build",
+    "prepublishOnly": "npm run type-check && npm run lint && npm run test && npm run build && npm run check-build",
     "check-build": "ls -la dist/ && test -f dist/index.js && test -f dist/index.cjs && test -f dist/index.d.ts"
   },
   "dependencies": {
-    "@ai-sdk/provider": "^3.0.0",
-    "@ai-sdk/provider-utils": "^4.0.1",
-    "@sap-ai-sdk/orchestration": "^2.4.0",
-    "zod": "^4.2.1",
+    "@ai-sdk/provider": "^3.0.4",
+    "@ai-sdk/provider-utils": "^4.0.8",
+    "@sap-ai-sdk/orchestration": "^2.5.0",
+    "eslint-plugin-jsdoc": "^62.0.1",
+    "zod": "^4.3.5",
     "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
     "@eslint/js": "^9.39.2",
-    "@types/node": "^25.0.3",
+    "@types/node": "^25.0.9",
+    "@vitest/coverage-v8": "^4.0.17",
     "dotenv": "^17.2.3",
     "eslint": "^9.39.2",
-    "globals": "^16.5.0",
-    "prettier": "^3.7.4",
+    "eslint-plugin-perfectionist": "^5.3.1",
+    "globals": "^17.0.0",
+    "markdown-link-check": "^3.14.2",
+    "markdownlint-cli": "^0.47.0",
+    "prettier": "^3.8.0",
     "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.51.0",
-    "vitest": "^4.0.16"
+    "typescript-eslint": "^8.53.0",
+    "vitest": "^4.0.17"
   },
   "peerDependencies": {
     "ai": "^6.0.0"

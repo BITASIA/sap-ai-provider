@@ -1,24 +1,28 @@
 ---
 description: Build, type-check, test, and publish workflow for the package
 ---
+
 # Build and Publish
 
 ## Build Outputs
 
-- Bundler: tsup (CJS + ESM + DTS + sourcemaps) — see [tsup.config.ts](mdc:tsup.config.ts)
+- Bundler: tsup (CJS + ESM + DTS + sourcemaps) — see
+  [tsup.config.ts](mdc:tsup.config.ts)
 - Output dir: [dist/](mdc:dist/)
 - Package exports configured in [package.json](mdc:package.json)
 
 ## Commands
 
-- Clean: `npm run clean`
 - Build: `npm run build`
 - Type-check: `npm run type-check`
 - Lint: `npm run lint`
-- Prettier check/fix: `npm run prettier-check` / `npm run prettier-fix`
-- Test (all): `npm test`
+- Lint-fix: `npm run lint-fix`
+- Prettier-check: `npm run prettier-check`
+- Prettier-fix: `npm run prettier-fix`
+- Test: `npm test`
 
-`prepublishOnly` enforces type-check, tests, and build before publish (see [package.json](mdc:package.json)).
+`prepublishOnly` enforces type-check, lint, test, build and check-build before
+publish (see [package.json](mdc:package.json)).
 
 ## Node Engine
 
@@ -27,4 +31,3 @@ description: Build, type-check, test, and publish workflow for the package
 ## Verification
 
 - Verify distribution artifacts exist: `npm run check-build`.
-
