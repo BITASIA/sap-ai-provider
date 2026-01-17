@@ -9,11 +9,13 @@ import { safeValidateTypes } from "@ai-sdk/provider-utils";
 import { describe, expect, it } from "vitest";
 
 import {
+  modelParamsSchema,
   SAP_AI_PROVIDER_NAME,
   sapAIEmbeddingProviderOptions,
   type SAPAIEmbeddingProviderOptions,
   sapAILanguageModelProviderOptions,
   type SAPAILanguageModelProviderOptions,
+  validateModelParamsSettings,
 } from "./sap-ai-provider-options";
 
 describe("SAP_AI_PROVIDER_NAME", () => {
@@ -287,6 +289,168 @@ describe("sapAIEmbeddingProviderOptions", () => {
         type: "query",
       };
       expect(validOptions).toBeDefined();
+    });
+  });
+});
+
+describe("modelParamsSchema", () => {
+  describe("valid parameters", () => {
+    it("should accept empty object", () => {
+      const result = modelParamsSchema.safeParse({});
+      expect(result.success).toBe(true);
+    });
+
+    it("should accept all valid parameters", () => {
+      const result = modelParamsSchema.safeParse({
+        frequencyPenalty: 0.5,
+        maxTokens: 1000,
+        n: 2,
+        parallel_tool_calls: true,
+        presencePenalty: -0.5,
+        temperature: 0.7,
+        topP: 0.9,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should accept boundary values", () => {
+      const result = modelParamsSchema.safeParse({
+        frequencyPenalty: -2,
+        maxTokens: 1,
+        n: 1,
+        presencePenalty: 2,
+        temperature: 0,
+        topP: 1,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should accept unknown additional properties", () => {
+      const result = modelParamsSchema.safeParse({
+        customProperty: "value",
+        temperature: 0.5,
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("invalid parameters", () => {
+    it("should reject temperature below 0", () => {
+      const result = modelParamsSchema.safeParse({ temperature: -0.1 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject temperature above 2", () => {
+      const result = modelParamsSchema.safeParse({ temperature: 2.1 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject topP below 0", () => {
+      const result = modelParamsSchema.safeParse({ topP: -0.1 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject topP above 1", () => {
+      const result = modelParamsSchema.safeParse({ topP: 1.1 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject frequencyPenalty below -2", () => {
+      const result = modelParamsSchema.safeParse({ frequencyPenalty: -2.1 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject frequencyPenalty above 2", () => {
+      const result = modelParamsSchema.safeParse({ frequencyPenalty: 2.1 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject presencePenalty below -2", () => {
+      const result = modelParamsSchema.safeParse({ presencePenalty: -2.1 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject presencePenalty above 2", () => {
+      const result = modelParamsSchema.safeParse({ presencePenalty: 2.1 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject non-positive maxTokens", () => {
+      const result = modelParamsSchema.safeParse({ maxTokens: 0 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject negative maxTokens", () => {
+      const result = modelParamsSchema.safeParse({ maxTokens: -1 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject non-integer maxTokens", () => {
+      const result = modelParamsSchema.safeParse({ maxTokens: 100.5 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject non-positive n", () => {
+      const result = modelParamsSchema.safeParse({ n: 0 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject non-integer n", () => {
+      const result = modelParamsSchema.safeParse({ n: 1.5 });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject non-boolean parallel_tool_calls", () => {
+      const result = modelParamsSchema.safeParse({ parallel_tool_calls: "true" });
+      expect(result.success).toBe(false);
+    });
+  });
+});
+
+describe("validateModelParamsSettings", () => {
+  describe("valid settings", () => {
+    it("should accept valid modelParams", () => {
+      expect(() =>
+        validateModelParamsSettings({
+          maxTokens: 1000,
+          temperature: 0.7,
+        }),
+      ).not.toThrow();
+    });
+
+    it("should return validated params", () => {
+      const result = validateModelParamsSettings({
+        temperature: 0.5,
+        topP: 0.9,
+      });
+      expect(result).toEqual({
+        temperature: 0.5,
+        topP: 0.9,
+      });
+    });
+  });
+
+  describe("invalid settings (throws ZodError)", () => {
+    it("should throw on invalid temperature", () => {
+      expect(() => validateModelParamsSettings({ temperature: 3 })).toThrow();
+    });
+
+    it("should throw on invalid maxTokens", () => {
+      expect(() => validateModelParamsSettings({ maxTokens: -10 })).toThrow();
+    });
+
+    it("should throw on invalid topP", () => {
+      expect(() => validateModelParamsSettings({ topP: 2 })).toThrow();
+    });
+
+    it("should throw with descriptive error message", () => {
+      try {
+        validateModelParamsSettings({ temperature: -1 });
+        expect.fail("Should have thrown");
+      } catch (error) {
+        expect(error).toBeDefined();
+        expect(String(error)).toContain("temperature");
+      }
     });
   });
 });

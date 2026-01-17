@@ -35,7 +35,11 @@ interface FunctionToolWithParameters extends LanguageModelV3FunctionTool {
 
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { convertToAISDKError } from "./sap-ai-error";
-import { SAP_AI_PROVIDER_NAME, sapAILanguageModelProviderOptions } from "./sap-ai-provider-options";
+import {
+  SAP_AI_PROVIDER_NAME,
+  sapAILanguageModelProviderOptions,
+  validateModelParamsSettings,
+} from "./sap-ai-provider-options";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-settings";
 
 /**
@@ -185,8 +189,13 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    * @param modelId - The model identifier
    * @param settings - Model-specific configuration settings
    * @param config - Internal configuration (deployment config, destination, etc.)
+   * @throws {z.ZodError} If modelParams contains invalid values
    */
   constructor(modelId: SAPAIModelId, settings: SAPAISettings, config: SAPAIConfig) {
+    // Validate modelParams at construction time to fail fast on invalid configuration
+    if (settings.modelParams) {
+      validateModelParamsSettings(settings.modelParams);
+    }
     this.settings = settings;
     this.config = config;
     this.modelId = modelId;
@@ -973,15 +982,16 @@ export class SAPAILanguageModel implements LanguageModelV3 {
       modelParams.seed = options.seed;
     }
 
-    // Validate model parameters and add warnings for out-of-range values
-    validateModelParameters(
+    // Validate AI SDK options parameters (not validated by Zod schemas)
+    // Constructor settings and providerOptions are already validated by Zod,
+    // so we only need to warn about invalid values from the AI SDK's options.*
+    validateAISDKParameters(
       {
-        frequencyPenalty,
-        maxTokens,
-        n: modelParams.n,
-        presencePenalty,
-        temperature,
-        topP,
+        frequencyPenalty: options.frequencyPenalty,
+        maxTokens: options.maxOutputTokens,
+        presencePenalty: options.presencePenalty,
+        temperature: options.temperature,
+        topP: options.topP,
       },
       warnings,
     );
@@ -1206,32 +1216,35 @@ function mapFinishReason(reason: string | undefined): LanguageModelV3FinishReaso
 }
 
 /**
- * Validates model parameters against expected ranges and adds warnings to the array.
+ * Validates AI SDK standard parameters and adds warnings for out-of-range values.
+ *
+ * This function only validates parameters that come from the AI SDK's standard options
+ * (e.g., `options.temperature`, `options.maxOutputTokens`). It does NOT validate:
+ * - `providerOptions['sap-ai'].modelParams` - validated by Zod via parseProviderOptions
+ * - Constructor `settings.modelParams` - validated by Zod via validateModelParamsSettings
  *
  * Does not throw errors to allow API-side validation to be authoritative.
  * Warnings help developers catch configuration issues early during development.
- * @param params - Model parameters to validate
- * @param params.frequencyPenalty - Frequency penalty parameter
- * @param params.maxTokens - Maximum tokens parameter
- * @param params.n - Number of completions parameter
- * @param params.presencePenalty - Presence penalty parameter
- * @param params.temperature - Temperature parameter
- * @param params.topP - Top P parameter
+ * @param params - AI SDK standard parameters to validate
+ * @param params.frequencyPenalty - Frequency penalty from options.frequencyPenalty
+ * @param params.maxTokens - Maximum tokens from options.maxOutputTokens
+ * @param params.presencePenalty - Presence penalty from options.presencePenalty
+ * @param params.temperature - Temperature from options.temperature
+ * @param params.topP - Top P from options.topP
  * @param warnings - Array to add warnings to
  * @internal
  */
-function validateModelParameters(
+function validateAISDKParameters(
   params: {
     frequencyPenalty?: number;
     maxTokens?: number;
-    n?: number;
     presencePenalty?: number;
     temperature?: number;
     topP?: number;
   },
   warnings: SharedV3Warning[],
 ): void {
-  // Heuristic range checks (provider/model-specific constraints may differ).
+  // Validate AI SDK standard parameters (not covered by Zod schemas)
   if (params.temperature !== undefined && (params.temperature < 0 || params.temperature > 2)) {
     warnings.push({
       message: `temperature=${String(params.temperature)} is outside typical range [0, 2]. The API may reject this value.`,
@@ -1269,13 +1282,6 @@ function validateModelParameters(
   if (params.maxTokens !== undefined && params.maxTokens <= 0) {
     warnings.push({
       message: `maxTokens=${String(params.maxTokens)} must be positive. The API will likely reject this value.`,
-      type: "other",
-    });
-  }
-
-  if (params.n !== undefined && params.n <= 0) {
-    warnings.push({
-      message: `n=${String(params.n)} must be positive. The API will likely reject this value.`,
       type: "other",
     });
   }

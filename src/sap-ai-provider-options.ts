@@ -3,6 +3,9 @@
  *
  * These schemas define the options that can be passed per-call via `providerOptions['sap-ai']`.
  * They use Zod for runtime validation and are integrated with the AI SDK's `parseProviderOptions` helper.
+ *
+ * The schemas are also used to validate constructor settings, ensuring consistent validation
+ * across both configuration paths.
  * @example
  * ```typescript
  * import { generateText } from 'ai';
@@ -42,6 +45,89 @@ import { z } from "zod";
 export const SAP_AI_PROVIDER_NAME = "sap-ai" as const;
 
 /**
+ * Zod schema for model generation parameters.
+ *
+ * This schema is used for validating both:
+ * - Constructor `modelParams` settings
+ * - Per-call `providerOptions['sap-ai'].modelParams`
+ *
+ * Using a single schema ensures consistent validation rules across both paths.
+ * @internal
+ */
+export const modelParamsSchema = z
+  .object({
+    /**
+     * Frequency penalty between -2.0 and 2.0.
+     * Positive values penalize tokens based on their frequency in the text so far.
+     */
+    frequencyPenalty: z.number().min(-2).max(2).optional(),
+
+    /**
+     * Maximum number of tokens to generate.
+     * Must be a positive integer.
+     */
+    maxTokens: z.number().int().positive().optional(),
+
+    /**
+     * Number of completions to generate.
+     * Must be a positive integer.
+     * Note: Not supported by Amazon and Anthropic models.
+     */
+    n: z.number().int().positive().optional(),
+
+    /**
+     * Whether to enable parallel tool calls.
+     * When enabled, the model can call multiple tools in parallel.
+     */
+    parallel_tool_calls: z.boolean().optional(),
+
+    /**
+     * Presence penalty between -2.0 and 2.0.
+     * Positive values penalize tokens that have appeared in the text so far.
+     */
+    presencePenalty: z.number().min(-2).max(2).optional(),
+
+    /**
+     * Sampling temperature between 0 and 2.
+     * Higher values make output more random, lower values more deterministic.
+     */
+    temperature: z.number().min(0).max(2).optional(),
+
+    /**
+     * Nucleus sampling parameter between 0 and 1.
+     * Controls diversity via cumulative probability cutoff.
+     */
+    topP: z.number().min(0).max(1).optional(),
+  })
+  .catchall(z.unknown());
+
+/**
+ * TypeScript type for model generation parameters.
+ * Inferred from the Zod schema for type safety.
+ */
+export type ModelParams = z.infer<typeof modelParamsSchema>;
+
+/**
+ * Validates model parameters from constructor settings.
+ *
+ * This function validates the `modelParams` object passed to model constructors,
+ * ensuring values are within valid ranges before any API calls are made.
+ * @param modelParams - The model parameters to validate
+ * @returns The validated model parameters with proper typing
+ * @throws {z.ZodError} If validation fails with details about invalid fields
+ * @example
+ * ```typescript
+ * // In constructor
+ * if (settings.modelParams) {
+ *   validateModelParamsSettings(settings.modelParams);
+ * }
+ * ```
+ */
+export function validateModelParamsSettings(modelParams: unknown): ModelParams {
+  return modelParamsSchema.parse(modelParams);
+}
+
+/**
  * Zod schema for SAP AI language model provider options.
  *
  * These options can be passed per-call via `providerOptions['sap-ai']` to override
@@ -76,53 +162,7 @@ export const sapAILanguageModelProviderOptions = lazySchema(() =>
        * Model generation parameters for this specific call.
        * These override the corresponding constructor `modelParams` settings.
        */
-      modelParams: z
-        .object({
-          /**
-           * Frequency penalty between -2.0 and 2.0.
-           * Positive values penalize tokens based on their frequency in the text so far.
-           */
-          frequencyPenalty: z.number().min(-2).max(2).optional(),
-
-          /**
-           * Maximum number of tokens to generate.
-           * Must be a positive integer.
-           */
-          maxTokens: z.number().int().positive().optional(),
-
-          /**
-           * Number of completions to generate.
-           * Must be a positive integer.
-           * Note: Not supported by Amazon and Anthropic models.
-           */
-          n: z.number().int().positive().optional(),
-
-          /**
-           * Whether to enable parallel tool calls.
-           * When enabled, the model can call multiple tools in parallel.
-           */
-          parallel_tool_calls: z.boolean().optional(),
-
-          /**
-           * Presence penalty between -2.0 and 2.0.
-           * Positive values penalize tokens that have appeared in the text so far.
-           */
-          presencePenalty: z.number().min(-2).max(2).optional(),
-
-          /**
-           * Sampling temperature between 0 and 2.
-           * Higher values make output more random, lower values more deterministic.
-           */
-          temperature: z.number().min(0).max(2).optional(),
-
-          /**
-           * Nucleus sampling parameter between 0 and 1.
-           * Controls diversity via cumulative probability cutoff.
-           */
-          topP: z.number().min(0).max(1).optional(),
-        })
-        .catchall(z.unknown())
-        .optional(),
+      modelParams: modelParamsSchema.optional(),
     }),
   ),
 );

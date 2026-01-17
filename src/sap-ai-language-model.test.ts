@@ -515,6 +515,104 @@ describe("SAPAILanguageModel", () => {
     });
   });
 
+  describe("constructor validation", () => {
+    it("should accept valid modelParams", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: {
+            maxTokens: 1000,
+            temperature: 0.7,
+            topP: 0.9,
+          },
+        }),
+      ).not.toThrow();
+    });
+
+    it("should accept empty modelParams", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: {},
+        }),
+      ).not.toThrow();
+    });
+
+    it("should accept settings without modelParams", () => {
+      expect(() => createModel("gpt-4o", {})).not.toThrow();
+    });
+
+    it("should throw on temperature out of range (too high)", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { temperature: 3 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on temperature out of range (negative)", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { temperature: -1 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on topP out of range", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { topP: 1.5 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on non-positive maxTokens", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { maxTokens: 0 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on non-integer maxTokens", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { maxTokens: 100.5 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on frequencyPenalty out of range", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { frequencyPenalty: -3 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on presencePenalty out of range", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { presencePenalty: 2.5 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on non-positive n", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { n: 0 },
+        }),
+      ).toThrow();
+    });
+
+    it("should throw on non-boolean parallel_tool_calls", () => {
+      expect(() =>
+        createModel("gpt-4o", {
+          modelParams: { parallel_tool_calls: "true" },
+        }),
+      ).toThrow();
+    });
+  });
+
   describe("doGenerate", () => {
     it("should generate text response", async () => {
       const model = createModel();
