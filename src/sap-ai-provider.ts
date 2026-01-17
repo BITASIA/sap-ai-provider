@@ -9,6 +9,7 @@ import {
   SAPAIEmbeddingSettings,
 } from "./sap-ai-embedding-model.js";
 import { SAPAILanguageModel } from "./sap-ai-language-model.js";
+import { validateModelParamsSettings } from "./sap-ai-provider-options.js";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-settings.js";
 
 /**
@@ -234,6 +235,11 @@ export interface SAPAIProviderSettings {
  * ```
  */
 export function createSAPAIProvider(options: SAPAIProviderSettings = {}): SAPAIProvider {
+  // Validate defaultSettings.modelParams at provider creation time (fail-fast)
+  if (options.defaultSettings?.modelParams) {
+    validateModelParamsSettings(options.defaultSettings.modelParams);
+  }
+
   const resourceGroup = options.resourceGroup ?? "default";
 
   const warnOnAmbiguousConfig = options.warnOnAmbiguousConfig ?? true;
