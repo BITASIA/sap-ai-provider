@@ -7,6 +7,7 @@
 
 import type { LanguageModelV3Prompt } from "@ai-sdk/provider";
 
+import { InvalidPromptError } from "@ai-sdk/provider";
 import { describe, expect, it } from "vitest";
 
 import { convertToSAPMessages } from "./convert-to-sap-messages";
@@ -802,7 +803,7 @@ describe("convertToSAPMessages", () => {
     });
   });
 
-  it("should throw error for unsupported message role", () => {
+  it("should throw InvalidPromptError for unsupported message role", () => {
     // Force an unsupported role to trigger the exhaustive check
     const prompt = [
       {
@@ -811,6 +812,7 @@ describe("convertToSAPMessages", () => {
       },
     ] as unknown as LanguageModelV3Prompt;
 
+    expect(() => convertToSAPMessages(prompt)).toThrow(InvalidPromptError);
     expect(() => convertToSAPMessages(prompt)).toThrow("Unsupported role: unsupported_role");
   });
 });

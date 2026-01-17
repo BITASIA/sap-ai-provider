@@ -6,7 +6,11 @@ import type {
   UserChatMessage,
 } from "@sap-ai-sdk/orchestration";
 
-import { LanguageModelV3Prompt, UnsupportedFunctionalityError } from "@ai-sdk/provider";
+import {
+  InvalidPromptError,
+  LanguageModelV3Prompt,
+  UnsupportedFunctionalityError,
+} from "@ai-sdk/provider";
 import { Buffer } from "node:buffer";
 
 /**
@@ -299,7 +303,10 @@ export function convertToSAPMessages(
 
       default: {
         const _exhaustiveCheck: never = message;
-        throw new Error(`Unsupported role: ${(_exhaustiveCheck as { role: string }).role}`);
+        throw new InvalidPromptError({
+          message: `Unsupported role: ${(_exhaustiveCheck as { role: string }).role}`,
+          prompt: JSON.stringify(message),
+        });
       }
     }
   }
