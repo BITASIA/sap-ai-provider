@@ -79,7 +79,7 @@ the familiar Vercel AI SDK interface.
 
 - Factory function `createSAPAIProvider()` returns provider instance
 - Default export `sapai` for quick start scenarios
-- Provider implements Vercel AI SDK's `LanguageModelV3` interface
+- Provider implements Vercel AI SDK's `LanguageModelV3` and `EmbeddingModelV3` interfaces
 - Separation of concerns: provider → model → API client
 
 **Error Handling:**
@@ -220,7 +220,7 @@ npm run prepublishOnly  # Runs before npm publish
 
 **Vercel AI SDK Integration:**
 
-- Must implement `LanguageModelV3` interface completely
+- Must implement `LanguageModelV3` and `EmbeddingModelV3` interfaces completely
 - Follow Vercel AI SDK conventions for errors, streaming, tools
 - Maintain compatibility with AI SDK v6.0+
 

@@ -386,6 +386,7 @@ describe("SAPAILanguageModel", () => {
    * Mock stream chunk builder.
    * Creates stream chunks with sensible defaults.
    * @param overrides - Optional overrides for the mock stream chunk
+   * @param overrides._data - Raw data to expose via chunk._data (for includeRawChunks)
    * @param overrides.deltaContent - Incremental content in this chunk
    * @param overrides.deltaToolCalls - Incremental tool call data in this chunk
    * @param overrides.finishReason - The reason the stream finished (if applicable)
@@ -402,6 +403,7 @@ describe("SAPAILanguageModel", () => {
    */
   const createMockStreamChunk = (
     overrides: {
+      _data?: unknown;
       deltaContent?: null | string;
       deltaToolCalls?: {
         function?: { arguments?: string; name?: string };
@@ -419,6 +421,7 @@ describe("SAPAILanguageModel", () => {
     } = {},
   ) => {
     const defaults = {
+      _data: undefined,
       deltaContent: null,
       deltaToolCalls: undefined,
       finishReason: null,
@@ -428,6 +431,7 @@ describe("SAPAILanguageModel", () => {
     const merged = { ...defaults, ...overrides };
 
     return {
+      _data: merged._data,
       getDeltaContent: () => merged.deltaContent,
       getDeltaToolCalls: () => merged.deltaToolCalls,
       getFinishReason: () => merged.finishReason,
@@ -1159,6 +1163,116 @@ describe("SAPAILanguageModel", () => {
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
         );
       }
+    });
+
+    it("should emit raw chunks when includeRawChunks is true", async () => {
+      const rawData1 = { custom: "data1", delta: "Hello" };
+      const rawData2 = { custom: "data2", delta: "!" };
+
+      await setStreamChunks([
+        createMockStreamChunk({
+          _data: rawData1,
+          deltaContent: "Hello",
+        }),
+        createMockStreamChunk({
+          _data: rawData2,
+          deltaContent: "!",
+          finishReason: "stop",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const { stream } = await model.doStream({ includeRawChunks: true, prompt });
+      const parts = await readAllParts(stream);
+
+      // Should have raw parts
+      const rawParts = parts.filter((p) => p.type === "raw");
+      expect(rawParts).toHaveLength(2);
+
+      // Raw parts should contain the _data values
+      expect(rawParts[0]).toMatchObject({ rawValue: rawData1, type: "raw" });
+      expect(rawParts[1]).toMatchObject({ rawValue: rawData2, type: "raw" });
+    });
+
+    it("should not emit raw chunks when includeRawChunks is false or omitted", async () => {
+      await setStreamChunks([
+        createMockStreamChunk({
+          _data: { some: "data" },
+          deltaContent: "Hello",
+        }),
+        createMockStreamChunk({
+          _data: { more: "data" },
+          deltaContent: "!",
+          finishReason: "stop",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      // Test with includeRawChunks omitted (default)
+      const { stream: stream1 } = await model.doStream({ prompt });
+      const parts1 = await readAllParts(stream1);
+      expect(parts1.filter((p) => p.type === "raw")).toHaveLength(0);
+
+      // Reset chunks for second test
+      await setStreamChunks([
+        createMockStreamChunk({
+          _data: { some: "data" },
+          deltaContent: "Hello",
+          finishReason: "stop",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      // Test with includeRawChunks: false
+      const { stream: stream2 } = await model.doStream({ includeRawChunks: false, prompt });
+      const parts2 = await readAllParts(stream2);
+      expect(parts2.filter((p) => p.type === "raw")).toHaveLength(0);
+    });
+
+    it("should use chunk itself as rawValue when _data is undefined", async () => {
+      await setStreamChunks([
+        createMockStreamChunk({
+          deltaContent: "Hello",
+          finishReason: "stop",
+          usage: {
+            completion_tokens: 5,
+            prompt_tokens: 10,
+            total_tokens: 15,
+          },
+        }),
+      ]);
+
+      const model = createModel();
+      const prompt = createPrompt("Hello");
+
+      const { stream } = await model.doStream({ includeRawChunks: true, prompt });
+      const parts = await readAllParts(stream);
+
+      const rawParts = parts.filter((p) => p.type === "raw");
+      expect(rawParts).toHaveLength(1);
+
+      // When _data is undefined, rawValue should be the chunk itself
+      const rawPart = rawParts[0] as { rawValue: unknown; type: "raw" };
+      expect(rawPart.rawValue).toHaveProperty("getDeltaContent");
+      expect(rawPart.rawValue).toHaveProperty("getFinishReason");
     });
 
     it("should flush tool calls immediately on tool-calls finishReason", async () => {

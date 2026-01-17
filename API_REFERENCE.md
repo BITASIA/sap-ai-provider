@@ -1161,19 +1161,40 @@ async doStream(
 
 The stream emits the following event types in order:
 
-| Event Type          | Description                                      | When Emitted                  |
-| ------------------- | ------------------------------------------------ | ----------------------------- |
-| `stream-start`      | Stream initialization with warnings              | First, before any content     |
-| `response-metadata` | Model ID, timestamp, and response ID             | After first chunk received    |
-| `text-start`        | Text block begins (includes unique block ID)     | When text generation starts   |
-| `text-delta`        | Incremental text chunk                           | For each text token           |
-| `text-end`          | Text block completes                             | When text generation ends     |
-| `tool-input-start`  | Tool input begins (includes tool ID and name)    | When tool call starts         |
-| `tool-input-delta`  | Incremental tool arguments                       | For each tool argument chunk  |
-| `tool-input-end`    | Tool input completes                             | When tool arguments complete  |
-| `tool-call`         | Complete tool call with ID, name, and full input | After tool-input-end          |
-| `finish`            | Stream completes with usage and finish reason    | Last event on success         |
-| `error`             | Error occurred during streaming                  | On error (stream then closes) |
+| Event Type          | Description                                      | When Emitted                        |
+| ------------------- | ------------------------------------------------ | ----------------------------------- |
+| `stream-start`      | Stream initialization with warnings              | First, before any content           |
+| `response-metadata` | Model ID, timestamp, and response ID             | After first chunk received          |
+| `text-start`        | Text block begins (includes unique block ID)     | When text generation starts         |
+| `text-delta`        | Incremental text chunk                           | For each text token                 |
+| `text-end`          | Text block completes                             | When text generation ends           |
+| `tool-input-start`  | Tool input begins (includes tool ID and name)    | When tool call starts               |
+| `tool-input-delta`  | Incremental tool arguments                       | For each tool argument chunk        |
+| `tool-input-end`    | Tool input completes                             | When tool arguments complete        |
+| `tool-call`         | Complete tool call with ID, name, and full input | After tool-input-end                |
+| `finish`            | Stream completes with usage and finish reason    | Last event on success               |
+| `error`             | Error occurred during streaming                  | On error (stream then closes)       |
+| `raw`               | Raw SDK chunk (when `includeRawChunks: true`)    | For each chunk, before other events |
+
+**Raw Chunks Option:**
+
+When `includeRawChunks: true` is passed in options, the stream will emit
+additional `raw` events containing the unprocessed SDK response chunks. This is
+useful for debugging or accessing provider-specific data not exposed through
+standard events.
+
+```typescript
+const { stream } = await model.doStream({
+  prompt: [...],
+  includeRawChunks: true,
+});
+
+for await (const part of stream) {
+  if (part.type === "raw") {
+    console.log("Raw chunk:", part.rawValue);
+  }
+}
+```
 
 **Example:**
 
