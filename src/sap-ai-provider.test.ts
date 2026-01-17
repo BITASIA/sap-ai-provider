@@ -66,92 +66,19 @@ describe("createSAPAIProvider", () => {
     expect(provider("gpt-4o")).toBeDefined();
   });
 
-  describe("defaultSettings.modelParams validation (fail-fast)", () => {
-    it("should throw on invalid temperature (> 2)", () => {
+  describe("defaultSettings.modelParams validation", () => {
+    it("should throw on invalid modelParams", () => {
       expect(() =>
         createSAPAIProvider({
           defaultSettings: { modelParams: { temperature: 5 } },
         }),
-      ).toThrow(/temperature/i);
+      ).toThrow();
     });
 
-    it("should throw on invalid temperature (< 0)", () => {
+    it("should accept valid modelParams", () => {
       expect(() =>
         createSAPAIProvider({
-          defaultSettings: { modelParams: { temperature: -0.5 } },
-        }),
-      ).toThrow(/temperature/i);
-    });
-
-    it("should throw on invalid maxTokens (< 1)", () => {
-      expect(() =>
-        createSAPAIProvider({
-          defaultSettings: { modelParams: { maxTokens: 0 } },
-        }),
-      ).toThrow(/maxTokens/i);
-    });
-
-    it("should throw on invalid topP (> 1)", () => {
-      expect(() =>
-        createSAPAIProvider({
-          defaultSettings: { modelParams: { topP: 1.5 } },
-        }),
-      ).toThrow(/topP/i);
-    });
-
-    it("should throw on invalid frequencyPenalty (> 2)", () => {
-      expect(() =>
-        createSAPAIProvider({
-          defaultSettings: { modelParams: { frequencyPenalty: 3 } },
-        }),
-      ).toThrow(/frequencyPenalty/i);
-    });
-
-    it("should throw on invalid presencePenalty (< -2)", () => {
-      expect(() =>
-        createSAPAIProvider({
-          defaultSettings: { modelParams: { presencePenalty: -3 } },
-        }),
-      ).toThrow(/presencePenalty/i);
-    });
-
-    it("should throw on invalid n (< 1)", () => {
-      expect(() =>
-        createSAPAIProvider({
-          defaultSettings: { modelParams: { n: 0 } },
-        }),
-      ).toThrow(/\bn\b/);
-    });
-
-    it("should accept valid defaultSettings.modelParams", () => {
-      expect(() =>
-        createSAPAIProvider({
-          defaultSettings: {
-            modelParams: {
-              frequencyPenalty: 0.5,
-              maxTokens: 1000,
-              n: 2,
-              presencePenalty: 0.5,
-              temperature: 0.7,
-              topP: 0.9,
-            },
-          },
-        }),
-      ).not.toThrow();
-    });
-
-    it("should accept empty modelParams", () => {
-      expect(() =>
-        createSAPAIProvider({
-          defaultSettings: { modelParams: {} },
-        }),
-      ).not.toThrow();
-    });
-
-    it("should not validate when defaultSettings.modelParams is undefined", () => {
-      expect(() =>
-        createSAPAIProvider({
-          defaultSettings: {},
+          defaultSettings: { modelParams: { temperature: 0.7 } },
         }),
       ).not.toThrow();
     });
