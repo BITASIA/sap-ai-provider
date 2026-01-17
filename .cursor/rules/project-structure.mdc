@@ -22,6 +22,10 @@ SDK. Use these anchors to navigate the codebase quickly.
   - Implements Vercel AI SDK `LanguageModelV3` contract (v4.0.0+).
   - Supports text, tool calls, streaming, structured outputs (varies by model
     family).
+- Embedding model implementation:
+  [src/sap-ai-embedding-model.ts](mdc:src/sap-ai-embedding-model.ts)
+  - Implements Vercel AI SDK `EmbeddingModelV3` contract.
+  - Supports single and batch embedding generation.
 - Message templating:
   [src/convert-to-sap-messages.ts](mdc:src/convert-to-sap-messages.ts)
 - Settings and model IDs: [src/sap-ai-settings.ts](mdc:src/sap-ai-settings.ts)
@@ -72,6 +76,8 @@ SDK. Use these anchors to navigate the codebase quickly.
     [examples/example-document-grounding.ts](mdc:examples/example-document-grounding.ts)
   - Translation:
     [examples/example-translation.ts](mdc:examples/example-translation.ts)
+  - Embeddings:
+    [examples/example-embeddings.ts](mdc:examples/example-embeddings.ts)
 
 ## Runtime Requirements
 

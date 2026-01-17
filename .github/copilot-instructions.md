@@ -74,7 +74,7 @@ npm run type-check && npm run test && npm run test:node && npm run test:edge && 
 
 **For environment setup and authentication**, see [ENVIRONMENT_SETUP.md](../ENVIRONMENT_SETUP.md)
 
-- **Examples location**: `/examples` directory contains 8 example files
+- **Examples location**: `/examples` directory contains 9 example files
 - **Running examples**: `npx tsx examples/example-simple-chat-completion.ts`
   ⚠️ **Important:** Examples require `AICORE_SERVICE_KEY` environment variable to work
 - **Without service key**: Examples will fail with clear error message about missing environment variable
@@ -112,6 +112,7 @@ This should complete in under 15 seconds total and all commands should pass.
 │   ├── index.ts                    # Main exports
 │   ├── sap-ai-provider.ts          # Main provider implementation
 │   ├── sap-ai-language-model.ts    # Language model implementation
+│   ├── sap-ai-embedding-model.ts   # Embedding model implementation
 │   ├── sap-ai-settings.ts          # Settings and model types
 │   ├── sap-ai-error.ts             # Error handling
 │   └── convert-to-sap-messages.ts  # Message conversion utilities
@@ -139,6 +140,7 @@ This should complete in under 15 seconds total and all commands should pass.
 - **`src/index.ts`**: Main export file - start here to understand the public API
 - **`src/sap-ai-provider.ts`**: Core provider implementation
 - **`src/sap-ai-language-model.ts`**: Main language model logic
+- **`src/sap-ai-embedding-model.ts`**: Embedding model for vector generation
 - **`package.json`**: All available npm scripts and dependencies
 - **`examples/`**: Working examples of how to use the library
 
@@ -197,6 +199,7 @@ npx tsx examples/example-image-recognition.ts
 npx tsx examples/example-data-masking.ts
 npx tsx examples/example-document-grounding.ts
 npx tsx examples/example-translation.ts
+npx tsx examples/example-embeddings.ts
 ```
 
 ### Known Issues

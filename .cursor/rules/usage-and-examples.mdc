@@ -25,6 +25,8 @@ Start with the README’s Quick Start and Advanced sections:
   [examples/example-document-grounding.ts](mdc:examples/example-document-grounding.ts)
 - Translation:
   [examples/example-translation.ts](mdc:examples/example-translation.ts)
+- Embeddings:
+  [examples/example-embeddings.ts](mdc:examples/example-embeddings.ts)
 
 ## Common Patterns
 

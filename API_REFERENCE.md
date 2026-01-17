@@ -39,6 +39,13 @@ consistently:
   - [Advanced: Tool Choice Control](#advanced-tool-choice-control)
   - [Best Practices](#best-practices)
   - [Related Documentation](#related-documentation)
+- [Embeddings](#embeddings)
+  - [Overview](#overview-1)
+  - [Basic Usage](#basic-usage)
+  - [Embedding Settings](#embedding-settings)
+  - [SAPAIEmbeddingModel](#sapaiembeddingmodel)
+  - [SAPAIEmbeddingSettings](#sapaiembeddingsettings)
+  - [SAPAIEmbeddingModelId](#sapaiembeddingmodelid)
 - [Interfaces](#interfaces)
   - [`SAPAIProvider`](#sapaiprovider)
     - [`provider(modelId, settings?)`](#providermodelid-settings)
@@ -600,6 +607,175 @@ const result = await generateText({
 
 ---
 
+## Embeddings
+
+Generate vector embeddings for RAG (Retrieval-Augmented Generation), semantic
+search, similarity matching, and clustering.
+
+### Overview
+
+The SAP AI Provider implements the Vercel AI SDK's `EmbeddingModelV3` interface,
+enabling you to generate embeddings using models available through SAP AI Core's
+Orchestration service.
+
+Key features:
+
+- Full `EmbeddingModelV3` specification compliance
+- Support for single and batch embedding generation
+- Configurable embedding types (`document`, `query`, `text`)
+- Automatic validation of batch sizes with `maxEmbeddingsPerCall`
+- AbortSignal support for request cancellation
+
+### Basic Usage
+
+```typescript
+import "dotenv/config";
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+import { embed, embedMany } from "ai";
+
+const provider = createSAPAIProvider();
+
+// Single embedding
+const { embedding } = await embed({
+  model: provider.embedding("text-embedding-ada-002"),
+  value: "What is machine learning?",
+});
+
+console.log("Embedding dimensions:", embedding.length);
+
+// Multiple embeddings (batch)
+const { embeddings } = await embedMany({
+  model: provider.embedding("text-embedding-3-small"),
+  values: ["Hello world", "AI is transforming industries", "Vector databases"],
+});
+
+console.log("Generated", embeddings.length, "embeddings");
+```
+
+### Embedding Settings
+
+Configure embedding behavior with `SAPAIEmbeddingSettings`:
+
+```typescript
+const model = provider.embedding("text-embedding-3-large", {
+  // Maximum embeddings per API call (default: 2048)
+  maxEmbeddingsPerCall: 100,
+
+  // Embedding type: "document", "query", or "text" (default: "text")
+  type: "document",
+
+  // Model-specific parameters
+  modelParams: {
+    // Parameters passed to the embedding model
+  },
+});
+```
+
+**Embedding Types:**
+
+| Type       | Use Case                                 | Example                         |
+| ---------- | ---------------------------------------- | ------------------------------- |
+| `document` | Embedding documents for storage/indexing | RAG document ingestion          |
+| `query`    | Embedding search queries                 | Semantic search queries         |
+| `text`     | General-purpose text embedding (default) | Similarity matching, clustering |
+
+### SAPAIEmbeddingModel
+
+Implementation of Vercel AI SDK's `EmbeddingModelV3` interface.
+
+**Properties:**
+
+| Property               | Type     | Description                                       |
+| ---------------------- | -------- | ------------------------------------------------- |
+| `specificationVersion` | `'v3'`   | API specification version                         |
+| `modelId`              | `string` | Embedding model identifier                        |
+| `provider`             | `string` | Provider name (`'sap-ai'`)                        |
+| `maxEmbeddingsPerCall` | `number` | Maximum values per `doEmbed` call (default: 2048) |
+
+**Methods:**
+
+#### `doEmbed(options)`
+
+Generate embeddings for an array of values.
+
+**Signature:**
+
+```typescript
+async doEmbed(options: {
+  values: string[];
+  abortSignal?: AbortSignal;
+}): Promise<{
+  embeddings: number[][];
+}>
+```
+
+**Parameters:**
+
+- `values`: Array of strings to embed
+- `abortSignal`: Optional signal to cancel the request
+
+**Returns:** Object containing `embeddings` array (same order as input values)
+
+**Throws:**
+
+- `TooManyEmbeddingValuesForCallError` - When `values.length > maxEmbeddingsPerCall`
+- `APICallError` - For API/HTTP errors
+
+**Example:**
+
+```typescript
+const model = provider.embedding("text-embedding-ada-002");
+
+// Direct model usage (advanced)
+const result = await model.doEmbed({
+  values: ["Hello", "World"],
+  abortSignal: controller.signal,
+});
+
+console.log(result.embeddings); // [[0.1, 0.2, ...], [0.3, 0.4, ...]]
+```
+
+### SAPAIEmbeddingSettings
+
+Configuration options for embedding models.
+
+**Properties:**
+
+| Property               | Type                   | Default  | Description                 |
+| ---------------------- | ---------------------- | -------- | --------------------------- |
+| `maxEmbeddingsPerCall` | `number`               | `2048`   | Maximum values per API call |
+| `type`                 | `EmbeddingType`        | `'text'` | Embedding type              |
+| `modelParams`          | `EmbeddingModelParams` | -        | Model-specific parameters   |
+
+**EmbeddingType Values:**
+
+- `'document'` - For embedding documents (storage/indexing)
+- `'query'` - For embedding search queries
+- `'text'` - General-purpose embedding (default)
+
+### SAPAIEmbeddingModelId
+
+Type for embedding model identifiers.
+
+**Type:**
+
+```typescript
+export type SAPAIEmbeddingModelId = string;
+```
+
+**Common Models:**
+
+| Model                    | Provider | Dimensions | Notes                    |
+| ------------------------ | -------- | ---------- | ------------------------ |
+| `text-embedding-ada-002` | OpenAI   | 1536       | Cost-effective, reliable |
+| `text-embedding-3-small` | OpenAI   | 1536       | Balanced performance     |
+| `text-embedding-3-large` | OpenAI   | 3072       | Highest quality          |
+
+> **Note:** Model availability depends on your SAP AI Core tenant configuration,
+> region, and subscription.
+
+---
+
 ## Interfaces
 
 ### `SAPAIProvider`
@@ -647,6 +823,41 @@ function).
 
 ```typescript
 chat(modelId: SAPAIModelId, settings?: SAPAISettings): SAPAILanguageModel
+```
+
+#### `provider.embedding(modelId, settings?)`
+
+Create an embedding model instance.
+
+**Signature:**
+
+```typescript
+embedding(modelId: SAPAIEmbeddingModelId, settings?: SAPAIEmbeddingSettings): SAPAIEmbeddingModel
+```
+
+**Parameters:**
+
+- `modelId`: Embedding model identifier (e.g., 'text-embedding-ada-002')
+- `settings`: Optional embedding model configuration
+
+**Example:**
+
+```typescript
+const embeddingModel = provider.embedding("text-embedding-3-small", {
+  maxEmbeddingsPerCall: 100,
+  type: "document",
+});
+```
+
+#### `provider.textEmbeddingModel(modelId, settings?)`
+
+Alias for `embedding()` method. Use this for consistency with other AI SDK
+providers.
+
+**Signature:**
+
+```typescript
+textEmbeddingModel(modelId: SAPAIEmbeddingModelId, settings?: SAPAIEmbeddingSettings): SAPAIEmbeddingModel
 ```
 
 ---

@@ -6,21 +6,28 @@
  */
 
 /**
+ * Embedding model.
+ */
+export { SAPAIEmbeddingModel } from "./sap-ai-embedding-model.js";
+
+export type { SAPAIEmbeddingModelId, SAPAIEmbeddingSettings } from "./sap-ai-embedding-model.js";
+
+/**
  * Error handling types.
  */
-export type { OrchestrationErrorResponse } from "./sap-ai-error";
+export type { OrchestrationErrorResponse } from "./sap-ai-error.js";
 
 /**
  * Provider factory and default instance.
  */
-export { createSAPAIProvider, sapai } from "./sap-ai-provider";
+export { createSAPAIProvider, sapai } from "./sap-ai-provider.js";
 
-export type { DeploymentConfig, SAPAIProvider, SAPAIProviderSettings } from "./sap-ai-provider";
+export type { DeploymentConfig, SAPAIProvider, SAPAIProviderSettings } from "./sap-ai-provider.js";
 
 /**
  * Model settings and identifiers.
  */
-export type { SAPAIModelId, SAPAISettings } from "./sap-ai-settings";
+export type { SAPAIModelId, SAPAISettings } from "./sap-ai-settings.js";
 
 /**
  * SAP AI SDK types and utilities.
@@ -51,7 +58,7 @@ export type {
   TranslationOutputParameters,
   TranslationTargetLanguage,
   UserChatMessage,
-} from "./sap-ai-settings";
+} from "./sap-ai-settings.js";
 
 /**
  * Helper functions for building configurations.
@@ -63,7 +70,7 @@ export {
   buildLlamaGuard38BFilter,
   buildTranslationConfig,
   isConfigReference,
-} from "./sap-ai-settings";
+} from "./sap-ai-settings.js";
 
 /**
  * Response classes from SAP AI SDK.
@@ -72,11 +79,11 @@ export {
   OrchestrationResponse,
   OrchestrationStreamChunkResponse,
   OrchestrationStreamResponse,
-} from "./sap-ai-settings";
+} from "./sap-ai-settings.js";
 
 /**
  * Direct access to SAP AI SDK OrchestrationClient.
  *
  * For advanced users who need to use the SAP AI SDK directly.
  */
-export { OrchestrationClient } from "@sap-ai-sdk/orchestration";
+export { OrchestrationClient, OrchestrationEmbeddingClient } from "@sap-ai-sdk/orchestration";

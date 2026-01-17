@@ -4,6 +4,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Vercel AI SDK](https://img.shields.io/badge/Vercel%20AI%20SDK-6.0+-black.svg)](https://sdk.vercel.ai/docs)
 [![Language Model](https://img.shields.io/badge/Language%20Model-V3-green.svg)](https://sdk.vercel.ai/docs/ai-sdk-core/provider-management)
+[![Embedding Model](https://img.shields.io/badge/Embedding%20Model-V3-green.svg)](https://sdk.vercel.ai/docs/ai-sdk-core/embeddings)
 
 A community provider for SAP AI Core that integrates seamlessly with the Vercel
 AI SDK. Built on top of the official **@sap-ai-sdk/orchestration** package, this
@@ -25,6 +26,7 @@ familiar Vercel AI SDK interface.
   - [Chat Conversations](#chat-conversations)
   - [Streaming Responses](#streaming-responses)
   - [Model Configuration](#model-configuration)
+  - [Embeddings](#embeddings)
 - [Supported Models](#supported-models)
 - [Advanced Features](#advanced-features)
   - [Tool Calling](#tool-calling)
@@ -67,6 +69,7 @@ familiar Vercel AI SDK interface.
 - 🎨 **Multiple Models** - Support for GPT-4, Claude, Gemini, Nova, and more
 - ⚡ **Language Model V3** - Latest Vercel AI SDK specification with enhanced
   streaming
+- 📊 **Text Embeddings** - Generate vector embeddings for RAG and semantic search
 
 ## Quick Start
 
@@ -106,16 +109,17 @@ try {
 
 ## Quick Reference
 
-| Task                | Code Pattern                                          | Documentation                                                 |
-| ------------------- | ----------------------------------------------------- | ------------------------------------------------------------- |
-| **Install**         | `npm install @mymediset/sap-ai-provider ai`           | [Installation](#installation)                                 |
-| **Auth Setup**      | Add `AICORE_SERVICE_KEY` to `.env`                    | [Environment Setup](./ENVIRONMENT_SETUP.md)                   |
-| **Create Provider** | `createSAPAIProvider()` or use `sapai`                | [Provider Creation](#provider-creation)                       |
-| **Text Generation** | `generateText({ model: provider("gpt-4o"), prompt })` | [Basic Usage](#text-generation)                               |
-| **Streaming**       | `streamText({ model: provider("gpt-4o"), prompt })`   | [Streaming](#streaming-responses)                             |
-| **Tool Calling**    | `generateText({ tools: { myTool: tool({...}) } })`    | [Tool Calling](#tool-calling)                                 |
-| **Error Handling**  | `catch (error instanceof APICallError)`               | [API Reference](./API_REFERENCE.md#error-handling--reference) |
-| **Choose Model**    | See 80+ models (GPT, Claude, Gemini, Llama)           | [Models](./API_REFERENCE.md#models)                           |
+| Task                | Code Pattern                                                     | Documentation                                                 |
+| ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| **Install**         | `npm install @mymediset/sap-ai-provider ai`                      | [Installation](#installation)                                 |
+| **Auth Setup**      | Add `AICORE_SERVICE_KEY` to `.env`                               | [Environment Setup](./ENVIRONMENT_SETUP.md)                   |
+| **Create Provider** | `createSAPAIProvider()` or use `sapai`                           | [Provider Creation](#provider-creation)                       |
+| **Text Generation** | `generateText({ model: provider("gpt-4o"), prompt })`            | [Basic Usage](#text-generation)                               |
+| **Streaming**       | `streamText({ model: provider("gpt-4o"), prompt })`              | [Streaming](#streaming-responses)                             |
+| **Tool Calling**    | `generateText({ tools: { myTool: tool({...}) } })`               | [Tool Calling](#tool-calling)                                 |
+| **Error Handling**  | `catch (error instanceof APICallError)`                          | [API Reference](./API_REFERENCE.md#error-handling--reference) |
+| **Choose Model**    | See 80+ models (GPT, Claude, Gemini, Llama)                      | [Models](./API_REFERENCE.md#models)                           |
+| **Embeddings**      | `embed({ model: provider.embedding("text-embedding-ada-002") })` | [Embeddings](#embeddings)                                     |
 
 ## Installation
 
@@ -266,6 +270,47 @@ const result = await generateText({
   prompt: "Write a technical blog post about TypeScript.",
 });
 ```
+
+### Embeddings
+
+Generate vector embeddings for RAG (Retrieval-Augmented Generation), semantic
+search, and similarity matching.
+
+**Complete example:**
+[examples/example-embeddings.ts](./examples/example-embeddings.ts)
+
+```typescript
+import "dotenv/config"; // Load environment variables
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+import { embed, embedMany } from "ai";
+
+const provider = createSAPAIProvider();
+
+// Single embedding
+const { embedding } = await embed({
+  model: provider.embedding("text-embedding-ada-002"),
+  value: "What is machine learning?",
+});
+
+// Multiple embeddings
+const { embeddings } = await embedMany({
+  model: provider.embedding("text-embedding-3-small"),
+  values: ["Hello world", "AI is amazing", "Vector search"],
+});
+```
+
+**Run it:** `npx tsx examples/example-embeddings.ts`
+
+**Common embedding models:**
+
+- `text-embedding-ada-002` - OpenAI Ada v2 (cost-effective)
+- `text-embedding-3-small` - OpenAI v3 small (balanced)
+- `text-embedding-3-large` - OpenAI v3 large (highest quality)
+
+> **Note:** Model availability depends on your SAP AI Core tenant configuration.
+
+For complete embedding API documentation, see
+**[API Reference: Embeddings](./API_REFERENCE.md#embeddings)**.
 
 ## Supported Models
 
@@ -590,6 +635,7 @@ features:
 | `example-data-masking.ts`           | Data privacy integration    | DPI masking, anonymization              |
 | `example-document-grounding.ts`     | Document grounding (RAG)    | Vector store, retrieval-augmented gen   |
 | `example-translation.ts`            | Input/output translation    | Multi-language support, SAP translation |
+| `example-embeddings.ts`             | Text embeddings             | Vector generation, semantic similarity  |
 
 **Running Examples:**
 

@@ -3,8 +3,13 @@ import type { HttpDestinationOrFetchOptions } from "@sap-cloud-sdk/connectivity"
 
 import { ProviderV3 } from "@ai-sdk/provider";
 
-import { SAPAILanguageModel } from "./sap-ai-language-model";
-import { SAPAIModelId, SAPAISettings } from "./sap-ai-settings";
+import {
+  SAPAIEmbeddingModel,
+  SAPAIEmbeddingModelId,
+  SAPAIEmbeddingSettings,
+} from "./sap-ai-embedding-model.js";
+import { SAPAILanguageModel } from "./sap-ai-language-model.js";
+import { SAPAIModelId, SAPAISettings } from "./sap-ai-settings.js";
 
 /**
  * Deployment configuration type used by SAP AI SDK.
@@ -53,6 +58,36 @@ export interface SAPAIProvider extends ProviderV3 {
    * @returns Configured SAP AI chat language model instance
    */
   chat(modelId: SAPAIModelId, settings?: SAPAISettings): SAPAILanguageModel;
+
+  /**
+   * Create an embedding model instance.
+   * @param modelId - The embedding model identifier (e.g., 'text-embedding-ada-002', 'text-embedding-3-small')
+   * @param settings - Optional embedding model settings
+   * @returns Configured SAP AI embedding model instance
+   * @example
+   * ```typescript
+   * import { embed } from 'ai';
+   *
+   * const { embedding } = await embed({
+   *   model: provider.embedding('text-embedding-ada-002'),
+   *   value: 'Hello, world!'
+   * });
+   * ```
+   */
+  embedding(modelId: SAPAIEmbeddingModelId, settings?: SAPAIEmbeddingSettings): SAPAIEmbeddingModel;
+
+  /**
+   * Create a text embedding model instance.
+   *
+   * Alias for `embedding()` method, provided for compatibility with AI SDK conventions.
+   * @param modelId - The embedding model identifier
+   * @param settings - Optional embedding model settings
+   * @returns Configured SAP AI embedding model instance
+   */
+  textEmbeddingModel(
+    modelId: SAPAIEmbeddingModelId,
+    settings?: SAPAIEmbeddingSettings,
+  ): SAPAIEmbeddingModel;
 }
 
 /**
@@ -256,6 +291,17 @@ export function createSAPAIProvider(options: SAPAIProviderSettings = {}): SAPAIP
     });
   };
 
+  const createEmbeddingModel = (
+    modelId: SAPAIEmbeddingModelId,
+    settings: SAPAIEmbeddingSettings = {},
+  ): SAPAIEmbeddingModel => {
+    return new SAPAIEmbeddingModel(modelId, settings, {
+      deploymentConfig,
+      destination: options.destination,
+      provider: "sap-ai",
+    });
+  };
+
   const provider = function (modelId: SAPAIModelId, settings?: SAPAISettings) {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (new.target) {
@@ -266,6 +312,8 @@ export function createSAPAIProvider(options: SAPAIProviderSettings = {}): SAPAIP
   };
 
   provider.chat = createModel;
+  provider.embedding = createEmbeddingModel;
+  provider.textEmbeddingModel = createEmbeddingModel;
 
   return provider as SAPAIProvider;
 }

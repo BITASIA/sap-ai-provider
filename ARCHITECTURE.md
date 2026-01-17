@@ -14,7 +14,7 @@ see [API_REFERENCE.md](./API_REFERENCE.md).
 - Implements Vercel AI SDK's `ProviderV3` interface
 - Uses SAP AI SDK (`@sap-ai-sdk/orchestration`) for OAuth2 auth
 - Transforms messages bidirectionally (AI SDK ↔ SAP format)
-- Supports streaming, tool calling, multi-modal, and data masking
+- Supports streaming, tool calling, multi-modal, data masking, and embeddings
 
 **Key Components:** Provider → OAuth Manager → Message Transformer → Error
 Handler → SAP AI Core API
@@ -256,6 +256,7 @@ src/
 ├── index.ts                           # Public API exports
 ├── sap-ai-provider.ts                 # Main provider factory
 ├── sap-ai-language-model.ts           # Language model implementation
+├── sap-ai-embedding-model.ts          # Embedding model implementation
 ├── sap-ai-settings.ts                 # Settings and type definitions
 ├── sap-ai-error.ts                    # Error handling system
 └── convert-to-sap-messages.ts         # Message format conversion
@@ -265,11 +266,11 @@ src/
 
 #### `SAPAIProvider`
 
-- **Purpose**: Factory for creating language model instances
+- **Purpose**: Factory for creating language and embedding model instances
 - **Responsibilities**:
   - Authentication management
   - Configuration validation
-  - Model instance creation
+  - Model instance creation (language and embedding)
   - Base URL and deployment management
 
 #### `SAPAILanguageModel`
@@ -280,6 +281,15 @@ src/
   - Streaming support
   - Tool calling implementation
   - Multi-modal input handling
+
+#### `SAPAIEmbeddingModel`
+
+- **Purpose**: Implementation of Vercel AI SDK's `EmbeddingModelV3`
+- **Responsibilities**:
+  - Embedding generation via `doEmbed()`
+  - Batch size validation (`maxEmbeddingsPerCall`)
+  - AbortSignal handling for request cancellation
+  - Uses `OrchestrationEmbeddingClient` from SAP AI SDK
 
 #### `Authentication System`
 

@@ -97,6 +97,7 @@ features.
 - Better type safety with structured result types
 - Richer streaming with explicit block lifecycle
 - Enhanced token usage metadata
+- **New:** Text embeddings support (`EmbeddingModelV3`) for RAG and semantic search
 
 ### Who Is Affected?
 

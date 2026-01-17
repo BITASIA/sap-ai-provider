@@ -147,6 +147,37 @@ describe("createSAPAIProvider", () => {
       new provider("gpt-4o");
     }).toThrow("cannot be called with the new keyword");
   });
+
+  it("should expose embedding method", () => {
+    const provider = createSAPAIProvider();
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(provider.embedding).toBeDefined();
+    expect(typeof provider.embedding).toBe("function");
+  });
+
+  it("should expose textEmbeddingModel method", () => {
+    const provider = createSAPAIProvider();
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(provider.textEmbeddingModel).toBeDefined();
+    expect(typeof provider.textEmbeddingModel).toBe("function");
+  });
+
+  it("should create an embedding model", () => {
+    const provider = createSAPAIProvider();
+    const model = provider.embedding("text-embedding-ada-002");
+    expect(model).toBeDefined();
+    expect(model.modelId).toBe("text-embedding-ada-002");
+    expect(model.provider).toBe("sap-ai");
+  });
+
+  it("should create an embedding model with settings", () => {
+    const provider = createSAPAIProvider();
+    const model = provider.embedding("text-embedding-3-small", {
+      type: "document",
+    });
+    expect(model).toBeDefined();
+    expect(model.modelId).toBe("text-embedding-3-small");
+  });
 });
 
 describe("sapai default provider", () => {
@@ -158,10 +189,34 @@ describe("sapai default provider", () => {
     expect(typeof sapai.chat).toBe("function");
   });
 
+  it("should expose embedding entrypoints", () => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(sapai.embedding).toBeDefined();
+    expect(typeof sapai.embedding).toBe("function");
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(sapai.textEmbeddingModel).toBeDefined();
+    expect(typeof sapai.textEmbeddingModel).toBe("function");
+  });
+
   it("should create a model", () => {
     const model = sapai("gpt-4o");
     expect(model).toBeDefined();
     expect(model.modelId).toBe("gpt-4o");
+    expect(model.provider).toBe("sap-ai");
+  });
+
+  it("should create an embedding model via embedding method", () => {
+    const model = sapai.embedding("text-embedding-ada-002");
+    expect(model).toBeDefined();
+    expect(model.modelId).toBe("text-embedding-ada-002");
+    expect(model.provider).toBe("sap-ai");
+    expect(model.specificationVersion).toBe("v3");
+  });
+
+  it("should create an embedding model via textEmbeddingModel method", () => {
+    const model = sapai.textEmbeddingModel("text-embedding-3-small");
+    expect(model).toBeDefined();
+    expect(model.modelId).toBe("text-embedding-3-small");
     expect(model.provider).toBe("sap-ai");
   });
 });

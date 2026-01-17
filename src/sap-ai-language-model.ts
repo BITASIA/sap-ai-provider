@@ -536,6 +536,13 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
           try {
             for await (const chunk of sdkStream) {
+              if (options.includeRawChunks) {
+                controller.enqueue({
+                  rawValue: (chunk as { _data?: unknown })._data ?? chunk,
+                  type: "raw",
+                });
+              }
+
               if (streamState.isFirstChunk) {
                 streamState.isFirstChunk = false;
                 controller.enqueue({
