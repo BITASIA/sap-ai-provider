@@ -209,9 +209,9 @@ console.log(result.text);
 **Complete example:**
 [examples/example-simple-chat-completion.ts](./examples/example-simple-chat-completion.ts)
 
-Note: assistant `reasoning` parts are dropped by default. Set
-`includeReasoning: true` on the model settings if you explicitly want to forward
-them.
+> **Note:** Assistant `reasoning` parts are dropped by default. Set
+> `includeReasoning: true` on the model settings if you explicitly want to
+> forward them.
 
 ```typescript
 const result = await generateText({
@@ -756,7 +756,7 @@ for details.
 - [Troubleshooting](./TROUBLESHOOTING.md) - Common issues and solutions
 - [Architecture](./ARCHITECTURE.md) - Internal architecture, design decisions,
   and request flows
-- [curl API Testing](./CURL_API_TESTING_GUIDE.md) - Direct API testing for
+- [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) - Direct API testing for
   debugging
 
 ### Community

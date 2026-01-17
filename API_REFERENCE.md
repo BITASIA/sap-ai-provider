@@ -951,10 +951,10 @@ const settings: SAPAISettings = {
 
 Fine-grained model behavior parameters.
 
-Note: Many parameters are model/provider-specific. Some models may ignore or
-only partially support certain options (e.g., Gemini tool calls limitations,
-Amazon models not supporting `n`). Always consult the model’s upstream
-documentation.
+> **Note:** Many parameters are model/provider-specific. Some models may ignore
+> or only partially support certain options (e.g., Gemini tool calls
+> limitations, Amazon models not supporting `n`). Always consult the model's
+> upstream documentation.
 
 **Properties:**
 
@@ -1375,8 +1375,8 @@ for await (const part of stream) {
 }
 ```
 
-**Note:** See [Known Limitations](./TROUBLESHOOTING.md#known-limitations) for
-information about client-generated response IDs in streaming mode.
+> **Note:** See [Known Limitations](./TROUBLESHOOTING.md#known-limitations) for
+> information about client-generated response IDs in streaming mode.
 
 ---
 
