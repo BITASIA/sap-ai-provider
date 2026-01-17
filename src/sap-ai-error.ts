@@ -236,7 +236,7 @@ export function convertToAISDKError(
       });
     }
 
-    // Deployment resolution errors
+    // Deployment resolution errors -> NoSuchModelError
     if (
       errorMsg.includes("failed to resolve deployment") ||
       errorMsg.includes("no deployment matched")
