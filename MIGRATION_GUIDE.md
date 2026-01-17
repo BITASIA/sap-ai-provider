@@ -537,7 +537,7 @@ work as expected.
 
 #### 5. Optional: Adopt New Features
 
-V2.0 introduces powerful features. See [API_REFERENCE.md](./API_REFERENCE.md)
+V2.0 introduces powerful features. See [API Reference](./API_REFERENCE.md)
 for complete documentation and [examples/](./examples/) for working code.
 
 **Key new capabilities:**
@@ -545,11 +545,11 @@ for complete documentation and [examples/](./examples/) for working code.
 - **Data Masking (DPI)**: Anonymize sensitive data (emails, names, phone
   numbers) - see [example-data-masking.ts](./examples/example-data-masking.ts)
 - **Content Filtering**: Azure Content Safety, Llama Guard - see
-  [API_REFERENCE.md#content-filtering](./API_REFERENCE.md#content-filtering)
+  [API Reference - Content Filtering](./API_REFERENCE.md#content-filtering)
 - **Response Format**: Structured outputs with JSON schema - see
-  [API_REFERENCE.md#response-format](./API_REFERENCE.md#response-format)
+  [API Reference - Response Format](./API_REFERENCE.md#response-format)
 - **Default Settings**: Apply consistent settings across all models - see
-  [API_REFERENCE.md#default-settings](./API_REFERENCE.md#default-settings)
+  [API Reference - Default Settings](./API_REFERENCE.md#default-settings)
 - **Grounding & Translation**: Document grounding, language translation modules
 
 For detailed examples, see the [New Features](#new-features) section below.
@@ -568,12 +568,12 @@ For detailed examples, see the [New Features](#new-features) section below.
 
 ### Version 2.0.x
 
-| Change                   | Details                                                            | Migration                                                                                                   |
-| ------------------------ | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| **Authentication**       | `serviceKey` option removed; now uses `AICORE_SERVICE_KEY` env var | Set environment variable, remove `serviceKey` from code. See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) |
-| **Synchronous Provider** | `createSAPAIProvider()` no longer async                            | Remove `await` from provider creation                                                                       |
-| **Removed Options**      | `token`, `completionPath`, `baseURL`, `headers`, `fetch`           | Use SAP AI SDK automatic handling                                                                           |
-| **Token Management**     | Manual OAuth2 removed                                              | Automatic via SAP AI SDK                                                                                    |
+| Change                   | Details                                                            | Migration                                                                                                |
+| ------------------------ | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| **Authentication**       | `serviceKey` option removed; now uses `AICORE_SERVICE_KEY` env var | Set environment variable, remove `serviceKey` from code. See [Environment Setup](./ENVIRONMENT_SETUP.md) |
+| **Synchronous Provider** | `createSAPAIProvider()` no longer async                            | Remove `await` from provider creation                                                                    |
+| **Removed Options**      | `token`, `completionPath`, `baseURL`, `headers`, `fetch`           | Use SAP AI SDK automatic handling                                                                        |
+| **Token Management**     | Manual OAuth2 removed                                              | Automatic via SAP AI SDK                                                                                 |
 
 ---
 
@@ -584,7 +584,7 @@ For detailed examples, see the [New Features](#new-features) section below.
 **Status:** Removed in v2.0\
 **Replacement:** Automatic authentication via SAP AI SDK with
 `AICORE_SERVICE_KEY` environment variable\
-**Migration:** See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) for setup
+**Migration:** See [Environment Setup](./ENVIRONMENT_SETUP.md) for setup
 instructions
 
 ---
@@ -595,7 +595,7 @@ instructions
 
 V2.0 introduces several powerful features built on top of the official SAP AI
 SDK. For detailed API documentation and complete examples, see
-[API_REFERENCE.md](./API_REFERENCE.md).
+[API Reference](./API_REFERENCE.md).
 
 #### 1. SAP AI SDK Integration
 
@@ -610,8 +610,8 @@ const provider = createSAPAIProvider({
 });
 ```
 
-**See:**
-[API_REFERENCE.md - SAPAIProviderSettings](./API_REFERENCE.md#sapaiprovidersettings)
+**Complete documentation:**
+[API Reference - SAPAIProviderSettings](./API_REFERENCE.md#sapaiprovidersettings)
 
 #### 2. Data Masking (DPI)
 
@@ -627,8 +627,8 @@ const dpiConfig = buildDpiMaskingProvider({
 });
 ```
 
-**Full documentation:**
-[API_REFERENCE.md - Data Masking](./API_REFERENCE.md#builddpimaskingproviderconfig),
+**Complete documentation:**
+[API Reference - Data Masking](./API_REFERENCE.md#builddpimaskingproviderconfig),
 [example-data-masking.ts](./examples/example-data-masking.ts)
 
 #### 3. Content Filtering
@@ -655,8 +655,8 @@ const provider = createSAPAIProvider({
 });
 ```
 
-**Full documentation:**
-[API_REFERENCE.md - Content Filtering](./API_REFERENCE.md#buildazurecontentsafetyfiltertype-config)
+**Complete documentation:**
+[API Reference - Content Filtering](./API_REFERENCE.md#buildazurecontentsafetyfiltertype-config)
 
 #### 4. Response Format Control
 
@@ -689,8 +689,8 @@ const model2 = provider("gpt-4o", {
 });
 ```
 
-**See:**
-[API_REFERENCE.md - Response Format](./API_REFERENCE.md#response-format)
+**Complete documentation:**
+[API Reference - Response Format](./API_REFERENCE.md#response-format)
 
 #### 5. Default Settings
 
@@ -713,16 +713,16 @@ const model2 = provider("gpt-4o", {
 });
 ```
 
-**See:**
-[API_REFERENCE.md - Default Settings](./API_REFERENCE.md#default-settings)
+**Complete documentation:**
+[API Reference - Default Settings](./API_REFERENCE.md#default-settings)
 
 #### 6. Enhanced Streaming & Error Handling
 
 Improved streaming support with better error recovery and detailed error
 messages including request IDs and error locations for debugging.
 
-**See:** [README.md - Streaming](./README.md#streaming),
-[API_REFERENCE.md - Error Handling](./API_REFERENCE.md#error-handling)
+**Complete documentation:** [README - Streaming](./README.md#streaming),
+[API Reference - Error Handling](./API_REFERENCE.md#error-handling)
 
 ---
 
@@ -742,7 +742,7 @@ messages including request IDs and error locations for debugging.
 | `SAPAISettings.filtering`               | Content filtering       | `{ input: { filters: [...] } }`                                                   |
 | `SAPAIProviderSettings.defaultSettings` | Provider defaults       | `{ defaultSettings: { modelParams: {...} } }`                                     |
 
-**See [API_REFERENCE.md](./API_REFERENCE.md) for complete documentation.**
+**See [API Reference](./API_REFERENCE.md) for complete documentation.**
 
 ### Modified APIs
 
@@ -828,10 +828,10 @@ After migration:
 | Issue                       | Cause                     | Solution                                                                                                  |
 | --------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------- |
 |                             |                           |                                                                                                           |
-| **Authentication failures** | Missing/incorrect env var | Verify `AICORE_SERVICE_KEY` is set. See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md)                    |
+| **Authentication failures** | Missing/incorrect env var | Verify `AICORE_SERVICE_KEY` is set. See [Environment Setup](./ENVIRONMENT_SETUP.md)                       |
 | **Masking errors**          | Incorrect configuration   | Use `buildDpiMaskingProvider()` helper. See [example-data-masking.ts](./examples/example-data-masking.ts) |
 
-For detailed troubleshooting, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
+For detailed troubleshooting, see [Troubleshooting Guide](./TROUBLESHOOTING.md).
 
 ---
 
@@ -877,9 +877,9 @@ npm install
 If you encounter issues during migration:
 
 1. **Check Documentation:**
-   - [README.md](./README.md)
-   - [API_REFERENCE.md](./API_REFERENCE.md)
-   - [TROUBLESHOOTING](./README.md#troubleshooting) section
+   - [README](./README.md)
+   - [API Reference](./API_REFERENCE.md)
+   - [Troubleshooting](./README.md#troubleshooting) section
 
 2. **Search Issues:**
    - [GitHub Issues](https://github.com/BITASIA/sap-ai-provider/issues)
@@ -896,10 +896,10 @@ If you encounter issues during migration:
 
 ## Related Documentation
 
-- [README.md](./README.md) - Getting started and feature overview
-- [API_REFERENCE.md](./API_REFERENCE.md) - Complete API documentation for v2.x
-- [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) - Authentication setup for both
+- [README](./README.md) - Getting started and feature overview
+- [API Reference](./API_REFERENCE.md) - Complete API documentation for v2.x
+- [Environment Setup](./ENVIRONMENT_SETUP.md) - Authentication setup for both
   v1 and v2
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Technical architecture (v2
+- [Architecture](./ARCHITECTURE.md) - Technical architecture (v2
   implementation)
-- [CONTRIBUTING.md](./CONTRIBUTING.md) - Development and contribution guidelines
+- [Contributing Guide](./CONTRIBUTING.md) - Development and contribution guidelines

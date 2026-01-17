@@ -62,6 +62,6 @@ See **`openspec/AGENTS.md`** for spec-driven development instructions including:
 
 ## For Human Developers
 
-- **Project documentation:** [README.md](./README.md)
-- **Contributing guidelines:** [CONTRIBUTING.md](./CONTRIBUTING.md)
-- **Architecture:** [ARCHITECTURE.md](./ARCHITECTURE.md)
+- **Project documentation:** [README](./README.md)
+- **Contributing guidelines:** [Contributing Guide](./CONTRIBUTING.md)
+- **Architecture:** [Architecture](./ARCHITECTURE.md)

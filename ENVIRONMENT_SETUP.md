@@ -184,7 +184,7 @@ console.log("AI API URL:", key.serviceurls?.AI_API_URL);
 ```
 
 **For complete troubleshooting guide:**
-[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+[Troubleshooting Guide](./TROUBLESHOOTING.md)
 
 ---
 
@@ -216,8 +216,8 @@ console.log("AI API URL:", key.serviceurls?.AI_API_URL);
 
 ## Related Documentation
 
-- [README.md](./README.md#authentication) - Quick authentication overview
-- [API_REFERENCE.md](./API_REFERENCE.md#sapaiprovidersettings) - Configuration
+- [README - Authentication](./README.md#authentication) - Quick authentication overview
+- [API Reference - Configuration](./API_REFERENCE.md#sapaiprovidersettings) - Configuration
   options
-- [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md#2-update-authentication) -
+- [Migration Guide - Authentication](./MIGRATION_GUIDE.md#2-update-authentication) -
   Authentication changes in v2.0

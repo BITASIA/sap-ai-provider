@@ -409,6 +409,11 @@ const result = await generateText({
 
 Use SAP's Data Privacy Integration to mask sensitive data:
 
+**Complete example:**
+[examples/example-data-masking.ts](./examples/example-data-masking.ts)\
+**Complete documentation:**
+[API Reference - Data Masking](./API_REFERENCE.md#builddpimaskingproviderconfig)
+
 ```typescript
 import { buildDpiMaskingProvider } from "@mymediset/sap-ai-provider";
 
@@ -418,8 +423,7 @@ const dpiConfig = buildDpiMaskingProvider({
 });
 ```
 
-**Complete documentation:**
-[API Reference - Data Masking](./API_REFERENCE.md#builddpimaskingproviderconfig)
+**Run it:** `npx tsx examples/example-data-masking.ts`
 
 ### Content Filtering
 
@@ -516,9 +520,6 @@ const model = provider("gpt-4o");
 Override constructor settings on a per-call basis using `providerOptions`.
 Options are validated at runtime with Zod schemas.
 
-**Complete documentation:**
-[API Reference - Provider Options](./API_REFERENCE.md#provider-options)
-
 ```typescript
 import { generateText } from "ai";
 
@@ -536,6 +537,9 @@ const result = await generateText({
   },
 });
 ```
+
+**Complete documentation:**
+[API Reference - Provider Options](./API_REFERENCE.md#provider-options)
 
 ## Configuration Options
 

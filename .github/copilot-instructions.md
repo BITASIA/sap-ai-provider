@@ -49,7 +49,7 @@ Always reference these instructions first and fallback to search or bash command
 
 ### Development Workflow
 
-**For comprehensive workflow and standards**, see [CONTRIBUTING.md](../CONTRIBUTING.md#development-workflow)
+**For comprehensive workflow and standards**, see [Contributing Guide](../CONTRIBUTING.md#development-workflow)
 
 **Quick workflow summary:**
 
@@ -68,11 +68,11 @@ Always reference these instructions first and fallback to search or bash command
 npm run type-check && npm run test && npm run test:node && npm run test:edge && npm run prettier-check && npm run lint && npm run build && npm run check-build
 ```
 
-**Detailed checklist and standards**: See [CONTRIBUTING.md - Pre-Commit Checklist](../CONTRIBUTING.md#pre-commit-checklist)
+**Detailed checklist and standards**: See [Contributing Guide - Pre-Commit Checklist](../CONTRIBUTING.md#pre-commit-checklist)
 
 ### Manual Testing with Examples
 
-**For environment setup and authentication**, see [ENVIRONMENT_SETUP.md](../ENVIRONMENT_SETUP.md)
+**For environment setup and authentication**, see [Environment Setup](../ENVIRONMENT_SETUP.md)
 
 - **Examples location**: `/examples` directory contains 9 example files
 - **Running examples**: `npx tsx examples/example-simple-chat-completion.ts`
@@ -209,7 +209,7 @@ npx tsx examples/example-embeddings.ts
 
 ### Troubleshooting
 
-**For comprehensive troubleshooting guide**, see [TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
+**For comprehensive troubleshooting guide**, see [Troubleshooting Guide](../TROUBLESHOOTING.md)
 
 **Quick fixes:**
 
@@ -221,7 +221,7 @@ npx tsx examples/example-embeddings.ts
 
 ## Pull Request Review Guidelines
 
-**For complete coding standards and contribution process**, see [CONTRIBUTING.md](../CONTRIBUTING.md)
+**For complete coding standards and contribution process**, see [Contributing Guide](../CONTRIBUTING.md)
 
 When acting as a PR reviewer, you must first thoroughly analyze and understand the entire codebase before providing any reviews. Follow this comprehensive review process:
 
@@ -242,7 +242,7 @@ When acting as a PR reviewer, you must first thoroughly analyze and understand t
 
 ### Coding Standards Enforcement
 
-**For complete coding standards**, see [CONTRIBUTING.md - Coding Standards](../CONTRIBUTING.md#coding-standards)
+**For complete coding standards**, see [Contributing Guide - Coding Standards](../CONTRIBUTING.md#coding-standards)
 
 **Key requirements:**
 
@@ -253,7 +253,7 @@ When acting as a PR reviewer, you must first thoroughly analyze and understand t
 
 ### Architecture and Design Compliance
 
-**For complete architecture guidelines**, see [CONTRIBUTING.md - Architecture Guidelines](../CONTRIBUTING.md#architecture-guidelines)
+**For complete architecture guidelines**, see [Contributing Guide - Architecture Guidelines](../CONTRIBUTING.md#architecture-guidelines)
 
 **Key patterns to follow:**
 
@@ -264,7 +264,7 @@ When acting as a PR reviewer, you must first thoroughly analyze and understand t
 
 ### Testing Requirements
 
-**For complete testing guidelines**, see [CONTRIBUTING.md - Testing Guidelines](../CONTRIBUTING.md#testing-guidelines)
+**For complete testing guidelines**, see [Contributing Guide - Testing Guidelines](../CONTRIBUTING.md#testing-guidelines)
 
 **Essential checks:**
 

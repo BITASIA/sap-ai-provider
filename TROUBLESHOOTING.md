@@ -334,7 +334,7 @@ export DEBUG=sap-ai-provider:*
 
 ### Use cURL for Direct API Testing
 
-See [CURL_API_TESTING_GUIDE.md](./CURL_API_TESTING_GUIDE.md) for comprehensive
+See [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) for comprehensive
 direct API testing.
 
 ### Check Token Validity
@@ -381,8 +381,8 @@ console.log("AI API URL:", key.serviceurls?.AI_API_URL);
 If issues persist:
 
 1. **Check documentation:** [README](./README.md),
-   [API_REFERENCE](./API_REFERENCE.md),
-   [ENVIRONMENT_SETUP](./ENVIRONMENT_SETUP.md)
+   [API Reference](./API_REFERENCE.md),
+   [Environment Setup](./ENVIRONMENT_SETUP.md)
 2. **Review examples:** Compare your code with `examples/` directory
 
 3. **Open an issue:**
@@ -475,7 +475,7 @@ client-side tracing.
 ## Related Documentation
 
 - [README](./README.md) - Getting started
-- [API_REFERENCE](./API_REFERENCE.md) - Complete API reference
-- [ENVIRONMENT_SETUP](./ENVIRONMENT_SETUP.md) - Authentication setup
-- [ARCHITECTURE](./ARCHITECTURE.md) - Internal architecture
-- [CURL_API_TESTING_GUIDE](./CURL_API_TESTING_GUIDE.md) - Direct API testing
+- [API Reference](./API_REFERENCE.md) - Complete API reference
+- [Environment Setup](./ENVIRONMENT_SETUP.md) - Authentication setup
+- [Architecture](./ARCHITECTURE.md) - Internal architecture
+- [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) - Direct API testing

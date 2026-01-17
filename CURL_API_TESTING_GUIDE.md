@@ -167,7 +167,7 @@ The SAP AI Core v2 API uses a modular configuration structure with `prompt`
 See complete working examples below for the full structure.
 
 > 💡 For detailed parameter documentation, see
-> [API_REFERENCE.md](./API_REFERENCE.md#modelparams)
+> [API Reference](./API_REFERENCE.md#modelparams)
 
 ---
 

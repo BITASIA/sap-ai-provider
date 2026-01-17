@@ -3,8 +3,8 @@
 This document provides a detailed overview of the SAP AI Core Provider's
 architecture, internal components, and integration patterns.
 
-**For general usage**, see [README.md](./README.md). **For API documentation**,
-see [API_REFERENCE.md](./API_REFERENCE.md).
+**For general usage**, see [README](./README.md). **For API documentation**,
+see [API Reference](./API_REFERENCE.md).
 
 ## TL;DR (Executive Summary)
 
@@ -981,7 +981,7 @@ mechanisms.
   Quick reference and common issues
 
 **For v2→v3 migration**, see
-[MIGRATION_GUIDE.md - v2 to v3](./MIGRATION_GUIDE.md#version-2x-to-3x-breaking-changes).
+[Migration Guide - v2 to v3](./MIGRATION_GUIDE.md#version-2x-to-3x-breaking-changes).
 
 ## Type System
 

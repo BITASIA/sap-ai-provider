@@ -279,7 +279,7 @@ Or use **SAP AI Launchpad UI**:
   Claude models instead.
 - **Amazon models**: Do not support the `n` parameter (number of completions).
 - See
-  [CURL_API_TESTING_GUIDE.md - Tool Calling](./CURL_API_TESTING_GUIDE.md#tool-calling-example)
+  [cURL API Testing Guide - Tool Calling](./CURL_API_TESTING_GUIDE.md#tool-calling-example)
   for complete model capabilities comparison.
 
 ### Model Capabilities Comparison
@@ -604,9 +604,9 @@ const result = await generateText({
 
 ### Related Documentation
 
-- [CURL_API_TESTING_GUIDE.md - Tool Calling Examples](./CURL_API_TESTING_GUIDE.md#tool-calling-example) -
+- [cURL API Testing Guide - Tool Calling Examples](./CURL_API_TESTING_GUIDE.md#tool-calling-example) -
   Direct API testing
-- [ARCHITECTURE.md - Tool Calling Flow](./ARCHITECTURE.md#tool-calling-flow) -
+- [Architecture - Tool Calling Flow](./ARCHITECTURE.md#tool-calling-flow) -
   Internal implementation details
 - [Vercel AI SDK - Tool Calling Docs](https://sdk.vercel.ai/docs/ai-sdk-core/tools-and-tool-calling) -
   Upstream documentation
@@ -635,7 +635,7 @@ Key features:
 ### Basic Usage
 
 ```typescript
-import "dotenv/config";
+import "dotenv/config"; // Load environment variables
 import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
 import { embed, embedMany } from "ai";
 
@@ -1484,7 +1484,7 @@ The provider automatically handles retryable errors (408, 409, 429, 5xx) with
 exponential backoff. For non-retryable errors, your application should handle
 them appropriately.
 
-**See also:** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for detailed solutions
+**See also:** [Troubleshooting Guide](./TROUBLESHOOTING.md) for detailed solutions
 to each error type.
 
 ---
@@ -1745,9 +1745,6 @@ const model = provider("gpt-4o");
 
 **Run it:** `npx tsx examples/example-document-grounding.ts`
 
-**See also:**
-[`examples/example-document-grounding.ts`](./examples/example-document-grounding.ts)
-
 ---
 
 ### `buildTranslationConfig(type, config)`
@@ -1803,9 +1800,6 @@ const model = provider("gpt-4o");
 ```
 
 **Run it:** `npx tsx examples/example-translation.ts`
-
-**See also:**
-[`examples/example-translation.ts`](./examples/example-translation.ts)
 
 ---
 
@@ -1908,14 +1902,14 @@ For the current package version, see [package.json](./package.json).
 
 ## Related Documentation
 
-- [README.md](./README.md) - Getting started, quick start, and feature overview
-- [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) - Authentication setup and
+- [README](./README.md) - Getting started, quick start, and feature overview
+- [Environment Setup](./ENVIRONMENT_SETUP.md) - Authentication setup and
   environment configuration
-- [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) - Migration from v1.x with
+- [Migration Guide](./MIGRATION_GUIDE.md) - Migration from v1.x with
   troubleshooting
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Internal architecture, component
+- [Architecture](./ARCHITECTURE.md) - Internal architecture, component
   design, and request flows
-- [CURL_API_TESTING_GUIDE.md](./CURL_API_TESTING_GUIDE.md) - Low-level API
+- [cURL API Testing Guide](./CURL_API_TESTING_GUIDE.md) - Low-level API
   testing and debugging
-- [CONTRIBUTING.md](./CONTRIBUTING.md) - Development setup and contribution
+- [Contributing Guide](./CONTRIBUTING.md) - Development setup and contribution
   guidelines
