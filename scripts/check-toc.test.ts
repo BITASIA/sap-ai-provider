@@ -90,6 +90,113 @@ describe("slugify", () => {
       expect(slugify("my_function_name")).toBe("my_function_name");
     });
   });
+
+  describe("punctuation and quotes", () => {
+    it("should remove apostrophes", () => {
+      expect(slugify("it's working")).toBe("its-working");
+    });
+
+    it("should remove possessive apostrophes", () => {
+      expect(slugify("user's guide")).toBe("users-guide");
+    });
+
+    it("should remove double quotes", () => {
+      expect(slugify('The "best" option')).toBe("the-best-option");
+    });
+
+    it("should remove single quotes", () => {
+      expect(slugify("Don't do this")).toBe("dont-do-this");
+    });
+
+    it("should remove periods (dots)", () => {
+      expect(slugify("Version 2.0.1")).toBe("version-201");
+    });
+
+    it("should remove commas", () => {
+      expect(slugify("Hello, World")).toBe("hello-world");
+    });
+
+    it("should remove semicolons", () => {
+      expect(slugify("Part A; Part B")).toBe("part-a-part-b");
+    });
+
+    it("should handle multiple punctuation marks", () => {
+      expect(slugify("What's this? It's a test!")).toBe("whats-this-its-a-test");
+    });
+  });
+
+  describe("github-slugger behavior differences (documented)", () => {
+    it("should trim leading hyphens (differs from GitHub)", () => {
+      expect(slugify("-heading")).toBe("heading");
+    });
+
+    it("should trim trailing hyphens (differs from GitHub)", () => {
+      expect(slugify("heading-")).toBe("heading");
+    });
+
+    it("should trim both leading and trailing hyphens", () => {
+      expect(slugify("-heading-")).toBe("heading");
+    });
+
+    it("should handle heading with dash prefix/suffix in text", () => {
+      expect(slugify("- Hello -")).toBe("hello");
+    });
+
+    it("should convert tabs and newlines to hyphens (differs from GitHub)", () => {
+      expect(slugify("hello\tworld")).toBe("hello-world");
+      expect(slugify("hello\nworld")).toBe("hello-world");
+    });
+  });
+
+  describe("symbols and special characters", () => {
+    it("should remove @ symbol", () => {
+      expect(slugify("@username mention")).toBe("username-mention");
+    });
+
+    it("should remove # symbol", () => {
+      expect(slugify("Issue #123")).toBe("issue-123");
+    });
+
+    it("should remove $ symbol", () => {
+      expect(slugify("Price: $100")).toBe("price-100");
+    });
+
+    it("should remove % symbol", () => {
+      expect(slugify("100% complete")).toBe("100-complete");
+    });
+
+    it("should remove ^ symbol", () => {
+      expect(slugify("x^2 formula")).toBe("x2-formula");
+    });
+
+    it("should remove + symbol", () => {
+      expect(slugify("C++ Programming")).toBe("c-programming");
+    });
+
+    it("should remove = symbol but keep double hyphens from spaces", () => {
+      expect(slugify("a = b")).toBe("a--b");
+    });
+
+    it("should remove < and > symbols", () => {
+      expect(slugify("Array<string>")).toBe("arraystring");
+    });
+
+    it("should remove curly braces but keep double hyphens", () => {
+      expect(slugify("Object { key }")).toBe("object--key");
+    });
+
+    it("should remove square brackets", () => {
+      expect(slugify("Array[0]")).toBe("array0");
+    });
+
+    it("should remove pipe symbol but keep double hyphens", () => {
+      expect(slugify("Option A | Option B")).toBe("option-a--option-b");
+    });
+
+    it("should remove backslash", () => {
+      expect(slugify("path\\to\\file")).toBe("pathtofile");
+    });
+  });
 });
 
 // ============================================================================
@@ -261,6 +368,70 @@ const x = 1;
         baseSlug: "summary",
         slug: "summary-1",
       });
+    });
+
+    it("should handle many duplicates correctly", () => {
+      const content = `
+## Test
+## Test
+## Test
+## Test
+## Test
+`;
+      const headings = extractHeadings(content);
+
+      expect(headings).toHaveLength(5);
+      expect(headings.map((h) => h.slug)).toEqual(["test", "test-1", "test-2", "test-3", "test-4"]);
+    });
+
+    it("should handle interleaved duplicates", () => {
+      const content = `
+## Alpha
+## Beta
+## Alpha
+## Gamma
+## Beta
+## Alpha
+`;
+      const headings = extractHeadings(content);
+
+      expect(headings).toHaveLength(6);
+      expect(headings.map((h) => h.slug)).toEqual([
+        "alpha",
+        "beta",
+        "alpha-1",
+        "gamma",
+        "beta-1",
+        "alpha-2",
+      ]);
+    });
+
+    it("should handle heading that looks like a duplicate suffix", () => {
+      const content = `
+## Example
+## Example
+## Example-1
+`;
+      const headings = extractHeadings(content);
+
+      // Known limitation: tracks by baseSlug, not final slug
+      expect(headings).toHaveLength(3);
+      expect(headings[0].slug).toBe("example");
+      expect(headings[1].slug).toBe("example-1");
+      expect(headings[2].baseSlug).toBe("example-1");
+      expect(headings[2].slug).toBe("example-1");
+    });
+
+    it("should not conflict explicit numbered headings with duplicate suffixes", () => {
+      const content = `
+## Step 1
+## Step 2
+## Step 1
+`;
+      const headings = extractHeadings(content);
+
+      expect(headings).toHaveLength(3);
+      expect(headings.map((h) => h.slug)).toEqual(["step-1", "step-2", "step-1-1"]);
     });
   });
 
