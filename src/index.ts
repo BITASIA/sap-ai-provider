@@ -18,6 +18,23 @@ export type { SAPAIEmbeddingModelId, SAPAIEmbeddingSettings } from "./sap-ai-emb
 export type { OrchestrationErrorResponse } from "./sap-ai-error.js";
 
 /**
+ * Provider options for per-call configuration.
+ *
+ * These schemas and types enable runtime validation of provider options
+ * passed via `providerOptions['sap-ai']` in AI SDK calls.
+ */
+export {
+  SAP_AI_PROVIDER_NAME,
+  sapAIEmbeddingProviderOptions,
+  sapAILanguageModelProviderOptions,
+} from "./sap-ai-provider-options.js";
+
+export type {
+  SAPAIEmbeddingProviderOptions,
+  SAPAILanguageModelProviderOptions,
+} from "./sap-ai-provider-options.js";
+
+/**
  * Provider factory and default instance.
  */
 export { createSAPAIProvider, sapai } from "./sap-ai-provider.js";

@@ -649,7 +649,7 @@ describe("SAPAILanguageModel", () => {
       expectRequestBodyHasMessages(result);
     });
 
-    it("should apply providerOptions.sap overrides", async () => {
+    it("should apply providerOptions.sap-ai overrides", async () => {
       const model = createModel("gpt-4o", {
         includeReasoning: false,
         modelParams: {
@@ -663,17 +663,20 @@ describe("SAPAILanguageModel", () => {
       const result = await model.doGenerate({
         prompt,
         providerOptions: {
-          sap: {
+          "sap-ai": {
             includeReasoning: true,
             modelParams: {
               temperature: 0.9,
             },
-            modelVersion: "provider-options-version",
           },
         },
       });
 
       expectRequestBodyHasMessages(result);
+
+      // Verify the per-call options were applied
+      const request = await getLastChatCompletionRequest();
+      expect(request.model?.params?.temperature).toBe(0.9);
     });
 
     it("should map responseFormat json without schema to json_object", async () => {

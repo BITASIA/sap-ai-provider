@@ -56,6 +56,12 @@ consistently:
   - [`SAPAIServiceKey`](#sapaiservicekey)
   - [`MaskingModuleConfig`](#maskingmoduleconfig)
   - [`DpiConfig`](#dpiconfig)
+- [Provider Options](#provider-options)
+  - [`SAP_AI_PROVIDER_NAME`](#sap-ai-provider-name-constant)
+  - [`sapAILanguageModelProviderOptions`](#sapailanguagemodelprovideroptions)
+  - [`sapAIEmbeddingProviderOptions`](#sapaiembeddingprovideroptions)
+  - [`SAPAILanguageModelProviderOptions` (Type)](#sapailanguagemodelprovideroptions-type)
+  - [`SAPAIEmbeddingProviderOptions` (Type)](#sapaiembeddingprovideroptions-type)
 - [Types](#types)
   - [`SAPAIModelId`](#sapaimodelid)
   - [`DpiEntities`](#dpientities)
@@ -1041,6 +1047,149 @@ const masking: MaskingModuleConfig = {
       allowlist: ["SAP", "BTP"],
     },
   ],
+};
+```
+
+---
+
+## Provider Options
+
+Provider options enable per-call configuration that overrides constructor settings.
+These options are passed via `providerOptions['sap-ai']` in AI SDK calls and are
+validated at runtime using Zod schemas.
+
+### SAP AI Provider Name Constant
+
+The provider identifier constant used in `providerOptions`.
+
+**Value:** `"sap-ai"`
+
+**Usage:**
+
+```typescript
+import { SAP_AI_PROVIDER_NAME } from "@mymediset/sap-ai-provider";
+
+const result = await generateText({
+  model: provider("gpt-4o"),
+  prompt: "Hello",
+  providerOptions: {
+    [SAP_AI_PROVIDER_NAME]: {
+      includeReasoning: true,
+    },
+  },
+});
+```
+
+---
+
+### `sapAILanguageModelProviderOptions`
+
+Zod schema for validating language model provider options.
+
+**Validated Fields:**
+
+| Field                             | Type               | Description                                         |
+| --------------------------------- | ------------------ | --------------------------------------------------- |
+| `includeReasoning`                | `boolean`          | Whether to include assistant reasoning in responses |
+| `modelParams.temperature`         | `number (0-2)`     | Sampling temperature                                |
+| `modelParams.maxTokens`           | `positive integer` | Maximum tokens to generate                          |
+| `modelParams.topP`                | `number (0-1)`     | Nucleus sampling parameter                          |
+| `modelParams.frequencyPenalty`    | `number (-2 to 2)` | Frequency penalty                                   |
+| `modelParams.presencePenalty`     | `number (-2 to 2)` | Presence penalty                                    |
+| `modelParams.n`                   | `positive integer` | Number of completions                               |
+| `modelParams.parallel_tool_calls` | `boolean`          | Enable parallel tool calls                          |
+
+**Example:**
+
+```typescript
+import { generateText } from "ai";
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+
+const provider = createSAPAIProvider();
+
+const result = await generateText({
+  model: provider("gpt-4o"),
+  prompt: "Explain quantum computing",
+  providerOptions: {
+    "sap-ai": {
+      includeReasoning: true,
+      modelParams: {
+        temperature: 0.7,
+        maxTokens: 1000,
+      },
+    },
+  },
+});
+```
+
+---
+
+### `sapAIEmbeddingProviderOptions`
+
+Zod schema for validating embedding model provider options.
+
+**Validated Fields:**
+
+| Field         | Type                              | Description                 |
+| ------------- | --------------------------------- | --------------------------- |
+| `type`        | `"text" \| "query" \| "document"` | Embedding task type         |
+| `modelParams` | `Record<string, unknown>`         | Additional model parameters |
+
+**Example:**
+
+```typescript
+import { embed } from "ai";
+import { createSAPAIProvider } from "@mymediset/sap-ai-provider";
+
+const provider = createSAPAIProvider();
+
+const { embedding } = await embed({
+  model: provider.embedding("text-embedding-ada-002"),
+  value: "Search query text",
+  providerOptions: {
+    "sap-ai": {
+      type: "query",
+    },
+  },
+});
+```
+
+---
+
+### `SAPAILanguageModelProviderOptions` (Type)
+
+TypeScript type inferred from the Zod schema for language model options.
+
+**Type:**
+
+```typescript
+type SAPAILanguageModelProviderOptions = {
+  includeReasoning?: boolean;
+  modelParams?: {
+    frequencyPenalty?: number;
+    maxTokens?: number;
+    n?: number;
+    parallel_tool_calls?: boolean;
+    presencePenalty?: number;
+    temperature?: number;
+    topP?: number;
+    [key: string]: unknown; // Passthrough for custom params
+  };
+};
+```
+
+---
+
+### `SAPAIEmbeddingProviderOptions` (Type)
+
+TypeScript type inferred from the Zod schema for embedding model options.
+
+**Type:**
+
+```typescript
+type SAPAIEmbeddingProviderOptions = {
+  type?: "text" | "query" | "document";
+  modelParams?: Record<string, unknown>;
 };
 ```
 

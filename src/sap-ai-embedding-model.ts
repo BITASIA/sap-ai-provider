@@ -10,9 +10,11 @@ import type { EmbeddingModelConfig, EmbeddingModelParams } from "@sap-ai-sdk/orc
 import type { HttpDestinationOrFetchOptions } from "@sap-cloud-sdk/connectivity";
 
 import { TooManyEmbeddingValuesForCallError } from "@ai-sdk/provider";
+import { parseProviderOptions } from "@ai-sdk/provider-utils";
 import { OrchestrationEmbeddingClient } from "@sap-ai-sdk/orchestration";
 
 import { convertToAISDKError } from "./sap-ai-error.js";
+import { SAP_AI_PROVIDER_NAME, sapAIEmbeddingProviderOptions } from "./sap-ai-provider-options.js";
 
 /**
  * Default maximum number of embeddings per call.
@@ -154,7 +156,14 @@ export class SAPAIEmbeddingModel implements EmbeddingModelV3 {
    * ```
    */
   async doEmbed(options: EmbeddingModelV3CallOptions): Promise<EmbeddingModelV3Result> {
-    const { abortSignal, values } = options;
+    const { abortSignal, providerOptions, values } = options;
+
+    // Parse and validate provider options with Zod schema
+    const sapOptions = await parseProviderOptions({
+      provider: SAP_AI_PROVIDER_NAME,
+      providerOptions,
+      schema: sapAIEmbeddingProviderOptions,
+    });
 
     // Validate input count against maxEmbeddingsPerCall
     if (values.length > this.maxEmbeddingsPerCall) {
@@ -166,13 +175,16 @@ export class SAPAIEmbeddingModel implements EmbeddingModelV3 {
       });
     }
 
+    // Determine embedding type: per-call option overrides constructor setting
+    const embeddingType = sapOptions?.type ?? this.settings.type ?? "text";
+
     try {
-      const client = this.createClient();
+      const client = this.createClient(sapOptions?.modelParams);
 
       const response = await client.embed(
         {
           input: values,
-          type: this.settings.type ?? "text",
+          type: embeddingType,
         },
         // Pass abortSignal to the SAP SDK via requestConfig
         abortSignal ? { signal: abortSignal } : undefined,
@@ -211,13 +223,21 @@ export class SAPAIEmbeddingModel implements EmbeddingModelV3 {
 
   /**
    * Creates an OrchestrationEmbeddingClient with the current configuration.
+   * @param perCallModelParams - Optional model params from per-call provider options
    * @returns Configured embedding client
    */
-  private createClient(): OrchestrationEmbeddingClient {
+  private createClient(perCallModelParams?: Record<string, unknown>): OrchestrationEmbeddingClient {
+    // Merge constructor modelParams with per-call modelParams (per-call takes precedence)
+    const mergedParams = {
+      ...this.settings.modelParams,
+      ...perCallModelParams,
+    };
+    const hasParams = Object.keys(mergedParams).length > 0;
+
     const embeddingConfig: EmbeddingModelConfig = {
       model: {
         name: this.modelId,
-        ...(this.settings.modelParams ? { params: this.settings.modelParams } : {}),
+        ...(hasParams ? { params: mergedParams } : {}),
       },
     };
 

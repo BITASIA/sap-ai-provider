@@ -510,6 +510,32 @@ const model = provider("gpt-4o");
 
 **Run it:** `npx tsx examples/example-translation.ts`
 
+### Provider Options (Per-Call Overrides)
+
+Override constructor settings on a per-call basis using `providerOptions`.
+Options are validated at runtime with Zod schemas.
+
+**Complete documentation:**
+[API Reference - Provider Options](./API_REFERENCE.md#provider-options)
+
+```typescript
+import { generateText } from "ai";
+
+const result = await generateText({
+  model: provider("gpt-4o"),
+  prompt: "Explain quantum computing",
+  providerOptions: {
+    "sap-ai": {
+      includeReasoning: true,
+      modelParams: {
+        temperature: 0.7,
+        maxTokens: 1000,
+      },
+    },
+  },
+});
+```
+
 ## Configuration Options
 
 The provider and models can be configured with various settings for

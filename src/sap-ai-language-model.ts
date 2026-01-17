@@ -15,6 +15,7 @@ import {
   LanguageModelV3StreamResult,
   SharedV3Warning,
 } from "@ai-sdk/provider";
+import { parseProviderOptions } from "@ai-sdk/provider-utils";
 import {
   ChatCompletionTool,
   ChatMessage,
@@ -34,6 +35,7 @@ interface FunctionToolWithParameters extends LanguageModelV3FunctionTool {
 
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { convertToAISDKError } from "./sap-ai-error";
+import { SAP_AI_PROVIDER_NAME, sapAILanguageModelProviderOptions } from "./sap-ai-provider-options";
 import { SAPAIModelId, SAPAISettings } from "./sap-ai-settings";
 
 /**
@@ -225,7 +227,8 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    */
   async doGenerate(options: LanguageModelV3CallOptions): Promise<LanguageModelV3GenerateResult> {
     try {
-      const { messages, orchestrationConfig, warnings } = this.buildOrchestrationConfig(options);
+      const { messages, orchestrationConfig, warnings } =
+        await this.buildOrchestrationConfig(options);
 
       const client = this.createClient(orchestrationConfig);
 
@@ -440,7 +443,8 @@ export class SAPAILanguageModel implements LanguageModelV3 {
    */
   async doStream(options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult> {
     try {
-      const { messages, orchestrationConfig, warnings } = this.buildOrchestrationConfig(options);
+      const { messages, orchestrationConfig, warnings } =
+        await this.buildOrchestrationConfig(options);
 
       const client = this.createClient(orchestrationConfig);
 
@@ -800,26 +804,31 @@ export class SAPAILanguageModel implements LanguageModelV3 {
   /**
    * Builds orchestration module config for SAP AI SDK.
    * @param options - Call options from the AI SDK
-   * @returns Object containing orchestration config, messages, and warnings
+   * @returns Promise resolving to object containing orchestration config, messages, and warnings
    * @internal
    */
-  private buildOrchestrationConfig(options: LanguageModelV3CallOptions): {
+  private async buildOrchestrationConfig(options: LanguageModelV3CallOptions): Promise<{
     messages: ChatMessage[];
     orchestrationConfig: OrchestrationModuleConfig;
     warnings: SharedV3Warning[];
-  } {
-    const providerOptions =
-      (options.providerOptions as undefined | { sap?: Partial<SAPAISettings> })?.sap ?? {};
+  }> {
+    // Parse and validate provider options using Zod schema
+    const sapOptions = await parseProviderOptions({
+      provider: SAP_AI_PROVIDER_NAME,
+      providerOptions: options.providerOptions,
+      schema: sapAILanguageModelProviderOptions,
+    });
+
     const warnings: SharedV3Warning[] = [];
 
     const messages = convertToSAPMessages(options.prompt, {
-      includeReasoning: providerOptions.includeReasoning ?? this.settings.includeReasoning ?? false,
+      includeReasoning: sapOptions?.includeReasoning ?? this.settings.includeReasoning ?? false,
     });
 
     // AI SDK convention: options.tools override provider/model defaults
     let tools: ChatCompletionTool[] | undefined;
 
-    const settingsTools = providerOptions.tools ?? this.settings.tools;
+    const settingsTools = this.settings.tools;
     const optionsTools = options.tools;
 
     const shouldUseSettingsTools =
@@ -910,25 +919,24 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
     const maxTokens =
       options.maxOutputTokens ??
-      providerOptions.modelParams?.maxTokens ??
+      sapOptions?.modelParams?.maxTokens ??
       this.settings.modelParams?.maxTokens;
     if (maxTokens !== undefined) modelParams.max_tokens = maxTokens;
 
     const temperature =
       options.temperature ??
-      providerOptions.modelParams?.temperature ??
+      sapOptions?.modelParams?.temperature ??
       this.settings.modelParams?.temperature;
     if (temperature !== undefined) modelParams.temperature = temperature;
 
-    const topP =
-      options.topP ?? providerOptions.modelParams?.topP ?? this.settings.modelParams?.topP;
+    const topP = options.topP ?? sapOptions?.modelParams?.topP ?? this.settings.modelParams?.topP;
     if (topP !== undefined) modelParams.top_p = topP;
 
     if (options.topK !== undefined) modelParams.top_k = options.topK;
 
     const frequencyPenalty =
       options.frequencyPenalty ??
-      providerOptions.modelParams?.frequencyPenalty ??
+      sapOptions?.modelParams?.frequencyPenalty ??
       this.settings.modelParams?.frequencyPenalty;
     if (frequencyPenalty !== undefined) {
       modelParams.frequency_penalty = frequencyPenalty;
@@ -936,14 +944,14 @@ export class SAPAILanguageModel implements LanguageModelV3 {
 
     const presencePenalty =
       options.presencePenalty ??
-      providerOptions.modelParams?.presencePenalty ??
+      sapOptions?.modelParams?.presencePenalty ??
       this.settings.modelParams?.presencePenalty;
     if (presencePenalty !== undefined) {
       modelParams.presence_penalty = presencePenalty;
     }
 
     if (supportsN) {
-      const nValue = providerOptions.modelParams?.n ?? this.settings.modelParams?.n;
+      const nValue = sapOptions?.modelParams?.n ?? this.settings.modelParams?.n;
       if (nValue !== undefined) {
         modelParams.n = nValue;
       }
@@ -951,7 +959,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
     }
 
     const parallelToolCalls =
-      providerOptions.modelParams?.parallel_tool_calls ??
+      sapOptions?.modelParams?.parallel_tool_calls ??
       this.settings.modelParams?.parallel_tool_calls;
     if (parallelToolCalls !== undefined) {
       modelParams.parallel_tool_calls = parallelToolCalls;
@@ -1016,7 +1024,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
         model: {
           name: this.modelId,
           params: modelParams,
-          version: providerOptions.modelVersion ?? this.settings.modelVersion ?? "latest",
+          version: this.settings.modelVersion ?? "latest",
         },
         prompt: {
           template: [],
@@ -1025,19 +1033,19 @@ export class SAPAILanguageModel implements LanguageModelV3 {
         },
       },
       ...(() => {
-        const masking = providerOptions.masking ?? this.settings.masking;
+        const masking = this.settings.masking;
         return masking && Object.keys(masking).length > 0 ? { masking } : {};
       })(),
       ...(() => {
-        const filtering = providerOptions.filtering ?? this.settings.filtering;
+        const filtering = this.settings.filtering;
         return filtering && Object.keys(filtering).length > 0 ? { filtering } : {};
       })(),
       ...(() => {
-        const grounding = providerOptions.grounding ?? this.settings.grounding;
+        const grounding = this.settings.grounding;
         return grounding && Object.keys(grounding).length > 0 ? { grounding } : {};
       })(),
       ...(() => {
-        const translation = providerOptions.translation ?? this.settings.translation;
+        const translation = this.settings.translation;
         return translation && Object.keys(translation).length > 0 ? { translation } : {};
       })(),
     };

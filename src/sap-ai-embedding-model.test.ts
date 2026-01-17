@@ -334,6 +334,82 @@ describe("SAPAIEmbeddingModel", () => {
         { name: "text-embedding-ada-002" },
       );
     });
+
+    it("should apply providerOptions.sap-ai type override", async () => {
+      const { MockOrchestrationEmbeddingClient } = await getMockClient();
+
+      const model = new SAPAIEmbeddingModel(
+        "text-embedding-ada-002",
+        { type: "text" },
+        defaultConfig,
+      );
+
+      await model.doEmbed({
+        providerOptions: {
+          "sap-ai": {
+            type: "query",
+          },
+        },
+        values: ["Test"],
+      });
+
+      // Per-call type should override constructor setting
+      expect(MockOrchestrationEmbeddingClient.lastEmbedCall?.request.type).toBe("query");
+    });
+
+    it("should apply providerOptions.sap-ai modelParams override", async () => {
+      const { MockOrchestrationEmbeddingClient } = await getMockClient();
+
+      const model = new SAPAIEmbeddingModel(
+        "text-embedding-3-large",
+        { modelParams: { dimensions: 256 } },
+        defaultConfig,
+      );
+
+      await model.doEmbed({
+        providerOptions: {
+          "sap-ai": {
+            modelParams: { dimensions: 1024 },
+          },
+        },
+        values: ["Test"],
+      });
+
+      // Per-call modelParams should override constructor setting
+      expect(MockOrchestrationEmbeddingClient.lastConstructorCall?.config.embeddings.model).toEqual(
+        {
+          name: "text-embedding-3-large",
+          params: { dimensions: 1024 },
+        },
+      );
+    });
+
+    it("should merge per-call modelParams with constructor modelParams", async () => {
+      const { MockOrchestrationEmbeddingClient } = await getMockClient();
+
+      const model = new SAPAIEmbeddingModel(
+        "text-embedding-3-large",
+        { modelParams: { customParam: "from-constructor", dimensions: 256 } },
+        defaultConfig,
+      );
+
+      await model.doEmbed({
+        providerOptions: {
+          "sap-ai": {
+            modelParams: { dimensions: 1024 },
+          },
+        },
+        values: ["Test"],
+      });
+
+      // Per-call should override dimensions, but preserve customParam from constructor
+      expect(MockOrchestrationEmbeddingClient.lastConstructorCall?.config.embeddings.model).toEqual(
+        {
+          name: "text-embedding-3-large",
+          params: { customParam: "from-constructor", dimensions: 1024 },
+        },
+      );
+    });
   });
 
   describe("error handling", () => {
