@@ -40,6 +40,7 @@ interface FunctionToolWithParameters extends LanguageModelV3FunctionTool {
 
 import { convertToSAPMessages } from "./convert-to-sap-messages";
 import { convertToAISDKError, normalizeHeaders } from "./sap-ai-error";
+import { getSAPAIModelCapabilities, SAPAIModelCapabilities } from "./sap-ai-model-capabilities";
 import {
   getProviderName,
   sapAILanguageModelProviderOptions,
@@ -102,18 +103,15 @@ export class SAPAILanguageModel implements LanguageModelV3 {
   /** The Vercel AI SDK specification version. */
   readonly specificationVersion = "v3";
 
-  /** Whether the model supports image URLs in prompts. */
-  readonly supportsImageUrls: boolean = true;
-  /** Whether the model supports generating multiple completions. */
-  readonly supportsMultipleCompletions: boolean = true;
-  /** Whether the model supports parallel tool calls. */
-  readonly supportsParallelToolCalls: boolean = true;
-  /** Whether the model supports streaming responses. */
-  readonly supportsStreaming: boolean = true;
-  /** Whether the model supports structured JSON outputs. */
-  readonly supportsStructuredOutputs: boolean = true;
-  /** Whether the model supports tool/function calling. */
-  readonly supportsToolCalls: boolean = true;
+  /**
+   * Gets the model capabilities for the current model.
+   * Cached after first access for performance.
+   * @returns The model capabilities.
+   */
+  get capabilities(): SAPAIModelCapabilities {
+    this._capabilities ??= getSAPAIModelCapabilities(this.modelId);
+    return this._capabilities;
+  }
 
   /**
    * Gets the provider identifier string.
@@ -132,6 +130,63 @@ export class SAPAILanguageModel implements LanguageModelV3 {
       "image/*": [/^https:\/\/.+$/i, /^data:image\/.*$/],
     };
   }
+
+  /**
+   * Whether the model supports image URLs in prompts.
+   * Dynamically determined based on the model vendor and type.
+   * @returns True if image URLs are supported.
+   */
+  get supportsImageUrls(): boolean {
+    return this.capabilities.supportsImageInputs;
+  }
+
+  /**
+   * Whether the model supports generating multiple completions (n parameter).
+   * Amazon Bedrock and Anthropic models do not support this parameter.
+   * @returns True if multiple completions are supported.
+   */
+  get supportsMultipleCompletions(): boolean {
+    return this.capabilities.supportsN;
+  }
+
+  /**
+   * Whether the model supports parallel tool calls in a single response.
+   * Dynamically determined based on the model vendor and type.
+   * @returns True if parallel tool calls are supported.
+   */
+  get supportsParallelToolCalls(): boolean {
+    return this.capabilities.supportsParallelToolCalls;
+  }
+
+  /**
+   * Whether the model supports streaming responses.
+   * Dynamically determined based on the model vendor and type.
+   * @returns True if streaming is supported.
+   */
+  get supportsStreaming(): boolean {
+    return this.capabilities.supportsStreaming;
+  }
+
+  /**
+   * Whether the model supports structured JSON outputs (json_schema response format).
+   * Dynamically determined based on the model vendor and type.
+   * @returns True if structured outputs are supported.
+   */
+  get supportsStructuredOutputs(): boolean {
+    return this.capabilities.supportsStructuredOutputs;
+  }
+
+  /**
+   * Whether the model supports tool/function calling.
+   * Dynamically determined based on the model vendor and type.
+   * @returns True if tool calls are supported.
+   */
+  get supportsToolCalls(): boolean {
+    return this.capabilities.supportsToolCalls;
+  }
+
+  /** @internal */
+  private _capabilities?: SAPAIModelCapabilities;
 
   /** @internal */
   private readonly config: SAPAILanguageModelConfig;
@@ -708,8 +763,7 @@ export class SAPAILanguageModel implements LanguageModelV3 {
         .filter((t): t is ChatCompletionTool => t !== null);
     }
 
-    const supportsN =
-      !this.modelId.startsWith("amazon--") && !this.modelId.startsWith("anthropic--");
+    const supportsN = this.capabilities.supportsN;
 
     const modelParams: SAPModelParams = deepMerge(
       this.settings.modelParams ?? {},

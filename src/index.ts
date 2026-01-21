@@ -23,6 +23,20 @@ export type { OrchestrationErrorResponse } from "./sap-ai-error.js";
 export { SAPAILanguageModel } from "./sap-ai-language-model.js";
 
 /**
+ * Dynamic model capability detection for SAP AI Core models.
+ *
+ * Functions for determining model capabilities based on model ID prefix
+ * following the SAP AI Core naming convention: `vendor--model-name`.
+ */
+export {
+  getModelVendor,
+  getSAPAIModelCapabilities,
+  modelSupports,
+} from "./sap-ai-model-capabilities.js";
+
+export type { SAPAIModelCapabilities, SAPAIModelVendor } from "./sap-ai-model-capabilities.js";
+
+/**
  * Provider options for per-call configuration.
  *
  * These schemas and types enable runtime validation of provider options

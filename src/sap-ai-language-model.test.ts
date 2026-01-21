@@ -472,26 +472,127 @@ describe("SAPAILanguageModel", () => {
     });
 
     describe("model capabilities", () => {
-      const expectedCapabilities = {
-        supportsImageUrls: true,
-        supportsMultipleCompletions: true,
-        supportsParallelToolCalls: true,
-        supportsStreaming: true,
-        supportsStructuredOutputs: true,
-        supportsToolCalls: true,
-      };
+      // Dynamic capabilities are now determined by model vendor and type
+      // See sap-ai-model-capabilities.ts for the full mapping
 
       it.each([
-        "any-model",
-        "gpt-4o",
-        "anthropic--claude-3.5-sonnet",
-        "gemini-2.0-flash",
-        "amazon--nova-pro",
-        "mistralai--mistral-large-instruct",
-        "unknown-future-model",
-      ])("should have consistent capabilities for model %s", (modelId) => {
+        // Full capabilities for Azure, Google, Mistral, and unknown models
+        {
+          expected: {
+            supportsImageUrls: true,
+            supportsMultipleCompletions: true,
+            supportsParallelToolCalls: true,
+            supportsStreaming: true,
+            supportsStructuredOutputs: true,
+            supportsToolCalls: true,
+          },
+          modelId: "azure--gpt-4o",
+        },
+        {
+          expected: {
+            supportsImageUrls: true,
+            supportsMultipleCompletions: true,
+            supportsParallelToolCalls: true,
+            supportsStreaming: true,
+            supportsStructuredOutputs: true,
+            supportsToolCalls: true,
+          },
+          modelId: "google--gemini-2.0-flash",
+        },
+        {
+          expected: {
+            supportsImageUrls: true,
+            supportsMultipleCompletions: true,
+            supportsParallelToolCalls: true,
+            supportsStreaming: true,
+            supportsStructuredOutputs: true,
+            supportsToolCalls: true,
+          },
+          modelId: "mistral--mistral-large",
+        },
+        {
+          expected: {
+            supportsImageUrls: true,
+            supportsMultipleCompletions: true,
+            supportsParallelToolCalls: true,
+            supportsStreaming: true,
+            supportsStructuredOutputs: true,
+            supportsToolCalls: true,
+          },
+          modelId: "unknown-future-model",
+        },
+        // Amazon models: supportsN = false
+        {
+          expected: {
+            supportsImageUrls: true,
+            supportsMultipleCompletions: false,
+            supportsParallelToolCalls: true,
+            supportsStreaming: true,
+            supportsStructuredOutputs: true,
+            supportsToolCalls: true,
+          },
+          modelId: "amazon--nova-pro",
+        },
+        // Anthropic models: supportsN = false
+        {
+          expected: {
+            supportsImageUrls: true,
+            supportsMultipleCompletions: false,
+            supportsParallelToolCalls: true,
+            supportsStreaming: true,
+            supportsStructuredOutputs: true,
+            supportsToolCalls: true,
+          },
+          modelId: "anthropic--claude-3.5-sonnet",
+        },
+        // Claude 2.x: additional limitations
+        {
+          expected: {
+            supportsImageUrls: true,
+            supportsMultipleCompletions: false,
+            supportsParallelToolCalls: false,
+            supportsStreaming: true,
+            supportsStructuredOutputs: false,
+            supportsToolCalls: true,
+          },
+          modelId: "anthropic--claude-2.1",
+        },
+        // Amazon Titan: very limited capabilities
+        {
+          expected: {
+            supportsImageUrls: false,
+            supportsMultipleCompletions: false,
+            supportsParallelToolCalls: false,
+            supportsStreaming: true,
+            supportsStructuredOutputs: false,
+            supportsToolCalls: false,
+          },
+          modelId: "amazon--titan-text-express",
+        },
+        // Meta Llama 3.1+: no structured outputs but supports tools
+        {
+          expected: {
+            supportsImageUrls: false,
+            supportsMultipleCompletions: true,
+            supportsParallelToolCalls: true,
+            supportsStreaming: true,
+            supportsStructuredOutputs: false,
+            supportsToolCalls: true,
+          },
+          modelId: "meta--llama-3.1-70b",
+        },
+      ])("should have correct capabilities for model $modelId", ({ expected, modelId }) => {
         const model = createModel(modelId);
-        expect(model).toMatchObject(expectedCapabilities);
+        expect(model).toMatchObject(expected);
+      });
+
+      it("should expose capabilities getter for programmatic access", () => {
+        const model = createModel("amazon--nova-pro");
+
+        // The capabilities getter provides access to the full capability object
+        expect(model.capabilities).toBeDefined();
+        expect(model.capabilities.supportsN).toBe(false);
+        expect(model.capabilities.vendor).toBe("amazon");
       });
     });
   });
