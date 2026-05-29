@@ -30,17 +30,10 @@ Include as much of the following as you can:
 
 ## What to expect
 
-| Milestone | Target |
-|---|---|
-| Initial acknowledgment | Within 2 business days |
-| Severity triage and owner assignment | Within 5 business days |
-| Remediation or mitigation shipped | Within 90 days for critical/high severity |
-| Public disclosure | Coordinated with you after a fix is available |
-
-We follow coordinated disclosure. We ask that you give us reasonable time to
-fix the issue before publishing details publicly. In return, we commit to
-keeping you updated throughout the process and crediting you in the advisory
-if you'd like.
+We'll acknowledge your report as quickly as we can — typically within a few
+business days. After acknowledgment, we'll keep you updated as we triage,
+fix, and coordinate disclosure with you. Complex reports may take longer;
+we'll let you know either way.
 
 ## Supported versions
 
